@@ -15,7 +15,7 @@ function Barra({ rotulo, valor, texto }: { rotulo: string; valor: number; texto:
   );
 }
 
-/** Janelinha sempre visível (Windows): CPU, RAM, temperatura e bateria ao vivo, com "Liberar RAM". Arraste pelo topo. */
+/** Janelinha na área de trabalho (Windows): CPU, RAM, temperatura e bateria ao vivo, com "Liberar RAM". Arraste pelo topo. */
 export function Widget() {
   const motor = useMotor();
   const [d, setD] = useState<Diagnostico | null>(null);

@@ -111,7 +111,7 @@ fn abrir_link(url: String) -> Result<(), String> {
 }
 
 /// (async de propósito: criar janela em comando síncrono trava no Windows e deixa a janela branca e sem resposta)
-/// Janelinha de desempenho (sempre por cima, sem barra do Windows e fora da barra de tarefas). Devolve se ficou aberta.
+/// Janelinha de desempenho (fica no fundo, só na área de trabalho, atrás das outras janelas, sem barra do Windows e fora da barra de tarefas). Devolve se ficou aberta.
 #[tauri::command]
 async fn widget_alternar(app: tauri::AppHandle) -> Result<bool, String> {
     use tauri::Manager;
@@ -126,7 +126,7 @@ async fn widget_alternar(app: tauri::AppHandle) -> Result<bool, String> {
         .decorations(false)
         .transparent(true)
         .shadow(false)
-        .always_on_top(true)
+        .always_on_bottom(true)
         .skip_taskbar(true);
     if let Ok(Some(m)) = app.primary_monitor() {
         let esc = m.scale_factor();
