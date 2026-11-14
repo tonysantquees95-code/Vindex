@@ -36,6 +36,22 @@ public final class Suite {
     };
     static final String PACOTE_VENUS = "com.tonimarques.sextafeira";
 
+    /**
+     * Cada app da suíte é assinado com a sua própria chave permanente (guardada no servidor da Vênus). Aqui ficam os SHA-256 dos
+     * certificados do Vortex e do Velox, para a primeira instalação por aqui; nas atualizações vale também a assinatura do app já instalado
+     * (o Android só aceita atualizar por cima com a mesma chave).
+     */
+    static final String[][] CERTIFICADOS_DA_SUITE = {
+        {"tech.vetorial.vortex", "f1c5881d41852f4b8ae134575733d875c41c0aba453daaecdf04c64086c79572"},
+        {"tech.vetorial.velox", "1afe7a936f0bdd665c6118f938bd1671d2c1ee09d4f8596e01b8a0c27a874888"},
+    };
+
+    static Set<String> certificadosFixos(String pacote) {
+        Set<String> r = new HashSet<>();
+        for (String[] c : CERTIFICADOS_DA_SUITE) if (c[0].equals(pacote)) r.add(c[1]);
+        return r;
+    }
+
     public static String[] app(String pacote) {
         for (String[] a : APPS) if (a[0].equals(pacote)) return a;
         return null;
@@ -65,6 +81,8 @@ public final class Suite {
         try {
             Set<String> minhas = assinaturas(pm.getPackageInfo(ctx.getPackageName(), bandeiraDeAssinatura()));
             Set<String> dele = assinaturas(pi);
+            minhas.addAll(certificadosFixos(pi.packageName));
+            try { minhas.addAll(assinaturas(pm.getPackageInfo(pi.packageName, bandeiraDeAssinatura()))); } catch (PackageManager.NameNotFoundException ausente) { /* não instalado */ }
             dele.retainAll(minhas);
             if (!dele.isEmpty()) {
                 if (app(pi.packageName) != null) return null; // app da suíte, assinado pela Vetorial Tech
@@ -128,9 +146,11 @@ public final class Suite {
         if (!pacote.equals(novo.packageName)) return "O APK é de outro app (" + novo.packageName + "). Nada foi instalado.";
         try {
             PackageInfo eu = pm.getPackageInfo(ctx.getPackageName(), bandeiraDeAssinatura());
-            Set<String> minhas = assinaturas(eu);
+            Set<String> confiaveis = assinaturas(eu);
+            confiaveis.addAll(certificadosFixos(pacote));
+            try { confiaveis.addAll(assinaturas(pm.getPackageInfo(pacote, bandeiraDeAssinatura()))); } catch (PackageManager.NameNotFoundException ausente) { /* ainda não instalado */ }
             Set<String> dele = assinaturas(novo);
-            dele.retainAll(minhas);
+            dele.retainAll(confiaveis);
             if (dele.isEmpty()) return "A assinatura do APK não é a da Vetorial Tech. Nada foi instalado.";
         } catch (Exception e) {
             return "Não consegui conferir a assinatura do APK.";
