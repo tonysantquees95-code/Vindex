@@ -15,7 +15,7 @@ fn sem_janela(c: &mut Command) -> &mut Command {
     c
 }
 
-fn powershell(script: &str) -> Result<String, String> {
+pub(crate) fn powershell(script: &str) -> Result<String, String> {
     let completo = format!("[Console]::OutputEncoding=[Text.Encoding]::UTF8; $ProgressPreference='SilentlyContinue'; {script}");
     let mut c = Command::new("powershell");
     c.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &completo]);

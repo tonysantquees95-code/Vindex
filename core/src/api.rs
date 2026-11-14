@@ -1,5 +1,5 @@
 //! Interface única (JSON) usada pelo app de Windows e pelos testes. O Android implementa o mesmo contrato em Kotlin.
-use crate::{arquivos, desempenho, explorador, hardware, limpeza, organizador, programas, regras, seguranca};
+use crate::{arquivos, desempenho, explorador, hardware, limpeza, organizador, programas, regras, seguranca, video};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -42,6 +42,7 @@ pub fn executar(comando: &str, args: &Value) -> Result<Value, String> {
     let agora = SystemTime::now();
     match comando {
         "diagnostico" => para(hardware::diagnosticar(u64_de(args, "processos", 8) as usize)),
+        "video" => para(video::ler()?),
         "alvos_limpeza" => para(limpeza::alvos_padrao().into_iter().map(|a| json!({"id": a.id, "rotulo": a.rotulo, "pasta": a.pasta})).collect::<Vec<_>>()),
         "planejar_limpeza" => {
             let p = limpeza::planejar(&alvos_escolhidos(args), agora);

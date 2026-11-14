@@ -20,6 +20,7 @@ export function motorDemo(): Motor {
     plataforma: "demonstracao",
     recursos: { extrair: false, defender: false, inicializacao: false, desempenho: false, abrirPasta: false, abrirArquivos: false, arquivosSuspeitos: false, verificarApps: false, suite: false, permissoes: false, atualizaSozinho: false, desinstalar: false, restosDeProgramas: false, desinstalarSilencioso: false },
     diagnostico: async () => diag(),
+    video: async () => ({ suportado: true, gpu_nome: "GPU de demonstração", gpu_uso: 34, vram_usada: 1.2e9, vram_total: 6e9, gpu_temp: 55, taxa_hz: 144, resolucao: "1920×1080", rede_tipo: "Wi-Fi", rede_nome: "Wi-Fi", rede_mbps: 866, sinal: 80, ping_ms: 18 }),
     otimizarTudo: async () => ({ limpeza: { apagados: 0, liberado_bytes: 0, falhas: [], simulacao: true }, memoria: { suportado: false, processos_ajustados: 0, liberado_bytes: 0, nota: "Demonstração." }, ram_antes: 55, ram_depois: 55 }),
     escolherPasta: async () => null,
     varrer: async () => ({ arquivos: 0, bytes: 0, categorias: {} }),

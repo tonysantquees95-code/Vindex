@@ -9,6 +9,7 @@ export async function motorTauri(): Promise<Motor> {
     plataforma: "windows",
     recursos: { extrair: true, defender: true, inicializacao: true, desempenho: true, abrirPasta: true, abrirArquivos: true, arquivosSuspeitos: true, verificarApps: false, suite: false, permissoes: false, atualizaSozinho: true, desinstalar: true, restosDeProgramas: true, desinstalarSilencioso: true },
     diagnostico: (processos = 8) => c("diagnostico", { processos }),
+    video: () => c("video"),
     otimizarTudo: (simulacao = false) => c("otimizar_tudo", { simulacao }),
     escolherPasta: async () => {
       const r = await open({ directory: true, multiple: false });

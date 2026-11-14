@@ -11,3 +11,4 @@ pub mod organizador;
 pub mod programas;
 pub mod regras;
 pub mod seguranca;
+pub mod video;

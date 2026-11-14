@@ -121,7 +121,7 @@ async fn widget_alternar(app: tauri::AppHandle) -> Result<bool, String> {
     }
     let mut b = tauri::WebviewWindowBuilder::new(&app, "widget", tauri::WebviewUrl::App("index.html#widget".into()))
         .title("Vindex · Desempenho")
-        .inner_size(250.0, 190.0)
+        .inner_size(460.0, 270.0)
         .resizable(false)
         .decorations(false)
         .transparent(true)
@@ -130,7 +130,7 @@ async fn widget_alternar(app: tauri::AppHandle) -> Result<bool, String> {
         .skip_taskbar(true);
     if let Ok(Some(m)) = app.primary_monitor() {
         let esc = m.scale_factor();
-        let x = (m.size().width as f64 / esc) - 250.0 - 24.0;
+        let x = (m.size().width as f64 / esc) - 460.0 - 24.0;
         b = b.position(x.max(0.0), 24.0);
     }
     b.build().map_err(|e| e.to_string())?;

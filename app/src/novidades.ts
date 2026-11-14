@@ -7,6 +7,7 @@ export interface Novidade { id: number; data: string; tipo: TipoNovidade; titulo
 export const NOVIDADES: Novidade[] = [
   { id: 1, data: "2026-11-14", tipo: "novo", titulo: "Apresentação e novidades", texto: "Na primeira abertura o Vindex mostra as funções, explica cada permissão e pede o aceite dos termos. Depois de cada atualização, esta tela conta o que mudou." },
   { id: 2, data: "2026-11-14", tipo: "melhoria", titulo: "Widget na área de trabalho", texto: "O widget do Windows agora fica só sobre a área de trabalho, com fundo de vidro ajustável, logo pequeno e continua rodando mesmo com o Vindex fechado." },
+  { id: 3, data: "2026-11-14", tipo: "melhoria", titulo: "Widget completo e opção Sobrepor", texto: "O widget do Windows ganhou o visual do Desempenho do Xbox Game Bar: uma lista com CPU, memória, GPU, memória de vídeo, rede, tela e temperatura, e ao lado o número grande com o gráfico dos últimos 60 segundos. Também tem o botão Sobrepor: ligado, o widget fica por cima de todas as janelas; desligado, fica só na área de trabalho." },
 ];
 
 export const ROTULO: Record<TipoNovidade, string> = { novo: "Novo", melhoria: "Melhorou", correcao: "Corrigido" };

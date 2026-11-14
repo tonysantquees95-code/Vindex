@@ -14,6 +14,10 @@ export interface Diagnostico {
   /** true quando o Android não deixa ler a carga real e o número é estimado pela frequência dos núcleos */
   cpu_estimado?: boolean;
 }
+export interface Video {
+  suportado: boolean; gpu_nome: string; gpu_uso: number | null; vram_usada: number | null; vram_total: number | null; gpu_temp: number | null;
+  taxa_hz: number | null; resolucao: string | null; rede_tipo: string | null; rede_nome: string | null; rede_mbps: number | null; sinal: number | null; ping_ms: number | null;
+}
 export interface GrupoDuplicado { sha256: string; bytes: number; caminhos: string[]; desperdicio: number }
 export interface Movimento { de: string; para: string; motivo: string }
 export interface ResultadoDeMovimento { movidos: Movimento[]; falhas: string[]; simulacao: boolean }
@@ -96,6 +100,8 @@ export interface Motor {
   plataforma: "windows" | "android" | "demonstracao";
   recursos: Recursos;
   diagnostico(processos?: number): Promise<Diagnostico>;
+  /** só no Windows: placa de vídeo, tela e conexão (usado pelo widget) */
+  video?(): Promise<Video>;
   otimizarTudo(simulacao?: boolean): Promise<ResultadoOtimizacao>;
   escolherPasta(): Promise<string | null>;
   varrer(raizes: string[]): Promise<ResumoVarredura>;
