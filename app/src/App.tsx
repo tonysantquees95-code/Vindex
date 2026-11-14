@@ -28,6 +28,10 @@ import { conferirNovos, relatorioSalvo, relatorioVencido } from "./relatorio";
 import { Cofre } from "./telas/Cofre";
 import type { InicioPeloMenu } from "./ponte";
 import { Aviso } from "./ui";
+import { precisaApresentar } from "./apresentacao";
+import { lerVisto as lerNovidadesVistas, novasDesde, type Novidade } from "./novidades";
+import { Apresentacao } from "./telas/Apresentacao";
+import { Novidades } from "./telas/Novidades";
 import { LogoVivo } from "./logo";
 
 const ABAS: readonly { id: string; rotulo: string; icone: NomeIcone }[] = [
@@ -74,6 +78,8 @@ export function App() {
   const [ajustes] = useAjustes();
   const permissoes = usePermissoes();
   const [permVistas, setPermVistas] = useState(() => { try { return localStorage.getItem("vindex.permissoes.vistas2") === "1"; } catch { return false; } });
+  const [apresentar, setApresentar] = useState(() => precisaApresentar());
+  const [novidades, setNovidades] = useState<Novidade[]>(() => { const v = lerNovidadesVistas(); return v === null ? [] : novasDesde(v); });
   const [nova, setNova] = useState<InfoVersao | null>(null);
   const [avisoAtualizacao, setAvisoAtualizacao] = useState("");
   const [alertaApps, setAlertaApps] = useState("");
@@ -212,6 +218,7 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessao?.token, liberado, motor]);
 
+  if (apresentar) return <Apresentacao aoConcluir={() => { setNovidades([]); setApresentar(false); }} />;
   if (!demo && !sessao) return <Conta aparelho={aparelho} aoEntrar={definir} />;
   if (!demo && sessao && estadoTrava?.tipo === "validar_online") return <TelaConfirmando motivo={estadoTrava.motivo} aoVerificar={revalidar} aoSair={() => { void sair(sessao.token); definir(null); }} />;
   if (!demo && sessao && estadoTrava?.tipo === "teste_acabou") return <TelaTesteAcabou sessao={sessao} aoVerificar={revalidar} aoSair={() => { void sair(sessao.token); definir(null); }} />;
@@ -241,6 +248,7 @@ export function App() {
   const aoSoltar = (e: TouchEvent) => { const t = e.changedTouches[0]; const i = inicioToque.current; inicioToque.current = null; if (t && i != null && t.clientX - i > 60) setMenu(true); };
   return (
     <div onTouchStart={aoTocar} onTouchEnd={aoSoltar} className="mx-auto flex min-h-dvh max-w-7xl">
+      {novidades.length > 0 && <Novidades itens={novidades} aoFechar={() => setNovidades([])} />}
       {/* barra lateral (computador e telas largas): todas as seções à vista, sem rolar para os lados */}
       <aside className="sticky top-0 hidden h-dvh w-56 flex-none flex-col border-r border-white/10 px-3 pb-3 pt-4 sm:flex">
         <div className="mb-4 flex items-center gap-2 px-1"><LogoVivo tam={44} /><div><div className="text-lg font-semibold leading-tight tracking-wide">Vindex</div><div className="text-[11px] text-suave">Manager e Vault</div></div></div>

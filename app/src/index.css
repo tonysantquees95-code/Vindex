@@ -28,3 +28,5 @@ html[data-botoes="contorno"] .btn-primario:hover { background: color-mix(in srgb
 @keyframes vivo { 0%, 100% { transform: scale(0.97); } 50% { transform: scale(1.05); } }
 @keyframes brilho { 0%, 100% { opacity: .55; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.12); } }
 @media (prefers-reduced-motion: reduce) { .logo-vivo, .logo-vivo-brilho { animation: none; } }
+
+.rolagem { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
