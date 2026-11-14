@@ -2,6 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMotor } from "../estado";
 import { bytes, tomDoUso } from "../formato";
 import type { Diagnostico } from "../ponte";
+import { LogoVivo } from "../logo";
+
+const CHAVE_VIDRO = "vindex:widget-vidro";
+function vidroSalvo(): number {
+  try { const n = Number(localStorage.getItem(CHAVE_VIDRO)); return n >= 10 && n <= 95 ? n : 55; } catch { return 55; }
+}
 
 const COR = { ok: "#34d399", aviso: "#fbbf24", erro: "#f87171" } as const;
 
@@ -22,6 +28,8 @@ export function Widget() {
   const [msg, setMsg] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const lendo = useRef(false);
+  const [vidro, setVidro] = useState(vidroSalvo);
+  const mudarVidro = (n: number) => { setVidro(n); try { localStorage.setItem(CHAVE_VIDRO, String(n)); } catch { /* sem armazenamento */ } };
 
   const ler = useCallback(async () => {
     if (lendo.current) return;
@@ -42,10 +50,13 @@ export function Widget() {
   const cpu = d ? Math.min(100, d.cpu_uso / Math.max(1, d.cpu_nucleos)) : 0;
   const temp = d?.temperatura_max;
   return (
-    <div data-tauri-drag-region className="flex h-dvh select-none flex-col bg-transparent text-white" style={{ fontFamily: "Segoe UI, system-ui, sans-serif", textShadow: "0 1px 3px rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.7)" }}>
-      <div data-tauri-drag-region className="flex cursor-move items-center justify-between px-3 py-1.5 text-[11px] font-bold tracking-wide text-cyan-200">
-        <span data-tauri-drag-region>VINDEX · DESEMPENHO</span>
-        <button aria-label="Fechar widget" className="px-1 text-white/60 hover:text-white" onClick={() => void fechar()}>✕</button>
+    <div data-tauri-drag-region className="flex h-dvh select-none flex-col overflow-hidden rounded-2xl border border-white/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18)] backdrop-blur-md" style={{ fontFamily: "Segoe UI, system-ui, sans-serif", background: `linear-gradient(160deg, rgba(30,41,64,${(vidro / 100) * 0.9}), rgba(5,8,16,${vidro / 100}))` }}>
+      <div data-tauri-drag-region className="flex items-center justify-between px-3 pt-2 pb-1">
+        <span data-tauri-drag-region className="pointer-events-none"><LogoVivo tam={24} /></span>
+        <div className="flex items-center gap-2">
+          <input type="range" min={10} max={95} value={vidro} onChange={(e) => mudarVidro(Number(e.target.value))} title="Fundo de vidro: mais claro ← → mais escuro" aria-label="Escuridão do fundo" className="h-1 w-14 cursor-pointer accent-cyan-300" />
+          <button aria-label="Fechar widget" className="px-1 text-xs text-white/60 hover:text-white" onClick={() => void fechar()}>✕</button>
+        </div>
       </div>
       <div data-tauri-drag-region className="pointer-events-none flex-1 px-3 pt-1">
         {!d ? <p className="text-xs text-white/60">Lendo o hardware…</p> : (

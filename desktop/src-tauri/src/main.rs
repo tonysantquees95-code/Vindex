@@ -143,13 +143,63 @@ fn widget_aberto(app: tauri::AppHandle) -> bool {
     app.get_webview_window("widget").is_some()
 }
 
+/// Traz a janela principal de volta (ela fica escondida quando o Vindex roda só com o widget).
+fn mostrar_principal(app: &tauri::AppHandle) {
+    if let Some(j) = app.get_webview_window("main") {
+        let _ = j.show();
+        let _ = j.unminimize();
+        let _ = j.set_focus();
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .on_window_event(|janela, evento| {
-            // fechar a janela principal encerra o Vindex inteiro (o widget não fica sozinho rodando)
-            if janela.label() == "main" && matches!(evento, tauri::WindowEvent::CloseRequested { .. }) {
-                janela.app_handle().exit(0);
+            // fechar a janela principal: se o widget estiver aberto, o Vindex continua em segundo plano (ícone na bandeja); senão, encerra
+            if let tauri::WindowEvent::CloseRequested { api, .. } = evento {
+                if janela.label() == "main" {
+                    if janela.app_handle().get_webview_window("widget").is_some() {
+                        api.prevent_close();
+                        let _ = janela.hide();
+                    } else {
+                        janela.app_handle().exit(0);
+                    }
+                }
             }
+            // fechou o widget com o Vindex escondido: não sobra nada para mostrar, então encerra
+            if janela.label() == "widget" && matches!(evento, tauri::WindowEvent::Destroyed) {
+                let app = janela.app_handle();
+                let escondida = app.get_webview_window("main").map(|m| !m.is_visible().unwrap_or(true)).unwrap_or(true);
+                if escondida {
+                    app.exit(0);
+                }
+            }
+        })
+        .setup(|app| {
+            use tauri::menu::{Menu, MenuItem};
+            use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+            let abrir = MenuItem::with_id(app, "abrir", "Abrir o Vindex", true, None::<&str>)?;
+            let sair = MenuItem::with_id(app, "sair", "Sair do Vindex", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&abrir, &sair])?;
+            let mut bandeja = TrayIconBuilder::new()
+                .tooltip("Vindex")
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, ev| match ev.id.as_ref() {
+                    "abrir" => mostrar_principal(app),
+                    "sair" => app.exit(0),
+                    _ => {}
+                })
+                .on_tray_icon_event(|bandeja, ev| {
+                    if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = ev {
+                        mostrar_principal(bandeja.app_handle());
+                    }
+                });
+            if let Some(icone) = app.default_window_icon() {
+                bandeja = bandeja.icon(icone.clone());
+            }
+            bandeja.build(app)?;
+            Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![motor, argumento_inicial, abrir_pasta, abrir_arquivo, abrir_link, instalar_atualizacao, widget_alternar, widget_aberto])
