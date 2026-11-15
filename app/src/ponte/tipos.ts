@@ -119,10 +119,12 @@ export interface Motor {
   otimizarMemoria(): Promise<{ suportado: boolean; processos_ajustados: number; liberado_bytes: number; nota: string }>;
   pastasConhecidas(): Promise<PastaConhecida[]>;
   escolherArquivo(): Promise<string | null>;
+  /** Windows: escolhe vários arquivos de uma vez (para compactar). */
+  escolherItens?(): Promise<string[]>;
   listarCompactado(origem: string, senha?: string): Promise<ConteudoCompactado>;
   pastaSugerida(origem: string): Promise<string>;
   extrair(origem: string, destino: string, senha?: string, selecionados?: string[]): Promise<ResultadoExtracao>;
-  /** Android: cria ZIP, 7z ou TAR.GZ; consulta o andamento de extrair/compactar; cancela. */
+  /** Cria ZIP, 7z ou TAR.GZ; consulta o andamento de extrair/compactar; cancela. */
   compactar?(origens: string[], destino: string, formato: "zip" | "7z" | "tgz"): Promise<{ destino: string; arquivos: number; bytes: number }>;
   progressoArquivo?(): Promise<ProgressoArquivo>;
   cancelarArquivo?(): Promise<void>;

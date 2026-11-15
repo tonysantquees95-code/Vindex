@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useMotor } from "../estado";
-import { bytes, nomeDoArquivo } from "../formato";
-import type { ConteudoCompactado, InicioPeloMenu, ResultadoExtracao } from "../ponte";
+import { bytes } from "../formato";
+import type { InicioPeloMenu } from "../ponte";
 import { Aviso, Botao, Cartao } from "../ui";
-import { PainelCompactado } from "./Compactados";
+import { PainelCompactado, PainelCompactar } from "./Compactados";
 import type { ItemDePasta } from "../ponte";
-
-const campo = "min-h-11 w-full rounded-xl border border-borda bg-black/20 px-3 text-sm";
 
 /** Descompactar como no WinRAR: escolhe o arquivo, vê o conteúdo, escolhe para onde vai e extrai. */
 export function Descompactar({ inicio, aoUsarInicio }: { inicio: InicioPeloMenu | null; aoUsarInicio: () => void }) {
@@ -50,78 +48,51 @@ function DescompactarAndroid() {
 
 function DescompactarWindows({ inicio, aoUsarInicio }: { inicio: InicioPeloMenu | null; aoUsarInicio: () => void }) {
   const motor = useMotor();
-  const [origem, setOrigem] = useState("");
-  const [destino, setDestino] = useState("");
-  const [conteudo, setConteudo] = useState<ConteudoCompactado | null>(null);
-  const [resultado, setResultado] = useState<ResultadoExtracao | null>(null);
-  const [ocupado, setOcupado] = useState(false);
+  const [aberto, setAberto] = useState<{ caminho: string; direto: boolean } | null>(null);
+  const [paraCompactar, setParaCompactar] = useState<string[] | null>(null);
   const [erro, setErro] = useState("");
-
-  const abrir = useCallback(async (arquivo: string) => {
-    setOrigem(arquivo); setErro(""); setResultado(null); setConteudo(null);
-    try {
-      setDestino(await motor.pastaSugerida(arquivo));
-      setConteudo(await motor.listarCompactado(arquivo));
-    } catch (e) { setErro(e instanceof Error ? e.message : String(e)); }
-  }, [motor]);
-
-  async function extrair(arq = origem, dest = destino) {
-    setOcupado(true); setErro("");
-    try { setResultado(await motor.extrair(arq, dest)); } catch (e) { setErro(e instanceof Error ? e.message : String(e)); }
-    setOcupado(false);
-  }
 
   // aberto pelo menu do botão direito do Windows
   useEffect(() => {
     if (!inicio) return;
     aoUsarInicio();
-    void (async () => {
-      await abrir(inicio.arquivo);
-      if (inicio.modo === "aqui") {
-        try { await extrair(inicio.arquivo, await motor.pastaSugerida(inicio.arquivo)); } catch { /* o erro já aparece */ }
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inicio]);
+    setParaCompactar(null);
+    setAberto({ caminho: inicio.arquivo, direto: inicio.modo === "aqui" });
+  }, [inicio, aoUsarInicio]);
 
   if (!motor.recursos.extrair) return <Cartao titulo="Descompactar"><p className="text-sm text-suave">A descompactação está disponível no Vindex para Windows.</p></Cartao>;
 
+  async function escolherParaAbrir() {
+    setErro("");
+    try { const a = await motor.escolherArquivo(); if (a) { setParaCompactar(null); setAberto({ caminho: a, direto: false }); } }
+    catch (e) { setErro(e instanceof Error ? e.message : String(e)); }
+  }
+  async function escolherParaCompactar(pasta: boolean) {
+    setErro("");
+    try {
+      const itens = pasta ? [await motor.escolherPasta()].filter((x): x is string => !!x) : (await motor.escolherItens?.()) ?? [];
+      if (itens.length) { setAberto(null); setParaCompactar(itens); }
+    } catch (e) { setErro(e instanceof Error ? e.message : String(e)); }
+  }
+
   return (
     <div className="space-y-4">
-      <Cartao titulo="Arquivo compactado">
-        <div className="flex flex-wrap items-center gap-2">
-          <Botao variante="primario" onClick={async () => { const a = await motor.escolherArquivo(); if (a) await abrir(a); }}>Escolher arquivo…</Botao>
-          <span className="min-w-0 break-all text-sm text-suave">{origem || "ZIP, TAR, TAR.GZ, TGZ ou GZ. Dica: clique com o botão direito no arquivo e escolha “Extrair com o Vindex…”."}</span>
-        </div>
-        {conteudo && (
-          <div className="mt-3">
-            <p className="text-sm">{nomeDoArquivo(origem)} · <span className="text-suave">{conteudo.itens} arquivos · {bytes(conteudo.bytes)} descompactado</span></p>
-            <ul className="mt-2 max-h-40 space-y-0.5 overflow-auto rounded-xl bg-black/20 p-2 text-xs text-suave">{conteudo.nomes.map((n) => <li key={n} className="break-all">{n}</li>)}{conteudo.itens > conteudo.nomes.length && <li>…e mais {conteudo.itens - conteudo.nomes.length}</li>}</ul>
-          </div>
-        )}
+      {aberto && <PainelCompactado key={aberto.caminho + String(aberto.direto)} caminho={aberto.caminho} direto={aberto.direto} aoFechar={() => setAberto(null)} />}
+      {paraCompactar && <PainelCompactar key={paraCompactar.join("|")} caminhos={paraCompactar} aoFechar={() => setParaCompactar(null)} />}
+      <Cartao titulo="Descompactar">
+        <p className="mb-2 text-xs text-suave">Funciona com ZIP, 7z, RAR, TAR, TAR.GZ, TAR.BZ2, TAR.XZ, GZ, BZ2 e XZ, inclusive com senha. Dica: clique com o botão direito no arquivo e escolha “Extrair com o Vindex…”.</p>
+        <Botao variante="primario" onClick={() => void escolherParaAbrir()}>Escolher arquivo…</Botao>
       </Cartao>
-
-      {conteudo && (
-        <Cartao titulo="Para onde extrair?">
-          <div className="space-y-2">
-            <input className={campo} value={destino} onChange={(e) => setDestino(e.target.value)} aria-label="Pasta de destino" />
-            <div className="flex flex-wrap gap-2">
-              <Botao onClick={async () => { const p = await motor.escolherPasta(); if (p) setDestino(p); }}>Escolher outra pasta…</Botao>
-              <Botao variante="primario" disabled={ocupado || !destino.trim()} onClick={() => void extrair()}>{ocupado ? "Extraindo…" : "Extrair"}</Botao>
-            </div>
-            <p className="text-xs text-suave">Nada é sobrescrito: se já existir um arquivo com o mesmo nome, o novo ganha “(1)” no final.</p>
+      {motor.compactar && (
+        <Cartao titulo="Compactar">
+          <p className="mb-2 text-xs text-suave">Escolha arquivos ou uma pasta para criar um ZIP, 7z ou TAR.GZ.</p>
+          <div className="flex flex-wrap gap-2">
+            <Botao onClick={() => void escolherParaCompactar(false)}>Escolher arquivos…</Botao>
+            <Botao onClick={() => void escolherParaCompactar(true)}>Escolher uma pasta…</Botao>
           </div>
         </Cartao>
       )}
-
       {erro && <Aviso tom="erro">{erro}</Aviso>}
-      {resultado && (
-        <Aviso tom="ok">
-          <div>{resultado.arquivos} arquivos extraídos ({bytes(resultado.bytes)}) em {resultado.destino}.</div>
-          {resultado.pulados.length > 0 && <div className="mt-1 text-xs">{resultado.pulados.length} itens inseguros foram ignorados.</div>}
-          {motor.recursos.abrirPasta && <Botao className="mt-2 !min-h-9 !px-3 text-xs" onClick={() => void motor.abrirPasta(resultado.destino)}>Abrir a pasta</Botao>}
-        </Aviso>
-      )}
     </div>
   );
 }

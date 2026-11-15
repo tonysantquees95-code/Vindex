@@ -5,6 +5,7 @@ pub mod arquivos;
 pub mod desempenho;
 pub mod categorias;
 pub mod explorador;
+pub mod extras;
 pub mod hardware;
 pub mod limpeza;
 pub mod organizador;

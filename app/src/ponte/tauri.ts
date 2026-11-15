@@ -29,12 +29,19 @@ export async function motorTauri(): Promise<Motor> {
     painel: { estado: async () => ({ ligado: await invoke<boolean>("widget_aberto"), permissao: true }), alternar: async () => ({ ligado: await invoke<boolean>("widget_alternar"), permissao: true }) },
     pastasConhecidas: () => c("pastas_conhecidas"),
     escolherArquivo: async () => {
-      const r = await open({ multiple: false, filters: [{ name: "Arquivos compactados", extensions: ["zip", "tar", "gz", "tgz"] }] });
+      const r = await open({ multiple: false, filters: [{ name: "Arquivos compactados", extensions: ["zip", "7z", "rar", "tar", "gz", "tgz", "bz2", "xz", "tbz2", "txz", "cbz", "cbr", "jar"] }] });
       return typeof r === "string" ? r : null;
     },
-    listarCompactado: (origem) => c("listar_arquivo", { origem }),
+    escolherItens: async () => {
+      const r = await open({ multiple: true, directory: false });
+      return Array.isArray(r) ? r : typeof r === "string" ? [r] : [];
+    },
+    listarCompactado: (origem, senha) => c("listar_arquivo", { origem, senha: senha ?? "" }),
     pastaSugerida: (origem) => c("pasta_sugerida", { origem }),
-    extrair: (origem, destino) => c("extrair", { origem, destino }),
+    extrair: (origem, destino, senha, selecionados) => c("extrair", { origem, destino, senha: senha ?? "", ...(selecionados ? { selecionados } : {}) }),
+    compactar: (origens, destino, formato) => c("compactar", { origens, destino, formato }),
+    progressoArquivo: () => c("progresso_arquivo"),
+    cancelarArquivo: async () => { await c("cancelar_arquivo"); },
     inicioPeloMenu: () => invoke("argumento_inicial"),
     armazenamentos: () => c("explorar_armazenamentos"),
     listarPasta: (caminho, ocultos = false) => c("explorar_listar", { caminho, ocultos }),

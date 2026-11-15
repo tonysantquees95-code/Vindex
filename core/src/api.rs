@@ -127,11 +127,23 @@ pub fn executar(comando: &str, args: &Value) -> Result<Value, String> {
         "explorar_apagar" => para(explorador::apagar_de_vez(&texto_lista(args, "caminhos").into_iter().map(PathBuf::from).collect::<Vec<_>>())),
         "explorar_quarentenas" => para(explorador::quarentenas(&raizes(args)?)),
         "pastas_conhecidas" => para(arquivos::pastas_conhecidas()),
-        "listar_arquivo" => para(arquivos::listar(&caminho_de(args, "origem")?)?),
+        "listar_arquivo" => para(arquivos::listar(&caminho_de(args, "origem")?, args.get("senha").and_then(|x| x.as_str()).unwrap_or(""))?),
         "extrair" => {
             let origem = caminho_de(args, "origem")?;
             let destino = args.get("destino").and_then(|x| x.as_str()).filter(|d| !d.trim().is_empty()).map(PathBuf::from).unwrap_or_else(|| arquivos::pasta_sugerida(&origem));
-            para(arquivos::extrair(&origem, &destino)?)
+            let senha = args.get("senha").and_then(|x| x.as_str()).unwrap_or("");
+            let so: Option<std::collections::HashSet<String>> = args.get("selecionados").and_then(|x| x.as_array()).map(|l| l.iter().filter_map(|x| x.as_str().map(String::from)).collect());
+            para(arquivos::extrair(&origem, &destino, senha, so.as_ref())?)
+        }
+        "compactar" => {
+            let origens: Vec<PathBuf> = texto_lista(args, "origens").into_iter().map(PathBuf::from).collect();
+            let destino = caminho_de(args, "destino")?;
+            para(arquivos::compactar(&origens, &destino, args.get("formato").and_then(|x| x.as_str()).unwrap_or("zip"))?)
+        }
+        "progresso_arquivo" => para(arquivos::progresso()),
+        "cancelar_arquivo" => {
+            arquivos::cancelar();
+            Ok(json!({"ok": true}))
         }
         "pasta_sugerida" => para(arquivos::pasta_sugerida(&caminho_de(args, "origem")?)),
         "seguranca_estado" => para(seguranca::estado_protecao()),

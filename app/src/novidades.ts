@@ -11,6 +11,7 @@ export const NOVIDADES: Novidade[] = [
   { id: 4, data: "2026-11-14", tipo: "melhoria", titulo: "Engrenagem nos Ajustes", texto: "A engrenagem de Ajustes agora é uma engrenagem de verdade, não mais parecida com um sol." },
   { id: 5, data: "2026-11-14", tipo: "correcao", titulo: "Atualizar Vortex e Velox", texto: "Ao atualizar o Vortex e o Velox por aqui, o Vindex dizia que a assinatura não era da Vetorial Tech e não instalava. Agora cada app da suíte é reconhecido pela sua própria assinatura e as atualizações funcionam." },
   { id: 6, data: "2026-11-14", tipo: "novo", titulo: "Voxix na lista da Vetorial Tech", texto: "O Voxix agora aparece entre os apps da Vetorial Tech: o Vindex reconhece a assinatura dele como oficial, instala e atualiza junto com os outros, sem aviso de app desconhecido." },
+  { id: 7, data: "2026-11-15", tipo: "novo", titulo: "Descompactar e compactar no Windows", texto: "No Windows, o Vindex agora abre também 7z, RAR, TAR.BZ2, TAR.XZ, BZ2 e XZ, pede a senha quando o arquivo tem, deixa marcar só o que quer extrair, mostra o andamento e dá para cancelar. Também dá para criar ZIP, 7z e TAR.GZ a partir de arquivos ou pastas, igual ao Android." },
 ];
 
 export const ROTULO: Record<TipoNovidade, string> = { novo: "Novo", melhoria: "Melhorou", correcao: "Corrigido" };
