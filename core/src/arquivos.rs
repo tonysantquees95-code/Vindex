@@ -78,7 +78,34 @@ impl Formato {
     }
 }
 
+/// Lê o começo do arquivo e diz se é ZIP, 7z ou RAR de verdade (o nome pode estar errado, como um .rar renomeado para .zip).
+fn formato_pelo_conteudo(caminho: &Path) -> Option<Formato> {
+    let mut b = [0u8; 8];
+    let n = File::open(caminho).ok()?.read(&mut b).ok()?;
+    let b = &b[..n];
+    if b.starts_with(b"PK\x03\x04") || b.starts_with(b"PK\x05\x06") {
+        Some(Formato::Zip)
+    } else if b.starts_with(&[0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C]) {
+        Some(Formato::SevenZ)
+    } else if b.starts_with(b"Rar!\x1A\x07") {
+        Some(Formato::Rar)
+    } else {
+        None
+    }
+}
+
 pub fn formato_de(caminho: &Path) -> Option<Formato> {
+    let pelo_nome = formato_pelo_nome(caminho);
+    // ZIP, 7z e RAR: vale o que o arquivo realmente é, mesmo que a extensão esteja trocada
+    if matches!(pelo_nome, Some(Formato::Zip) | Some(Formato::SevenZ) | Some(Formato::Rar)) {
+        if let Some(real) = formato_pelo_conteudo(caminho) {
+            return Some(real);
+        }
+    }
+    pelo_nome
+}
+
+fn formato_pelo_nome(caminho: &Path) -> Option<Formato> {
     let n = caminho.file_name()?.to_string_lossy().to_lowercase();
     let fim = |e: &[&str]| e.iter().any(|x| n.ends_with(x));
     if fim(&[".tar.gz", ".tgz"]) {
@@ -252,6 +279,10 @@ fn explicar(e: impl std::fmt::Display, senha: &str) -> String {
     let t = e.to_string();
     if t.contains("Cancelado") {
         return "Cancelado.".into();
+    }
+    let baixo = t.to_lowercase();
+    if baixo.contains("eocd") || baixo.contains("invalid zip archive") || baixo.contains("end of central directory") {
+        return "Esse ZIP está incompleto ou corrompido (o final dele não foi encontrado). Se veio da internet, o download pode ter parado no meio: baixe de novo e tente outra vez.".into();
     }
     trata_senha(format!("Não consegui ler o arquivo compactado: {t}"), senha)
 }
@@ -773,6 +804,23 @@ mod testes {
         let r = extrair(&g, &t.path().join("o2"), "", None).unwrap();
         assert_eq!(r.arquivos, 1);
         assert_eq!(fs::read(t.path().join("o2/nota.txt")).unwrap(), b"texto");
+    }
+
+    #[test]
+    fn zip_sem_fim_vira_mensagem_clara() {
+        let m = explicar("invalid Zip archive: Could not find EOCD", "");
+        assert!(m.contains("incompleto ou corrompido"), "{m}");
+    }
+
+    #[test]
+    fn extensao_trocada_vale_o_conteudo() {
+        let t = tempfile::tempdir().unwrap();
+        let f = t.path().join("jogo.zip");
+        std::fs::write(&f, b"Rar!\x1A\x07\x01\x00resto").unwrap();
+        assert_eq!(formato_de(&f), Some(Formato::Rar));
+        let g = t.path().join("outro.zip");
+        std::fs::write(&g, b"PK\x03\x04resto").unwrap();
+        assert_eq!(formato_de(&g), Some(Formato::Zip));
     }
 
     #[test]

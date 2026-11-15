@@ -13,6 +13,7 @@ export const NOVIDADES: Novidade[] = [
   { id: 6, data: "2026-11-14", tipo: "novo", titulo: "Voxix na lista da Vetorial Tech", texto: "O Voxix agora aparece entre os apps da Vetorial Tech: o Vindex reconhece a assinatura dele como oficial, instala e atualiza junto com os outros, sem aviso de app desconhecido." },
   { id: 7, data: "2026-11-15", tipo: "novo", titulo: "Descompactar e compactar no Windows", texto: "No Windows, o Vindex agora abre também 7z, RAR, TAR.BZ2, TAR.XZ, BZ2 e XZ, pede a senha quando o arquivo tem, deixa marcar só o que quer extrair, mostra o andamento e dá para cancelar. Também dá para criar ZIP, 7z e TAR.GZ a partir de arquivos ou pastas, igual ao Android." },
   { id: 8, data: "2026-11-15", tipo: "melhoria", titulo: "Atualização com barra de download", texto: "Ao achar uma versão nova do Vindex, o aviso mostra a barra do download e, quando termina, você escolhe a hora de tocar em Instalar agora. É o mesmo jeito da Vênus, no Android e no Windows." },
+  { id: 9, data: "2026-11-15", tipo: "correcao", titulo: "ZIP incompleto e extensão trocada", texto: "Quando um ZIP está incompleto (download que parou no meio), o Vindex agora diz isso em português e sugere baixar de novo, em vez de mostrar um erro técnico. Arquivos com a extensão errada, como um RAR ou 7z renomeado para .zip, passam a abrir pelo formato verdadeiro. Vale para Android e Windows." },
 ];
 
 export const ROTULO: Record<TipoNovidade, string> = { novo: "Novo", melhoria: "Melhorou", correcao: "Corrigido" };
