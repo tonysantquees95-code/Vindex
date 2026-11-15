@@ -19,7 +19,7 @@ pub enum Evento<'a> {
     Pronto { tamanho: u64 },
 }
 
-fn abrir<'a>(p: &'a PathBuf, senha: &str) -> unrar::Archive<'a> {
+fn abrir<'a>(p: &'a PathBuf, senha: &'a str) -> unrar::Archive<'a> {
     if senha.is_empty() { unrar::Archive::new(p) } else { unrar::Archive::with_password(p, senha) }
 }
 
