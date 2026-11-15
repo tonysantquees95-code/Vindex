@@ -47,6 +47,9 @@ inicializacao: async () => ({ suportado: false, boot_ms: null, boot_quando: null
     ramEstado: async () => ({ total: 0, disponivel: 0, percentual: 0, maiores: [] }),
     verificarHosts: async () => [],
     permissoes: async () => [], pedirPermissao: async () => undefined, abrirConfiguracao: async () => undefined,
-    verificarApps: async () => ({ analisados: 0, achados: [] }), appsDaSuite: async () => [], instalarDaSuite: async () => { throw new Error("Modo demonstração."); }, verificarApks: async () => ({ analisados: 0, achados: [] }), appsInstalados: async () => [], programas: async () => [], desinstalarPrograma: async () => { throw new Error("Modo demonstração."); }, limparRestos: async () => ({ apagados: 0, bytes: 0, falhas: [] }), detalhesPrograma: async () => undefined, instalarAtualizacao: async () => { throw new Error("Modo demonstração."); }
+    verificarApps: async () => ({ analisados: 0, achados: [] }), appsDaSuite: async () => [], instalarDaSuite: async () => { throw new Error("Modo demonstração."); }, verificarApks: async () => ({ analisados: 0, achados: [] }), appsInstalados: async () => [], programas: async () => [], desinstalarPrograma: async () => { throw new Error("Modo demonstração."); }, limparRestos: async () => ({ apagados: 0, bytes: 0, falhas: [] }), detalhesPrograma: async () => undefined, instalarAtualizacao: async () => { throw new Error("Modo demonstração."); },
+    baixarAtualizacao: async () => { throw new Error("Modo demonstração."); },
+    progressoAtualizacao: async () => ({ estado: "parada", feitos: 0, total: 0, erro: "" }),
+    instalarBaixada: async () => { throw new Error("Modo demonstração."); }
   };
 }

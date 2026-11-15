@@ -79,6 +79,9 @@ export async function motorTauri(): Promise<Motor> {
     desinstalarPrograma: (id, silencioso) => c("programas_desinstalar", { id, silencioso }),
     limparRestos: (id) => c("programas_limpar_restos", { id }),
     detalhesPrograma: async (_id, local) => { if (local) await invoke("abrir_pasta", { caminho: local }); },
-    instalarAtualizacao: (url, sha256) => invoke("instalar_atualizacao", { url, sha256 })
+    instalarAtualizacao: (url, sha256) => invoke("instalar_atualizacao", { url, sha256 }),
+    baixarAtualizacao: (url, sha256, tamanho) => invoke("baixar_atualizacao", { url, sha256, tamanho }),
+    progressoAtualizacao: () => invoke("progresso_atualizacao"),
+    instalarBaixada: () => invoke("instalar_atualizacao_baixada")
   };
 }

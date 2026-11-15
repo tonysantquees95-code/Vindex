@@ -39,6 +39,7 @@ export interface Regra {
 
 export interface PastaConhecida { id: string; rotulo: string; caminho: string }
 export interface ConteudoCompactado { itens: number; bytes: number; nomes: string[]; tamanhos?: number[]; formato: string }
+export interface ProgressoAtualizacao { estado: "parada" | "baixando" | "pronta" | "erro"; feitos: number; total: number; erro: string }
 export interface ProgressoArquivo { fase: string; atual: string; feitos: number; total: number }
 export interface ResultadoExtracao { destino: string; arquivos: number; bytes: number; pulados: string[] }
 export interface EstadoProtecao {
@@ -169,6 +170,10 @@ export interface Motor {
   verificarApps(): Promise<ResultadoVerificacao>;
   /** Android: baixa o APK, confere o SHA-256 e abre a confirmação de instalação. */
   instalarAtualizacao(url: string, sha256: string): Promise<void>;
+  /** Atualização em duas etapas: baixa com andamento e só instala quando a pessoa escolher. */
+  baixarAtualizacao(url: string, sha256: string, tamanho: number): Promise<void>;
+  progressoAtualizacao(): Promise<ProgressoAtualizacao>;
+  instalarBaixada(): Promise<void>;
   /** Android: os apps da suíte Vetorial Tech e o que está instalado de cada um. */
   appsDaSuite(): Promise<AppSuite[]>;
   /** Android: baixa do GitHub oficial, confere pacote, assinatura e SHA-256, e instala. */

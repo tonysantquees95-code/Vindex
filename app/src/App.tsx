@@ -4,6 +4,7 @@ import { avaliar } from "./trava";
 import { TelaConfirmando, TelaTesteAcabou } from "./telas/Trava";
 import { gravarVisto, lerVisto, aparelhoLocal, buscarPedidos, guardarSessao, responderPedido, sair, sessaoGuardada, verificar, ErroConta, SERVIDOR, type Sessao } from "./conta";
 import { pastasSalvas, useMotor } from "./estado";
+import { AtualizacaoAviso } from "./AtualizacaoAviso";
 import { BUILD, haNovaVersao, precisaConferir, procurarVersao, type InfoVersao } from "./atualizacao";
 import { devePassar } from "./autoOrganizar";
 import { useAjustes } from "./usarAjustes";
@@ -84,7 +85,7 @@ export function App() {
   const [avisoAtualizacao, setAvisoAtualizacao] = useState("");
   const [alertaApps, setAlertaApps] = useState("");
   const [arrumado, setArrumado] = useState<Movimento[]>([]);
-  const tentouAtualizar = useRef(0);
+  const [baixarAgora, setBaixarAgora] = useState(0);
   const inicioToque = useRef<number | null>(null);
   const pode = (id: string) => !!permissoes.lista?.find((p) => p.id === id)?.concedida;
   const arquivosLiberados = !motor.recursos.permissoes || pode("arquivos");
@@ -112,10 +113,6 @@ export function App() {
         try { localStorage.setItem("vindex.atualizacao.ultima", String(Date.now())); } catch { /* ok */ }
         if (!vivo || !v || !haNovaVersao(BUILD, v.numero)) return;
         setNova(v);
-        if (ajustes.autoAtualizar && motor.recursos.atualizaSozinho && (motor.plataforma !== "android" || instalarLiberado) && tentouAtualizar.current !== v.numero) {
-          tentouAtualizar.current = v.numero;
-          void atualizar(v);
-        }
       } catch { /* sem internet: tenta no próximo ciclo */ }
     };
     void ciclo();
@@ -239,7 +236,7 @@ export function App() {
     apps: <Desinstalar />,
     seguranca: <Seguranca />,
     cofre: <Cofre sessao={sessao} />,
-    ajustes: <AjustesTela aoAtualizar={atualizar} nova={nova} />,
+    ajustes: <AjustesTela aoAtualizar={async (v) => { setNova(v); setBaixarAgora(v.numero); }} nova={nova} />,
     conta: sessao ? <MinhaConta sessao={sessao} aoAtualizar={definir} aoSair={() => { void sair(sessao.token); definir(null); }} /> : <Aviso>Modo demonstração: entre no app para ver sua conta.</Aviso>
   };
   const abas = ABAS.filter((a) => (a.id !== "descompactar" || motor.recursos.extrair) && (a.id !== "apps" || motor.recursos.desinstalar) && (a.id !== "desempenho" || motor.recursos.desempenho));
@@ -267,7 +264,7 @@ export function App() {
       {sessao && !liberado && <div className="mb-3"><Aviso tom="erro">{sessao.licenca.acesso ? "O seu plano não inclui o Vindex. Na aba Conta você escolhe o pacote Vênus + Vindex (R$ 70) ou o Completo (R$ 100)." : "A licença do seu Vetorial ID não está ativa. Abra a aba Conta para renovar ou assinar."}</Aviso></div>}
       {sessao && liberado && sessao.licenca.renovar && <div className="mb-3"><Aviso>Sua licença está perto de vencer. Renove pela Vênus.</Aviso></div>}
       {ultimoPedido && <div className="mb-3"><Aviso tom="ok">{ultimoPedido}</Aviso></div>}
-      {nova && <div className="mb-3"><Aviso>Tem versão nova do Vindex (1.{nova.numero}). <button className="ml-1 underline" onClick={() => void atualizar(nova)}>Atualizar agora</button></Aviso></div>}
+      {nova && <AtualizacaoAviso nova={nova} baixarSozinho={baixarAgora === nova.numero || (ajustes.autoAtualizar && (motor.plataforma !== "android" || instalarLiberado))} aoSemSuporte={() => void atualizar(nova)} />}
       {avisoAtualizacao && <div className="mb-3"><Aviso tom="ok">{avisoAtualizacao}</Aviso></div>}
       {alertaApps && <div className="mb-3"><Aviso>{alertaApps}</Aviso></div>}
       {arrumado.length > 0 && (

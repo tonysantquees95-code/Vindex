@@ -114,11 +114,11 @@ export function AjustesTela({ aoAtualizar, nova }: { aoAtualizar: (v: InfoVersao
       <Cartao titulo="Atualizações">
         <p className="text-sm">Versão instalada: <b className="num">{BUILD ? `1.${BUILD}` : "desenvolvimento"}</b></p>
         <div className="mt-3 space-y-3">
-          <Chave ligado={a.autoAtualizar} aoMudar={(v) => definir({ autoAtualizar: v })} rotulo="Atualizar sozinho" detalhe={motor.recursos.atualizaSozinho ? "Procura versão nova ao abrir e a cada 6 horas, baixa e já abre a instalação." : "Avisa quando tem versão nova e abre o download."} />
+          <Chave ligado={a.autoAtualizar} aoMudar={(v) => definir({ autoAtualizar: v })} rotulo="Atualizar sozinho" detalhe={motor.recursos.atualizaSozinho ? "Procura versão nova ao abrir e a cada 6 horas, baixa sozinho e mostra a barra do download. Você escolhe a hora de instalar." : "Avisa quando tem versão nova e abre o download."} />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Botao variante="primario" disabled={ocupado} onClick={() => void verificar()}><Icone nome="atualizar" tam={18} />{ocupado ? "Procurando…" : "Verificar atualizações"}</Botao>
-          {nova && <Botao onClick={() => void aoAtualizar(nova)}>Instalar 1.{nova.numero}</Botao>}
+          {nova && <Botao onClick={() => void aoAtualizar(nova)}>Baixar 1.{nova.numero}</Botao>}
         </div>
         {msg && <div className="mt-3"><Aviso tom="ok">{msg}</Aviso></div>}
         {erro && <div className="mt-3"><Aviso tom="erro">{erro}</Aviso></div>}

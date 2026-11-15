@@ -12,6 +12,9 @@ interface PluginVindex {
   abrirArquivo(o: { caminho: string }): Promise<void>;
   pastaPedida(): Promise<{ pasta: string | null }>;
   instalarAtualizacao(o: { url: string; sha256: string }): Promise<void>;
+  baixarAtualizacao(o: { url: string; sha256: string; tamanho: number }): Promise<void>;
+  progressoAtualizacao(): Promise<{ estado: "parada" | "baixando" | "pronta" | "erro"; feitos: number; total: number; erro: string }>;
+  instalarBaixada(): Promise<void>;
   appsDaSuite(): Promise<{ apps: AppSuite[] }>;
   instalarDaSuite(o: { pacote: string; url: string; sha256: string }): Promise<void>;
   cofreBioEstado(o: { conta: string }): Promise<{ disponivel: boolean; ativo: boolean }>;
@@ -97,6 +100,9 @@ export function motorAndroid(): Motor {
     limparRestos: async () => ({ apagados: 0, bytes: 0, falhas: [] }),
     detalhesPrograma: (id) => Vindex.detalhesApp({ pacote: id }),
     instalarDaSuite: (pacote, url, sha256) => Vindex.instalarDaSuite({ pacote, url, sha256 }),
-    instalarAtualizacao: (url, sha256) => Vindex.instalarAtualizacao({ url, sha256 })
+    instalarAtualizacao: (url, sha256) => Vindex.instalarAtualizacao({ url, sha256 }),
+    baixarAtualizacao: (url, sha256, tamanho) => Vindex.baixarAtualizacao({ url, sha256, tamanho }),
+    progressoAtualizacao: () => Vindex.progressoAtualizacao(),
+    instalarBaixada: () => Vindex.instalarBaixada()
   };
 }
