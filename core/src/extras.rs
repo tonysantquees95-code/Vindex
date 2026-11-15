@@ -19,14 +19,14 @@ pub enum Evento<'a> {
     Pronto { tamanho: u64 },
 }
 
-fn abrir(origem: &Path, senha: &str) -> unrar::Archive<'static> {
-    let p: PathBuf = origem.to_path_buf();
-    if senha.is_empty() { unrar::Archive::new(&p) } else { unrar::Archive::with_password(&p, senha) }
+fn abrir<'a>(p: &'a PathBuf, senha: &str) -> unrar::Archive<'a> {
+    if senha.is_empty() { unrar::Archive::new(p) } else { unrar::Archive::with_password(p, senha) }
 }
 
 /// (nome, tamanho, é pasta) de cada item do RAR.
 pub fn rar_listar(origem: &Path, senha: &str) -> Result<Vec<(String, u64, bool)>, String> {
-    let it = abrir(origem, senha).open_for_listing().map_err(|e| e.to_string())?;
+    let p = origem.to_path_buf();
+    let it = abrir(&p, senha).open_for_listing().map_err(|e| e.to_string())?;
     let mut v = Vec::new();
     for e in it {
         let e = e.map_err(|e| e.to_string())?;
@@ -36,7 +36,8 @@ pub fn rar_listar(origem: &Path, senha: &str) -> Result<Vec<(String, u64, bool)>
 }
 
 pub fn rar_extrair(origem: &Path, senha: &str, cada: &mut dyn FnMut(Evento) -> Result<Option<PathBuf>, String>) -> Result<(), String> {
-    let mut arq = abrir(origem, senha).open_for_processing().map_err(|e| e.to_string())?;
+    let p = origem.to_path_buf();
+    let mut arq = abrir(&p, senha).open_for_processing().map_err(|e| e.to_string())?;
     while let Some(h) = arq.read_header().map_err(|e| e.to_string())? {
         let (nome, tamanho, pasta) = {
             let e = h.entry();
