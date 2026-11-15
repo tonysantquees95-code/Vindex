@@ -5,7 +5,7 @@ import { versaoValida } from "./atualizacao";
 import { ultimaVersao, type VersaoPublicada } from "./suite";
 
 const APP_NO_SERVIDOR: Record<string, string> = {
-  "tech.vetorial.vindex": "vindex-android", "tech.vetorial.vortex": "vortex-android", "tech.vetorial.velox": "velox-android", "com.tonimarques.sextafeira": "venus",
+  "tech.vetorial.vindex": "vindex-android", "tech.vetorial.vortex": "vortex-android", "tech.vetorial.velox": "velox-android", "tech.vetorial.voxix": "voxix-android", "com.tonimarques.sextafeira": "venus",
 };
 
 /** Pergunta primeiro ao servidor da Vênus (guarda cópia e serve a Vênus, que é privada); os públicos têm o GitHub como plano B. */

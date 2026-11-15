@@ -10,6 +10,7 @@ export const NOVIDADES: Novidade[] = [
   { id: 3, data: "2026-11-14", tipo: "melhoria", titulo: "Widget completo e opção Sobrepor", texto: "O widget do Windows ganhou o visual do Desempenho do Xbox Game Bar: uma lista com CPU, memória, GPU, memória de vídeo, rede, tela e temperatura, e ao lado o número grande com o gráfico dos últimos 60 segundos. Também tem o botão Sobrepor: ligado, o widget fica por cima de todas as janelas; desligado, fica só na área de trabalho." },
   { id: 4, data: "2026-11-14", tipo: "melhoria", titulo: "Engrenagem nos Ajustes", texto: "A engrenagem de Ajustes agora é uma engrenagem de verdade, não mais parecida com um sol." },
   { id: 5, data: "2026-11-14", tipo: "correcao", titulo: "Atualizar Vortex e Velox", texto: "Ao atualizar o Vortex e o Velox por aqui, o Vindex dizia que a assinatura não era da Vetorial Tech e não instalava. Agora cada app da suíte é reconhecido pela sua própria assinatura e as atualizações funcionam." },
+  { id: 6, data: "2026-11-14", tipo: "novo", titulo: "Voxix na lista da Vetorial Tech", texto: "O Voxix agora aparece entre os apps da Vetorial Tech: o Vindex reconhece a assinatura dele como oficial, instala e atualiza junto com os outros, sem aviso de app desconhecido." },
 ];
 
 export const ROTULO: Record<TipoNovidade, string> = { novo: "Novo", melhoria: "Melhorou", correcao: "Corrigido" };
