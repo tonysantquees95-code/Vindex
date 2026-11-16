@@ -60,8 +60,9 @@ export function PainelCompactado({ caminho, aoFechar, aoExtrair, direto = false 
 
   useEffect(() => {
     if (iniciou.current) return; iniciou.current = true;
-    void ler();
+    // "Extrair aqui" / extrair direto: não abre a lista nem pede confirmação, só extrai e mostra o resultado
     if (direto) void extrair(pastaDeExtracao(caminho));
+    else void ler();
   }, [ler, extrair, direto, caminho]);
 
   return (
@@ -78,7 +79,7 @@ export function PainelCompactado({ caminho, aoFechar, aoExtrair, direto = false 
               <Botao onClick={() => setMarcados(new Set())}>Desmarcar tudo</Botao>
               <span className="self-center text-xs text-suave">{marcados.size} de {conteudo.nomes.length} marcados</span>
             </div>
-            <ul className="mt-2 max-h-72 overflow-auto rounded-xl bg-black/20 p-1 text-sm">
+            <ul tabIndex={0} aria-label="Conteúdo do arquivo" onWheel={(e) => { const el = e.currentTarget; if (el.scrollHeight > el.clientHeight) { el.scrollTop += e.deltaY; e.stopPropagation(); } }} className="rolagem mt-2 max-h-72 overflow-y-auto overflow-x-hidden rounded-xl bg-black/20 p-1 text-sm">
               {conteudo.nomes.map((n, i) => ({ n, i })).filter(({ n }) => !busca.trim() || n.toLowerCase().includes(busca.trim().toLowerCase())).slice(0, 400).map(({ n, i }) => (
                 <li key={n}>
                   <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-white/5">
@@ -95,7 +96,7 @@ export function PainelCompactado({ caminho, aoFechar, aoExtrair, direto = false 
         {pedeSenha && (
           <div className="flex gap-2">
             <input className={campo} type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Senha do arquivo" aria-label="Senha do arquivo" />
-            <Botao variante="primario" onClick={() => { void ler(senha); }}>Abrir</Botao>
+            <Botao variante="primario" onClick={() => { if (direto) void extrair(pastaDeExtracao(caminho), senha); else void ler(senha); }}>{direto ? "Extrair" : "Abrir"}</Botao>
           </div>
         )}
         {!ocupado && !resultado && conteudo && (
