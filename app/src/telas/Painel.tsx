@@ -4,6 +4,7 @@ import { acrescentar, bytes, tempoLigado } from "../formato";
 import { Icone } from "../icones";
 import type { Diagnostico } from "../ponte";
 import { avaliar, dicaDeTemperatura, tomDoNivel } from "../temperatura";
+import { CartaoChipset } from "./CartaoChipset";
 import { Aviso, AnelDeSaude, Barra, Botao, Cartao, Grafico, Velocimetro } from "../ui";
 
 /** Valores já suavizados (média móvel) que alimentam a nota. */
@@ -109,6 +110,8 @@ export function Painel({ ir }: { ir: (aba: string) => void }) {
           <Botao className="!min-h-12" onClick={() => ir("seguranca")}><Icone nome="seguranca" tam={18} />Segurança</Botao>
         </div>
       </Cartao>
+
+      <CartaoChipset d={d} historico={hist.cpu} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Cartao><Velocimetro valor={sv?.cpu ?? d.cpu_uso} rotulo={d.cpu_estimado ? "CPU (estimada)" : "CPU"} detalhe={`${d.cpu_nucleos} núcleos`} /></Cartao>

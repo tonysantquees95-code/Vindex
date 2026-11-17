@@ -8,6 +8,7 @@ export function motorDemo(): Motor {
     const onda = (base: number, amp: number, f: number) => Math.max(1, Math.min(99, base + amp * Math.sin(t / f)));
     return {
       sistema: "Demonstração", maquina: "navegador", ligado_ha_s: 86_400, cpu_nome: "CPU de demonstração", cpu_nucleos: 8, cpu_uso: onda(35, 25, 2),
+      chipset: { fabricante: "QTI", modelo: "SM8550", hardware: "qcom", placa: "kalama", nucleos: [[2016, 3], [2016, 4], [2016, 5], [2016, 3], [2803, 4], [2803, 5], [2803, 3], [3187, 2]].map(([max, f], n) => ({ n, max_mhz: max, atual_mhz: Math.round((max! * onda(45, 35, f!)) / 100) })) },
       memoria: { total: 16e9, usada: onda(55, 10, 5) * 16e7, disponivel: 0, percentual: onda(55, 10, 5) },
       temperatura_max: onda(55, 12, 4), sensores: [{ nome: "CPU", celsius: onda(55, 12, 4) }], bateria: { nivel: 82, estado: "carregando", saude: 91 },
       discos: [{ nome: "C:", ponto: "C:\\", tipo: "SSD", sistema: "NTFS", total: 512e9, livre: 180e9, percentual_usado: 65, saude: "boa" }],

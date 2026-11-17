@@ -698,6 +698,31 @@ public class VindexPlugin extends Plugin {
         }
     }
 
+    /** Chipset do aparelho: fabricante e modelo do SoC (Android 12+) e, núcleo a núcleo, a frequência de agora e a máxima. */
+    private JSONObject chipset() {
+        try {
+            String fab = "", modelo = "";
+            if (Build.VERSION.SDK_INT >= 31) {
+                fab = Build.SOC_MANUFACTURER == null ? "" : Build.SOC_MANUFACTURER;
+                modelo = Build.SOC_MODEL == null ? "" : Build.SOC_MODEL;
+            }
+            JSONArray nucleos = new JSONArray();
+            int total = Math.min(32, Runtime.getRuntime().availableProcessors());
+            for (int i = 0; i < total; i++) {
+                File d = new File("/sys/devices/system/cpu/cpu" + i + "/cpufreq");
+                long atual = lerLong(new File(d, "scaling_cur_freq"));
+                long max = lerLong(new File(d, "cpuinfo_max_freq"));
+                if (max <= 0) max = lerLong(new File(d, "scaling_max_freq"));
+                if (max <= 0) continue; // sem frequência legível neste núcleo
+                nucleos.put(new JSONObject().put("n", i).put("atual_mhz", atual <= 0 ? 0 : atual / 1000).put("max_mhz", max / 1000));
+            }
+            return new JSONObject().put("fabricante", fab).put("modelo", modelo).put("hardware", Build.HARDWARE == null ? "" : Build.HARDWARE)
+                    .put("placa", Build.BOARD == null ? "" : Build.BOARD).put("nucleos", nucleos);
+        } catch (Exception e) {
+            return new JSONObject();
+        }
+    }
+
     /** Carga estimada pela frequência dos núcleos: quando o Android esconde /proc/stat, é o que dá para ler. -1 se nada legível. */
     private double cpuPelaFrequencia() {
         try {
@@ -877,7 +902,7 @@ public class VindexPlugin extends Plugin {
         if (cpu < 0) cpu = percentualDoSistema();
         return new JSONObject()
                 .put("sistema", "Android " + Build.VERSION.RELEASE).put("maquina", Build.MANUFACTURER + " " + Build.MODEL)
-                .put("ligado_ha_s", SystemClock.elapsedRealtime() / 1000).put("cpu_nome", Build.HARDWARE).put("cpu_nucleos", Runtime.getRuntime().availableProcessors())
+                .put("ligado_ha_s", SystemClock.elapsedRealtime() / 1000).put("cpu_nome", Build.HARDWARE).put("chipset", chipset()).put("cpu_nucleos", Runtime.getRuntime().availableProcessors())
                 .put("cpu_uso", cpu).put("cpu_estimado", estimado)
                 .put("memoria", new JSONObject().put("total", totalRam).put("usada", usada).put("disponivel", disponivel).put("percentual", totalRam == 0 ? 0 : 100.0 * usada / totalRam))
                 .put("swap_total", swapTotal).put("swap_usado", swapUsado)

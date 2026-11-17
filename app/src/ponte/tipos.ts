@@ -13,6 +13,8 @@ export interface Diagnostico {
   rede?: { recebido: number; enviado: number; interfaces: number; tipo?: string; internet?: boolean; vpn?: boolean; velocidade_mbps?: number; sinal?: number };
   /** true quando o Android não deixa ler a carga real e o número é estimado pela frequência dos núcleos */
   cpu_estimado?: boolean;
+  /** Android: fabricante/modelo do chipset e a frequência de cada núcleo (agora e máxima, em MHz). O Windows não manda: o cartão usa só o nome do processador. */
+  chipset?: { fabricante?: string; modelo?: string; hardware?: string; placa?: string; nucleos?: { n: number; atual_mhz: number; max_mhz: number }[] };
 }
 export interface Video {
   suportado: boolean; gpu_nome: string; gpu_uso: number | null; vram_usada: number | null; vram_total: number | null; gpu_temp: number | null;
