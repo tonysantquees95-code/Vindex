@@ -34,6 +34,7 @@ export function MinhaConta({ sessao, aoAtualizar, aoSair }: { sessao: Sessao; ao
           <li>Vênus: {l.acesso ? "liberada" : "bloqueada"}</li>
           <li>Vindex: {l.apps?.vindex === false ? "não incluído no seu plano" : l.acesso ? "liberado" : "bloqueado"}</li>
           <li>Vortex: {l.apps?.vortex === false ? "não incluído no seu plano" : l.acesso ? "liberado" : "bloqueado"}</li>
+          <li>Vyntem: {l.apps?.vyntem === false ? "não incluído no seu plano" : l.acesso ? "liberado" : "bloqueado"}</li>
         </ul>
         <div className="mt-3 flex flex-wrap gap-2">
           <Botao variante="primario" onClick={() => void motor.abrirLink(SITE_DA_CONTA)}>Gerenciar conta e assinatura</Botao>

@@ -33,19 +33,23 @@ public final class Suite {
         {"tech.vetorial.vortex", "Vortex", "Vortex"},
         {"tech.vetorial.velox", "Velox", "Velox-gaming-search"},
         {"tech.vetorial.voxix", "Voxix", "voxix"},
+        {"tech.vetorial.vyntem", "Vyntem", "Vyntem"},
+        {"tech.vetorial.drive", "Vetorial Drive", "Vetorial-Drive"},
         {"com.tonimarques.sextafeira", "Vênus", "Venus-core"},
     };
     static final String PACOTE_VENUS = "com.tonimarques.sextafeira";
 
     /**
      * Cada app da suíte é assinado com a sua própria chave permanente (guardada no servidor da Vênus). Aqui ficam os SHA-256 dos
-     * certificados do Vortex, do Velox e do Voxix, para a primeira instalação por aqui; nas atualizações vale também a assinatura do app já instalado
+     * certificados do Vortex, do Velox, do Voxix, do Vyntem e do Vetorial Drive, para a primeira instalação por aqui; nas atualizações vale também a assinatura do app já instalado
      * (o Android só aceita atualizar por cima com a mesma chave).
      */
     static final String[][] CERTIFICADOS_DA_SUITE = {
         {"tech.vetorial.vortex", "f1c5881d41852f4b8ae134575733d875c41c0aba453daaecdf04c64086c79572"},
         {"tech.vetorial.velox", "1afe7a936f0bdd665c6118f938bd1671d2c1ee09d4f8596e01b8a0c27a874888"},
         {"tech.vetorial.voxix", "940b733603bef535e0124ac4c0ce9916c3224b3df3fc8f1c95301e05c57f4592"},
+        {"tech.vetorial.vyntem", "9ec2fc61a3200bd2123fc130cfaa5acb67f647523868afa0623feea8bd8c3180"},
+        {"tech.vetorial.drive", "f78d62138953cc4a6056f1f780a7b64e80ac063aab981e46459e6587f13a35b6"},
     };
 
     static Set<String> certificadosFixos(String pacote) {

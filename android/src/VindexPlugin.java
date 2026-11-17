@@ -110,7 +110,7 @@ public class VindexPlugin extends Plugin {
                             .put("motivo", "Para mostrar quais apps mais usam o aparelho e deixar o Vindex ajudar a otimizar. Só lê o tempo de uso, nunca o conteúdo.")
                             .put("obrigatoria", false).put("concedida", temUso()))
                     .put(new JSONObject().put("id", "instalar").put("rotulo", "Instalar apps da Vetorial Tech")
-                            .put("motivo", "Recomendado: deixa o Vindex baixar e atualizar a Vênus, o Vortex, o Velox, o Voxix e ele mesmo, só das páginas oficiais e depois de conferir assinatura e SHA-256. Sem isto você aperta vários botões a cada atualização.")
+                            .put("motivo", "Recomendado: deixa o Vindex baixar e atualizar a Vênus, o Vortex, o Velox, o Voxix, o Vyntem, o Vetorial Drive e ele mesmo, só das páginas oficiais e depois de conferir assinatura e SHA-256. Sem isto você aperta vários botões a cada atualização.")
                             .put("obrigatoria", false).put("concedida", podeInstalar())));
             call.resolve(r);
         } catch (Exception e) {

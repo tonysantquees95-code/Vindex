@@ -123,7 +123,7 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [motor, demo, ajustes.autoAtualizar, instalarLiberado]);
 
-  // Apps da suíte (Vênus, Vortex, Velox): atualiza sozinho os que o Vindex instalou, a cada 6 horas.
+  // Apps da suíte (Vênus, Vortex, Velox, Voxix, Vyntem, Vetorial Drive): atualiza sozinho os que o Vindex instalou, a cada 6 horas.
   useEffect(() => {
     if (demo || !motor.recursos.suite || !ajustes.autoAtualizar || !instalarLiberado) return;
     let vivo = true;
