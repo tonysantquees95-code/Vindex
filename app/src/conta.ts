@@ -51,7 +51,7 @@ async function chamar<T>(metodo: string, caminho: string, corpo?: unknown, token
 }
 
 export async function entrar(email: string, senha: string, aparelho: Aparelho, extra: { encerrar?: string; remover?: string } = {}): Promise<Sessao> {
-  const r = await chamar<{ token: string; usuario: { email: string; nome?: string } }>("POST", "/id/entrar", { email, senha, dispositivo: aparelho, ...extra });
+  const r = await chamar<{ token: string; usuario: { email: string; nome?: string } }>("POST", "/id/entrar", { email, senha, dispositivo: aparelho, app: "vindex", ...extra });
   const v = await verificar(r.token);
   return { token: r.token, email: r.usuario.email, nome: r.usuario.nome ?? "", licenca: v };
 }
