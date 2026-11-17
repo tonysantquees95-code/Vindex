@@ -547,6 +547,8 @@ public class VindexPlugin extends Plugin {
                 SobreposicaoService.ligar(c);
                 return new JSONObject().put("ligado", true).put("permissao", true);
             }
+            case "widgets_fixar":
+                return new JSONObject().put("mensagem", WidgetsVindex.fixar(getContext(), a.optString("tipo", "")));
             case "estado_protecao":
                 return estadoProtecao();
             case "verificar_apps":

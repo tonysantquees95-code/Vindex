@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_raiz" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp" android:background="@drawable/widget_fundo">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Vindex · Painel" android:textColor="#7DE3FF" android:textSize="12sp" android:textStyle="bold" />
+        <TextView android:id="@+id/w_sistema" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#A0CDEB" android:textSize="11sp" android:maxLines="1" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="5dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Armazenamento" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:maxLines="1" />
+            <TextView android:id="@+id/w_arm_texto" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#A0CDEB" android:textSize="11sp" android:maxLines="1" />
+        </LinearLayout>
+        <ProgressBar android:id="@+id/w_arm_barra" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="5dp" android:layout_marginTop="2dp" android:max="100" android:progress="0" android:progressTint="#7DE3FF" android:progressBackgroundTint="#26FFFFFF" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="5dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Memória" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:maxLines="1" />
+            <TextView android:id="@+id/w_ram_texto" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#A0CDEB" android:textSize="11sp" android:maxLines="1" />
+        </LinearLayout>
+        <ProgressBar android:id="@+id/w_ram_barra" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="5dp" android:layout_marginTop="2dp" android:max="100" android:progress="0" android:progressTint="#B58CFF" android:progressBackgroundTint="#26FFFFFF" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="5dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Bateria" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:maxLines="1" />
+            <TextView android:id="@+id/w_bat_texto" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#A0CDEB" android:textSize="11sp" android:maxLines="1" />
+        </LinearLayout>
+        <ProgressBar android:id="@+id/w_bat_barra" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="5dp" android:layout_marginTop="2dp" android:max="100" android:progress="0" android:progressTint="#34D399" android:progressBackgroundTint="#26FFFFFF" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="5dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Temperatura" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:maxLines="1" />
+            <TextView android:id="@+id/w_tmp_texto" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#A0CDEB" android:textSize="11sp" android:maxLines="1" />
+        </LinearLayout>
+        <ProgressBar android:id="@+id/w_tmp_barra" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="5dp" android:layout_marginTop="2dp" android:max="100" android:progress="0" android:progressTint="#FBBF24" android:progressBackgroundTint="#26FFFFFF" />
+    </LinearLayout>
+</LinearLayout>

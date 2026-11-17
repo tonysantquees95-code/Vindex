@@ -7,6 +7,8 @@ import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.BatteryManager;
+import android.os.Environment;
+import android.os.StatFs;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -72,4 +74,36 @@ final class Desempenho {
         } catch (Exception ignora) { }
         return Math.max(0, ram(c)[1] - antes);
     }
+
+    /** {total, livre} do armazenamento interno, em bytes. */
+    static long[] armazenamento() {
+        try {
+            StatFs f = new StatFs(Environment.getDataDirectory().getPath());
+            return new long[]{f.getTotalBytes(), f.getAvailableBytes()};
+        } catch (Exception e) { return new long[]{0, 0}; }
+    }
+
+    static int armazenamentoPercentual() { long[] a = armazenamento(); return a[0] <= 0 ? 0 : (int) Math.round(100.0 * (a[0] - a[1]) / a[0]); }
+
+    /** Tensão da bateria em volts (NaN se o aparelho não informa). */
+    static double tensao(Context c) {
+        Intent b = c.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        int mv = b == null ? 0 : b.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0);
+        return mv > 0 ? mv / 1000.0 : Double.NaN;
+    }
+
+    /** Texto do estado da bateria: carregando, descarregando, cheia... */
+    static String estadoBateria(Context c) {
+        Intent b = c.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        int s = b == null ? -1 : b.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+        switch (s) {
+            case BatteryManager.BATTERY_STATUS_CHARGING: return "Carregando";
+            case BatteryManager.BATTERY_STATUS_FULL: return "Carga completa";
+            case BatteryManager.BATTERY_STATUS_DISCHARGING: return "Em uso";
+            case BatteryManager.BATTERY_STATUS_NOT_CHARGING: return "Sem carregar";
+            default: return "Bateria";
+        }
+    }
+
+    static String temperaturaTexto(double t) { return Double.isNaN(t) ? "–" : String.format(Locale.US, "%.0f °C", t); }
 }

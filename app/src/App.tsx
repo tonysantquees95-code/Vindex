@@ -34,11 +34,13 @@ import { lerVisto as lerNovidadesVistas, novasDesde, type Novidade } from "./nov
 import { Apresentacao } from "./telas/Apresentacao";
 import { Novidades } from "./telas/Novidades";
 import { LogoVivo } from "./logo";
+import { Widgets } from "./telas/Widgets";
 
 const ABAS: readonly { id: string; rotulo: string; icone: NomeIcone }[] = [
   { id: "painel", rotulo: "Painel", icone: "painel" },
   { id: "otimizar", rotulo: "Otimizar", icone: "otimizar" },
   { id: "desempenho", rotulo: "Desempenho", icone: "desempenho" },
+  { id: "widgets", rotulo: "Widgets", icone: "widgets" },
   { id: "arquivos", rotulo: "Arquivos", icone: "arquivos" },
   { id: "regras", rotulo: "Regras", icone: "regras" },
   { id: "descompactar", rotulo: "Descompactar", icone: "descompactar" },
@@ -48,7 +50,7 @@ const ABAS: readonly { id: string; rotulo: string; icone: NomeIcone }[] = [
   { id: "ajustes", rotulo: "Ajustes", icone: "ajustes" },
   { id: "conta", rotulo: "Conta", icone: "conta" }
 ] as const;
-type IdAba = "painel" | "otimizar" | "desempenho" | "arquivos" | "regras" | "descompactar" | "apps" | "seguranca" | "cofre" | "ajustes" | "conta";
+type IdAba = "painel" | "otimizar" | "desempenho" | "widgets" | "arquivos" | "regras" | "descompactar" | "apps" | "seguranca" | "cofre" | "ajustes" | "conta";
 
 export function App() {
   const motor = useMotor();
@@ -230,6 +232,7 @@ export function App() {
     painel: <Painel ir={ir} />,
     otimizar: <Otimizar />,
     desempenho: <Desempenho />,
+    widgets: <Widgets />,
     arquivos: <Arquivos abrirEm={pastaPedida} />,
     regras: <RegrasTela />,
     descompactar: <Descompactar inicio={inicio} aoUsarInicio={() => setInicio(null)} />,
@@ -239,7 +242,7 @@ export function App() {
     ajustes: <AjustesTela aoAtualizar={async (v) => { setNova(v); setBaixarAgora(v.numero); }} nova={nova} />,
     conta: sessao ? <MinhaConta sessao={sessao} aoAtualizar={definir} aoSair={() => { void sair(sessao.token); definir(null); }} /> : <Aviso>Modo demonstração: entre no app para ver sua conta.</Aviso>
   };
-  const abas = ABAS.filter((a) => (a.id !== "descompactar" || motor.recursos.extrair) && (a.id !== "apps" || motor.recursos.desinstalar) && (a.id !== "desempenho" || motor.recursos.desempenho));
+  const abas = ABAS.filter((a) => (a.id !== "descompactar" || motor.recursos.extrair) && (a.id !== "apps" || motor.recursos.desinstalar) && (a.id !== "desempenho" || motor.recursos.desempenho) && (a.id !== "widgets" || !!motor.widgets || !!motor.painel));
   const ir2 = (id: string) => { setAba(id as IdAba); setMenu(false); };
   const aoTocar = (e: TouchEvent) => { const t = e.touches[0]; inicioToque.current = t && t.clientX < 24 ? t.clientX : null; };
   const aoSoltar = (e: TouchEvent) => { const t = e.changedTouches[0]; const i = inicioToque.current; inicioToque.current = null; if (t && i != null && t.clientX - i > 60) setMenu(true); };

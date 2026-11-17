@@ -117,6 +117,8 @@ export interface Motor {
   executarLimpeza(alvos: string[], simulacao?: boolean): Promise<{ apagados: number; liberado_bytes: number; falhas: string[]; simulacao: boolean }>;
   /** Widget de desempenho sempre visível: janelinha no Windows, painel flutuante no Android. */
   painel?: { estado(): Promise<{ ligado: boolean; permissao: boolean }>; alternar(): Promise<{ ligado: boolean; permissao: boolean }> };
+  /** Widgets da tela inicial do Android: pede ao sistema para fixar o modelo escolhido. */
+  widgets?: { fixar(tipo: string): Promise<{ mensagem: string }> };
   otimizarMemoria(): Promise<{ suportado: boolean; processos_ajustados: number; liberado_bytes: number; nota: string }>;
   pastasConhecidas(): Promise<PastaConhecida[]>;
   escolherArquivo(): Promise<string | null>;

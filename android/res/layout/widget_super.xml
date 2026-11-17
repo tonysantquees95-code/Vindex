@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_raiz" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp" android:background="@drawable/widget_fundo">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Vindex · Super widget" android:textColor="#7DE3FF" android:textSize="12sp" android:textStyle="bold" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <FrameLayout android:layout_width="wrap_content" android:layout_height="wrap_content">
+                <ProgressBar android:id="@+id/w_bat_anel" style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="56dp" android:layout_height="56dp" android:max="100" android:progress="0"
+            android:indeterminate="false" android:progressDrawable="@drawable/anel_verde" />
+                <TextView android:id="@+id/w_bat_valor" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:maxLines="1" android:layout_gravity="center" />
+            </FrameLayout>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Bateria" android:textColor="#A0CDEB" android:textSize="11sp" android:maxLines="1" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <FrameLayout android:layout_width="wrap_content" android:layout_height="wrap_content">
+                <ProgressBar android:id="@+id/w_ram_anel" style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="56dp" android:layout_height="56dp" android:max="100" android:progress="0"
+            android:indeterminate="false" android:progressDrawable="@drawable/anel_roxo" />
+                <TextView android:id="@+id/w_ram_valor" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:maxLines="1" android:layout_gravity="center" />
+            </FrameLayout>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Memória" android:textColor="#A0CDEB" android:textSize="11sp" android:maxLines="1" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <FrameLayout android:layout_width="wrap_content" android:layout_height="wrap_content">
+                <ProgressBar android:id="@+id/w_arm_anel" style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="56dp" android:layout_height="56dp" android:max="100" android:progress="0"
+            android:indeterminate="false" android:progressDrawable="@drawable/anel_ciano" />
+                <TextView android:id="@+id/w_arm_valor" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:maxLines="1" android:layout_gravity="center" />
+            </FrameLayout>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Armazen." android:textColor="#A0CDEB" android:textSize="11sp" android:maxLines="1" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <FrameLayout android:layout_width="wrap_content" android:layout_height="wrap_content">
+                <ProgressBar android:id="@+id/w_tmp_anel" style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="56dp" android:layout_height="56dp" android:max="100" android:progress="0"
+            android:indeterminate="false" android:progressDrawable="@drawable/anel_laranja" />
+                <TextView android:id="@+id/w_tmp_valor" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:maxLines="1" android:layout_gravity="center" />
+            </FrameLayout>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Temp." android:textColor="#A0CDEB" android:textSize="11sp" android:maxLines="1" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
