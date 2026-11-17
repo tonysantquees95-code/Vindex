@@ -48,11 +48,11 @@ export function CartaoChipset({ d, historico }: { d: Diagnostico; historico: num
                 {g.nucleos.map((n) => {
                   const pct = n.max_mhz ? Math.min(100, (n.atual_mhz / n.max_mhz) * 100) : 0;
                   return (
-                    <li key={n.n} className="grid grid-cols-[3.6rem_minmax(0,1fr)_3rem_4.4rem] items-center gap-2 text-xs">
-                      <span className="text-suave">Núcleo {n.n}</span>
+                    <li key={n.n} className="grid grid-cols-[4.6rem_minmax(0,1fr)_2.6rem_4.6rem] items-center gap-2 text-xs">
+                      <span className="whitespace-nowrap text-suave">Núcleo {n.n}</span>
                       <Barra valor={pct} rotulo={`Núcleo ${n.n}`} />
                       <span className="num text-right text-suave">{n.atual_mhz > 0 ? `${Math.round(pct)}%` : "—"}</span>
-                      <span className="num text-right">{n.atual_mhz > 0 ? frequencia(n.atual_mhz) : "parado"}</span>
+                      <span className="num whitespace-nowrap text-right">{n.atual_mhz > 0 ? frequencia(n.atual_mhz) : "parado"}</span>
                     </li>
                   );
                 })}
