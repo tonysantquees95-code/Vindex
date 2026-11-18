@@ -19,6 +19,7 @@ export const NOVIDADES: Novidade[] = [
   { id: 12, data: "2026-11-17", tipo: "novo", titulo: "Vyntem e Vetorial Drive na suíte", texto: "O Vindex agora reconhece o Vyntem e o Vetorial Drive: mostra se estão instalados, instala pela primeira vez e atualiza sozinho, junto com a Vênus, o Vortex, o Velox e o Voxix. Em Minha conta, o seu plano também mostra se o Vyntem está incluído." },
   { id: 13, data: "2026-11-17", tipo: "novo", titulo: "Cartão do chipset no Painel", texto: "No Painel, logo abaixo da saúde, agora aparece o chipset do aparelho (fabricante e modelo, como Snapdragon 8 Gen 2), a carga da CPU com o gráfico e a frequência de cada núcleo, separados em Prime, Desempenho e Eficiência. No computador, mostra o processador (Intel, AMD…)." },
   { id: 14, data: "2026-11-18", tipo: "correcao", titulo: "Tela \"O que há de novo\" rola direito", texto: "Quando a lista de novidades era grande, o botão Entendi ficava escondido embaixo. Agora a lista rola e o botão fica sempre à mostra." },
+  { id: 15, data: "2026-11-18", tipo: "melhoria", titulo: "Botões mais fáceis de tocar", texto: "Os botões de fechar, pular e ver mais ficaram maiores, para acertar com o dedo sem errar." },
 ];
 
 export const ROTULO: Record<TipoNovidade, string> = { novo: "Novo", melhoria: "Melhorou", correcao: "Corrigido" };
