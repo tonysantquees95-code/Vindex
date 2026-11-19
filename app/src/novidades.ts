@@ -20,6 +20,7 @@ export const NOVIDADES: Novidade[] = [
   { id: 13, data: "2026-11-17", tipo: "novo", titulo: "Cartão do chipset no Painel", texto: "No Painel, logo abaixo da saúde, agora aparece o chipset do aparelho (fabricante e modelo, como Snapdragon 8 Gen 2), a carga da CPU com o gráfico e a frequência de cada núcleo, separados em Prime, Desempenho e Eficiência. No computador, mostra o processador (Intel, AMD…)." },
   { id: 14, data: "2026-11-18", tipo: "correcao", titulo: "Tela \"O que há de novo\" rola direito", texto: "Quando a lista de novidades era grande, o botão Entendi ficava escondido embaixo. Agora a lista rola e o botão fica sempre à mostra." },
   { id: 15, data: "2026-11-18", tipo: "melhoria", titulo: "Botões mais fáceis de tocar", texto: "Os botões de fechar, pular e ver mais ficaram maiores, para acertar com o dedo sem errar." },
+  { id: 16, data: "2026-11-18", tipo: "novo", titulo: "V-Space e Vetogoshi na suíte", texto: "O Vindex agora também acompanha e atualiza o V-Space (launcher) e o Vetogoshi (bichinho virtual) junto com os outros apps da Vetorial." },
 ];
 
 export const ROTULO: Record<TipoNovidade, string> = { novo: "Novo", melhoria: "Melhorou", correcao: "Corrigido" };
