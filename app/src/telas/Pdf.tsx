@@ -3,7 +3,7 @@ import { useMotor } from "../estado";
 import { LogoPdf } from "../pdf/LogoPdf";
 import { saidaNavegador, type SaidaPdf } from "../pdf/saida";
 
-const Ferramentas = lazy(() => import("../pdf/Ferramentas").then((m) => ({ default: m.FerramentasPdf })));
+const Ferramentas = lazy(() => import("../pdf/GradeDeFerramentas").then((m) => ({ default: m.FerramentasPdf })));
 
 /** Aba "PDF" do Vindex: as ferramentas do Vindex PDF (juntar, dividir, comprimir, converter...) dentro do app. */
 export function PdfTela() {

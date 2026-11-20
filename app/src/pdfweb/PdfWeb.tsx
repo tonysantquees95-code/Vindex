@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { FERRAMENTAS } from "../pdf/ferramentas";
-import { FerramentasPdf } from "../pdf/Ferramentas";
+import { FerramentasPdf } from "../pdf/GradeDeFerramentas";
 import { LogoPdf } from "../pdf/LogoPdf";
 import { saidaNavegador, podeCompartilharNoNavegador } from "../pdf/saida";
 import { Botao } from "../ui";
