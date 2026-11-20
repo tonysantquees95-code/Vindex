@@ -4,6 +4,8 @@ import { FerramentasPdf } from "../pdf/GradeDeFerramentas";
 import { LogoPdf } from "../pdf/LogoPdf";
 import { saidaNavegador, podeCompartilharNoNavegador } from "../pdf/saida";
 import { Botao } from "../ui";
+import { Carrossel } from "./Carrossel";
+import { SITE } from "./suite";
 
 /** Já está aberto como app instalado (sem a barra do navegador)? */
 const instalado = (): boolean => window.matchMedia?.("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
@@ -36,7 +38,7 @@ export function PdfWeb() {
     const destino = id ? `${base()}${id}` : base();
     if (location.pathname !== destino) history.pushState(null, "", destino);
     const f = FERRAMENTAS.find((x) => x.id === id);
-    document.title = f ? `${f.nome} grátis: Vindex PDF` : "Vindex PDF: juntar, dividir, comprimir e converter PDF grátis";
+    document.title = f ? `${f.nome} grátis: Vindex PDF` : "Vindex PDF: juntar, dividir, comprimir e converter PDF, Word e Excel grátis";
   };
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 pb-10 pt-4">
@@ -56,16 +58,44 @@ export function PdfWeb() {
         )}
       </header>
       <main className="flex-1">
-        <FerramentasPdf key={chave} saida={{ ...saidaNavegador, compartilhar: podeCompartilharNoNavegador() ? saidaNavegador.compartilhar : undefined }} inicial={inicial} aoMudar={mudou} cabeca={
+        <FerramentasPdf key={chave} comAbas saida={{ ...saidaNavegador, compartilhar: podeCompartilharNoNavegador() ? saidaNavegador.compartilhar : undefined }} inicial={inicial} aoMudar={mudou} cabeca={
           <div className="space-y-2">
-            <h1 className="text-3xl font-extrabold leading-tight sm:text-4xl">Todas as ferramentas de PDF em um só lugar</h1>
-            <p className="max-w-2xl text-base text-suave">Junte, divida, comprima, gire, numere, proteja com senha e converta. Tudo é feito no seu próprio navegador: nenhum arquivo é enviado para a internet.</p>
+            <h1 className="text-3xl font-extrabold leading-tight sm:text-4xl">Todas as ferramentas de PDF, Word e Excel. Grátis.</h1>
+            <p className="max-w-2xl text-base text-suave">Junte, divida, comprima, converta, proteja e edite. Tudo é feito no seu próprio aparelho: nenhum arquivo é enviado para a internet.</p>
           </div>
-        } />
+        } depois={<Sobre />} />
       </main>
       <footer className="mt-10 border-t border-white/10 pt-4 text-xs text-suave">
-        <p>Vindex PDF é da <a className="text-neon underline" href="https://venus-servidor.tonysantquees95.workers.dev/">Vetorial Tech</a>. Quem usa o Vindex no celular ou no Windows já tem estas ferramentas dentro do app.</p>
+        <p>Vindex PDF é da <a className="text-neon underline" href={SITE + "/"}>Vetorial Tech</a>. Quem usa o Vindex no celular ou no Windows já tem estas ferramentas dentro do app.</p>
       </footer>
     </div>
+  );
+}
+
+/** Embaixo das ferramentas: o que o Vindex PDF é e a vitrine da suíte Vetorial Tech. Só aparece na tela inicial. */
+function Sobre() {
+  const ponto = [
+    ["Grátis, sem cadastro", "Use quantas vezes quiser. Não precisa criar conta nem aceitar e-mails."],
+    ["Seus arquivos ficam com você", "A conversão acontece no seu celular ou computador. Nada é enviado para um servidor, por isso serve até para documentos pessoais."],
+    ["Do jeito que você usa", "Veja as páginas, escolha as que quer, converta entre PDF, Word e Excel e salve ou compartilhe na hora."],
+    ["Vira um aplicativo", "Coloque na tela inicial do celular ou do computador e abra com um toque, até sem internet."]
+  ];
+  return (
+    <>
+      <section aria-labelledby="sobre-titulo" className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
+        <h2 id="sobre-titulo" className="text-2xl font-extrabold">O que é o Vindex PDF</h2>
+        <p className="mt-2 max-w-3xl text-suave">Uma caixa de ferramentas completa para documentos: juntar, dividir, comprimir, girar, numerar, proteger com senha, e converter entre PDF, Word, Excel e imagens. Feita pela Vetorial Tech e sempre gratuita.</p>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {ponto.map(([t, d]) => <div key={t} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><h3 className="font-bold">{t}</h3><p className="mt-1 text-sm text-suave">{d}</p></div>)}
+        </div>
+      </section>
+      <section aria-labelledby="suite-titulo" className="space-y-3">
+        <div>
+          <h2 id="suite-titulo" className="text-2xl font-extrabold">Conheça a suíte Vetorial Tech</h2>
+          <p className="mt-1 max-w-3xl text-suave">O Vindex PDF é só o começo. Experimente os outros apps: o Velox e o Vyntem também são grátis.</p>
+        </div>
+        <Carrossel />
+      </section>
+    </>
   );
 }

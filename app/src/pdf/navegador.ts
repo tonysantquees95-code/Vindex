@@ -53,41 +53,25 @@ async function reduzirPaginas(pdf: Uint8Array, fator: number): Promise<Uint8Arra
   return doc.save({ useObjectStreams: true });
 }
 
-export interface LinhaDeTexto { texto: string; x: number; y: number; altura: number }
-export interface TextoDaPagina { pagina: number; linhas: LinhaDeTexto[] }
+import { agruparLinhas, type TextoDaPagina } from "./texto.ts";
+export type { LinhaDeTexto, TextoDaPagina } from "./texto.ts";
 
-/** Lê o texto de cada página, já agrupado em linhas (de cima para baixo). */
+/** Lê o texto de cada página, já agrupado em linhas (de cima para baixo) e em pedaços (colunas). */
 export async function lerTextoDasPaginas(dados: Uint8Array, senha?: string, progresso?: Progresso): Promise<TextoDaPagina[]> {
   const doc = await abrirPdf(dados, senha);
   try {
     const r: TextoDaPagina[] = [];
     for (let n = 1; n <= doc.numPages; n++) {
       const pagina = await doc.getPage(n);
+      const vista = pagina.getViewport({ scale: 1 });
       const conteudo = await pagina.getTextContent();
-      const itens = conteudo.items.filter((i): i is typeof i & { str: string; transform: number[]; height: number } => "str" in i && i.str.length > 0).map((i) => ({ str: i.str, x: i.transform[4], y: i.transform[5], h: i.height || Math.abs(i.transform[3]) }));
-      r.push({ pagina: n - 1, linhas: agruparLinhas(itens) });
+      const itens = conteudo.items.filter((i): i is typeof i & { str: string; transform: number[]; height: number; width: number } => "str" in i && i.str.length > 0).map((i) => ({ str: i.str, x: i.transform[4], y: i.transform[5], h: i.height || Math.abs(i.transform[3]), w: i.width || 0 }));
+      r.push({ pagina: n - 1, largura: vista.width, altura: vista.height, linhas: agruparLinhas(itens) });
       pagina.cleanup();
       progresso?.(n, doc.numPages);
     }
     return r;
   } finally { void doc.destroy(); }
-}
-
-/** Junta pedaços de texto que estão na mesma altura em uma linha, na ordem da esquerda para a direita. Lógica pura. */
-export function agruparLinhas(itens: { str: string; x: number; y: number; h: number }[]): LinhaDeTexto[] {
-  const ord = [...itens].sort((a, b) => b.y - a.y || a.x - b.x);
-  const linhas: { y: number; h: number; partes: { x: number; str: string; fim: number }[] }[] = [];
-  for (const it of ord) {
-    const l = linhas.find((q) => Math.abs(q.y - it.y) <= Math.max(2, Math.min(q.h, it.h) * 0.45));
-    const fim = it.x + it.str.length * it.h * 0.5;
-    if (l) l.partes.push({ x: it.x, str: it.str, fim }); else linhas.push({ y: it.y, h: it.h, partes: [{ x: it.x, str: it.str, fim }] });
-  }
-  return linhas.sort((a, b) => b.y - a.y).map((l) => {
-    const p = l.partes.sort((a, b) => a.x - b.x);
-    let t = "";
-    p.forEach((q, i) => { if (i) { const folga = q.x - p[i - 1].fim; t += folga > l.h * 0.15 && !t.endsWith(" ") && !q.str.startsWith(" ") ? " " : ""; } t += q.str; });
-    return { texto: t.replace(/\s+$/, ""), x: p[0].x, y: l.y, altura: l.h };
-  }).filter((l) => l.texto.trim().length);
 }
 
 /** Deixa a imagem em JPEG ou PNG (o PDF só embute esses dois): WebP, GIF, BMP etc. passam por uma tela. */
@@ -102,4 +86,38 @@ export async function normalizarImagem(dados: Uint8Array): Promise<{ dados: Uint
   ctx.drawImage(bmp, 0, 0);
   bmp.close();
   return { dados: await bytesDoCanvas(c, "jpeg", 0.92), tipo: "jpg" };
+}
+
+export interface Miniaturas { total: number; desenhar(n: number, largura: number): Promise<{ url: string; proporcao: number }>; fechar(): void }
+
+/** Abre o PDF para mostrar miniaturas das páginas, uma de cada vez (só as que aparecem na tela). */
+export async function abrirMiniaturas(dados: Uint8Array, senha?: string): Promise<Miniaturas> {
+  const doc = await abrirPdf(dados, senha);
+  let fila: Promise<unknown> = Promise.resolve();
+  const urls: string[] = [];
+  let fechado = false;
+  return {
+    total: doc.numPages,
+    desenhar(n, largura) {
+      const feito = fila.then(async () => {
+        if (fechado) throw new Error("fechado");
+        const pagina = await doc.getPage(n);
+        const base = pagina.getViewport({ scale: 1 });
+        const escala = Math.min(3, Math.max(0.2, largura / base.width));
+        const vp = pagina.getViewport({ scale: escala });
+        const c = canvasPara(Math.ceil(vp.width), Math.ceil(vp.height));
+        const ctx = c.getContext("2d")!;
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+        await pagina.render({ canvasContext: ctx, viewport: vp }).promise;
+        const bytes = await bytesDoCanvas(c, "jpeg", 0.75);
+        pagina.cleanup();
+        const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "image/jpeg" }));
+        urls.push(url);
+        return { url, proporcao: base.height / base.width };
+      });
+      fila = feito.catch(() => undefined);
+      return feito;
+    },
+    fechar() { fechado = true; urls.forEach((u) => URL.revokeObjectURL(u)); void doc.destroy(); }
+  };
 }

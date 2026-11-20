@@ -49,3 +49,15 @@ export function rotuloDe(paginas: number[]): string {
   }
   return partes.join(",");
 }
+
+/** Escreve as páginas (a partir de 0) como a pessoa digitaria: [0,1,2,4] → "1-3, 5". */
+export function compactar(paginas: number[]): string {
+  const ord = [...new Set(paginas)].sort((a, b) => a - b);
+  const partes: string[] = [];
+  for (let i = 0; i < ord.length;) {
+    let j = i; while (j + 1 < ord.length && ord[j + 1] === ord[j] + 1) j++;
+    partes.push(j > i ? (j === i + 1 ? `${ord[i] + 1}, ${ord[j] + 1}` : `${ord[i] + 1}-${ord[j] + 1}`) : String(ord[i] + 1));
+    i = j + 1;
+  }
+  return partes.join(", ");
+}

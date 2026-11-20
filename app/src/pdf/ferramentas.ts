@@ -18,15 +18,39 @@ export type Grupo = "organizar" | "otimizar" | "converter" | "editar" | "seguran
 export const GRUPOS: { id: Grupo; nome: string }[] = [
   { id: "organizar", nome: "Organizar" }, { id: "otimizar", nome: "Otimizar" }, { id: "converter", nome: "Converter" }, { id: "editar", nome: "Editar" }, { id: "seguranca", nome: "Segurança" }
 ];
+export type TipoDeEntrada = "pdf" | "imagem" | "docx" | "planilha";
+/** O que cada tipo de entrada aceita e como aparece na tela. */
+export const ENTRADAS: Record<TipoDeEntrada, { aceita: string; confere: (nome: string, mime: string) => boolean; um: string; varios: string; naoE: string; escolher: string; escolherVarios: string; icone: NomeIcone }> = {
+  pdf: { aceita: ".pdf,application/pdf", confere: (n, m) => /\.pdf$/i.test(n) || m === "application/pdf", um: "PDF", varios: "PDFs", naoE: "não é um PDF.", escolher: "Escolher PDF", escolherVarios: "Escolher PDFs", icone: "pdf_doc" },
+  imagem: { aceita: "image/*", confere: (n, m) => m.startsWith("image/") || /\.(jpe?g|png|webp|gif|bmp|avif)$/i.test(n), um: "Imagem", varios: "Imagens", naoE: "não é uma imagem.", escolher: "Escolher imagem", escolherVarios: "Escolher imagens", icone: "imagens" },
+  docx: { aceita: ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document", confere: (n) => /\.docx$/i.test(n), um: "Documento do Word", varios: "Documentos do Word", naoE: "não é um documento do Word (.docx).", escolher: "Escolher o Word", escolherVarios: "Escolher documentos", icone: "pdf_texto" },
+  planilha: { aceita: ".xlsx,.csv,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv", confere: (n) => /\.(xlsx|csv|tsv)$/i.test(n), um: "Planilha", varios: "Planilhas", naoE: "não é uma planilha (.xlsx ou .csv).", escolher: "Escolher a planilha", escolherVarios: "Escolher planilhas", icone: "pdf_comparar" }
+};
 export interface Execucao { saidas: Resultado[]; nota?: string }
 export interface Ferramenta {
   id: string; nome: string; texto: string; icone: NomeIcone; grupo: Grupo;
-  entrada: "pdf" | "imagem"; varios: boolean; ordenavel?: boolean;
+  entrada: TipoDeEntrada; varios: boolean; ordenavel?: boolean;
   campos: Campo[];
   rodar(arquivos: ArquivoPdf[], v: Valores, senha: string | undefined, progresso: (feito: number, total: number) => void): Promise<Execucao>;
 }
 
+/** Abas da versão web: a ferramenta aparece em cada formato que ela usa. */
+export type Formato = "pdf" | "word" | "excel" | "imagem";
+export const FORMATOS: { id: Formato; nome: string; texto: string }[] = [
+  { id: "pdf", nome: "PDF", texto: "Tudo para organizar, reduzir, editar e proteger PDFs." },
+  { id: "word", nome: "Word", texto: "Converta entre Word, PDF e Excel." },
+  { id: "excel", nome: "Excel", texto: "Converta planilhas entre Excel, PDF e Word." },
+  { id: "imagem", nome: "Imagem", texto: "Transforme fotos em PDF e páginas de PDF em imagens." }
+];
+const FORMATOS_DA_FERRAMENTA: Record<string, Formato[]> = {
+  "pdf-para-word": ["word", "pdf"], "word-para-pdf": ["word", "pdf"], "word-para-excel": ["word", "excel"], "excel-para-word": ["word", "excel"],
+  "pdf-para-excel": ["excel", "pdf"], "excel-para-pdf": ["excel", "pdf"], "imagem-para-pdf": ["imagem", "pdf"], "pdf-para-imagem": ["imagem", "pdf"]
+};
+export const formatosDe = (f: { id: string }): Formato[] => FORMATOS_DA_FERRAMENTA[f.id] ?? ["pdf"];
+
 export const PDF = "application/pdf";
+export const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+export const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 export const semExtensao = (nome: string): string => nome.replace(/\.[^.\\/]+$/, "");
 const pdf = (nome: string, dados: Uint8Array): Resultado => ({ nome, dados, mime: PDF });
 const txt = (v: Valores, id: string): string => String(v[id] ?? "").trim();
@@ -43,19 +67,27 @@ export const FERRAMENTAS: Ferramenta[] = [
     async rodar(a, _v, senha) { return { saidas: [pdf("Juntado.pdf", await ed.juntar(a.map((x) => ({ dados: x.dados, senha }))))] }; }
   },
   {
-    id: "dividir", nome: "Dividir PDF", texto: "Separa um PDF em vários: por trechos, a cada tantas páginas ou página por página.", icone: "pdf_dividir", grupo: "organizar", entrada: "pdf", varios: false,
+    id: "dividir", nome: "Dividir PDF", texto: "Separa um PDF em vários: escolha as páginas olhando a prévia (o resto vai para outro arquivo), ou divida por trechos, a cada tantas páginas ou página por página.", icone: "pdf_dividir", grupo: "organizar", entrada: "pdf", varios: false,
     campos: [
-      { id: "modo", tipo: "escolha", rotulo: "Como dividir", padrao: "trechos", opcoes: [{ id: "trechos", nome: "Por trechos" }, { id: "cada", nome: "A cada N páginas" }, { id: "todas", nome: "Página por página" }] },
+      { id: "modo", tipo: "escolha", rotulo: "Como dividir", padrao: "escolhidas", opcoes: [{ id: "escolhidas", nome: "Escolher páginas" }, { id: "trechos", nome: "Por trechos" }, { id: "cada", nome: "A cada N páginas" }, { id: "todas", nome: "Página por página" }] },
+      { id: "paginas", tipo: "texto", rotulo: "Páginas para o 1º arquivo (o resto vai para o 2º)", dica: "Toque nas páginas acima ou escreva: 3, 5", padrao: "", so: (v) => v.modo === "escolhidas" },
       { id: "trechos", tipo: "texto", rotulo: "Trechos (um arquivo para cada)", dica: "Exemplo: 1-3; 4-6; 7-", padrao: "", so: (v) => v.modo === "trechos" },
       { id: "n", tipo: "numero", rotulo: "Páginas por arquivo", min: 1, max: 500, padrao: 1, so: (v) => v.modo === "cada" }
     ],
     async rodar(a, v, senha) {
       const total = await ed.contarPaginas(a[0].dados, senha);
-      const grupos = v.modo === "trechos" ? gruposDe(txt(v, "trechos"), total) : v.modo === "cada" ? blocosDe(total, num(v, "n")) : blocosDe(total, 1);
+      let grupos: number[][];
+      let rotulos: string[] | null = null;
+      if (v.modo === "escolhidas") {
+        const quais = [...new Set(lerPaginas(txt(v, "paginas"), total))];
+        const resto = todas(total).filter((p) => !quais.includes(p));
+        grupos = resto.length ? [quais, resto] : [quais];
+        rotulos = resto.length ? [`páginas ${rotuloDe(quais)}`, "restante"] : [`páginas ${rotuloDe(quais)}`];
+      } else grupos = v.modo === "trechos" ? gruposDe(txt(v, "trechos"), total) : v.modo === "cada" ? blocosDe(total, num(v, "n")) : blocosDe(total, 1);
       if (grupos.length > 300) throw new Error("Isso geraria arquivos demais (mais de 300). Escolha trechos maiores.");
       const partes = await ed.dividir(a[0].dados, grupos, senha);
       const base = semExtensao(a[0].nome);
-      return { saidas: partes.map((d, i) => pdf(`${base} (páginas ${rotuloDe(grupos[i])}).pdf`, d)), nota: `${partes.length} ${partes.length === 1 ? "arquivo" : "arquivos"}.` };
+      return { saidas: partes.map((d, i) => pdf(`${base} (${rotulos ? rotulos[i] : "páginas " + rotuloDe(grupos[i])}).pdf`, d)), nota: `${partes.length} ${partes.length === 1 ? "arquivo" : "arquivos"}.` };
     }
   },
   {
@@ -138,6 +170,65 @@ export const FERRAMENTAS: Ferramenta[] = [
       const lista = await paginasComoImagens(a[0].dados, { escala: Number(v.escala), formato: fmt, paginas: paginasOuTodas(txt(v, "paginas"), total), senha, progresso });
       const base = semExtensao(a[0].nome), ext = fmt === "png" ? "png" : "jpg";
       return { saidas: lista.map((p) => ({ nome: `${base} - página ${p.pagina + 1}.${ext}`, dados: p.dados, mime: `image/${fmt}` })) };
+    }
+  },
+  {
+    id: "pdf-para-word", nome: "PDF para Word", texto: "Transforma o texto do PDF em um documento do Word que você pode editar. Imagens e o desenho exato da página não vão.", icone: "pdf_texto", grupo: "converter", entrada: "pdf", varios: false,
+    campos: [PAGINAS("Só estas páginas (vazio = todas)")],
+    async rodar(a, v, senha, progresso) {
+      const total = await ed.contarPaginas(a[0].dados, senha);
+      const quais = paginasOuTodas(txt(v, "paginas"), total);
+      const { lerTextoDasPaginas } = await import("./navegador.ts");
+      const { docxDeTextoDePdf } = await import("./converter.ts");
+      const paginas = (await lerTextoDasPaginas(a[0].dados, senha, progresso)).filter((p) => quais.includes(p.pagina));
+      const { dados, blocos } = await docxDeTextoDePdf(paginas);
+      return { saidas: [{ nome: `${semExtensao(a[0].nome)}.docx`, dados, mime: DOCX }], nota: `${blocos} trechos de texto levados para o Word. Confira títulos e listas.` };
+    }
+  },
+  {
+    id: "word-para-pdf", nome: "Word para PDF", texto: "Transforma um documento do Word em PDF. Leva o texto, os títulos, as listas e as tabelas; imagens não entram.", icone: "pdf_doc", grupo: "converter", entrada: "docx", varios: false, campos: [],
+    async rodar(a) {
+      const { pdfDeDocx } = await import("./converter.ts");
+      const r = await pdfDeDocx(a[0].dados);
+      return { saidas: [pdf(`${semExtensao(a[0].nome)}.pdf`, r.dados)], nota: r.imagens ? `${r.imagens} imagem(ns) do documento não foram levadas para o PDF.` : undefined };
+    }
+  },
+  {
+    id: "pdf-para-excel", nome: "PDF para Excel", texto: "Pega o texto do PDF e organiza em colunas numa planilha (uma aba por página). Funciona melhor em PDFs de tabelas.", icone: "pdf_comparar", grupo: "converter", entrada: "pdf", varios: false,
+    campos: [PAGINAS("Só estas páginas (vazio = todas)")],
+    async rodar(a, v, senha, progresso) {
+      const total = await ed.contarPaginas(a[0].dados, senha);
+      const quais = paginasOuTodas(txt(v, "paginas"), total);
+      const { lerTextoDasPaginas } = await import("./navegador.ts");
+      const { xlsxDeTextoDePdf } = await import("./converter.ts");
+      const paginas = (await lerTextoDasPaginas(a[0].dados, senha, progresso)).filter((p) => quais.includes(p.pagina));
+      const { dados, abas } = await xlsxDeTextoDePdf(paginas);
+      return { saidas: [{ nome: `${semExtensao(a[0].nome)}.xlsx`, dados, mime: XLSX }], nota: `${abas} aba(s) criada(s). Confira as colunas antes de usar os números.` };
+    }
+  },
+  {
+    id: "excel-para-pdf", nome: "Excel para PDF", texto: "Transforma uma planilha (xlsx ou csv) em PDF: cada aba vira uma tabela. Fórmulas saem com o resultado.", icone: "pdf_doc", grupo: "converter", entrada: "planilha", varios: false, campos: [],
+    async rodar(a) {
+      const { abrirPlanilha } = await import("./planilhas.ts");
+      const { pdfDePlanilha } = await import("./converter.ts");
+      const dados = await pdfDePlanilha(await abrirPlanilha(a[0].nome, a[0].dados));
+      return { saidas: [pdf(`${semExtensao(a[0].nome)}.pdf`, dados)] };
+    }
+  },
+  {
+    id: "word-para-excel", nome: "Word para Excel", texto: "Leva as tabelas do Word para uma planilha (uma aba por tabela). Se não houver tabelas, cada parágrafo vira uma linha.", icone: "pdf_comparar", grupo: "converter", entrada: "docx", varios: false, campos: [],
+    async rodar(a) {
+      const { xlsxDeDocx } = await import("./converter.ts");
+      const r = await xlsxDeDocx(a[0].dados);
+      return { saidas: [{ nome: `${semExtensao(a[0].nome)}.xlsx`, dados: r.dados, mime: XLSX }], nota: r.tabelas ? `${r.tabelas} tabela(s) levada(s).` : "O documento não tem tabelas: o texto foi para uma aba só." };
+    }
+  },
+  {
+    id: "excel-para-word", nome: "Excel para Word", texto: "Coloca a planilha em um documento do Word: cada aba vira um título e uma tabela.", icone: "pdf_texto", grupo: "converter", entrada: "planilha", varios: false, campos: [],
+    async rodar(a) {
+      const { abrirPlanilha } = await import("./planilhas.ts");
+      const { docxDePlanilha } = await import("./converter.ts");
+      return { saidas: [{ nome: `${semExtensao(a[0].nome)}.docx`, dados: await docxDePlanilha(await abrirPlanilha(a[0].nome, a[0].dados)), mime: DOCX }] };
     }
   },
   {

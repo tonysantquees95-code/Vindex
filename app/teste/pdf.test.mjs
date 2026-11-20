@@ -151,3 +151,105 @@ test("ferramentas: edição, comprimir simples e senha", async () => {
   assert.equal(await contarPaginas(livre.saidas[0].dados), 3);
   await assert.rejects(() => rodar("extrair", [{ nome: "p.pdf", dados: p.saidas[0].dados }], { paginas: "1" }), (e) => e instanceof SenhaDoPdf);
 });
+
+// ---------------------------------------------------------------- conversões e texto
+import { agruparLinhas, blocosDe as blocosDoPdf, tabelaDaPagina } from "../src/pdf/texto.ts";
+import { blocosDoDocx, docxDeBlocos, pdfDeBlocos, pdfDeDocx, pdfDePlanilha, docxDePlanilha, xlsxDeFolhas, xlsxDeDocx, docxDeTextoDePdf, xlsxDeTextoDePdf, numeroDe } from "../src/pdf/converter.ts";
+import { abrirPlanilha } from "../src/pdf/planilhas.ts";
+import { Docx } from "../src/leitor/docx.ts";
+
+const it = (str, x, y, h = 11, w = str.length * 5.5) => ({ str, x, y, h, w });
+const pagina = (itens, n = 0) => ({ pagina: n, largura: 595, altura: 842, linhas: agruparLinhas(itens) });
+
+test("texto: junta pedaços da linha, separa colunas e ignora espaços de preenchimento", () => {
+  const l = agruparLinhas([it("Olá", 50, 700), it(" ", 70, 700, 0, 3), it("mundo", 69.5, 700), it("Valor", 300, 700), it("Linha de baixo", 50, 680)]);
+  assert.equal(l.length, 2);
+  assert.deepEqual(l[0].partes.map((p) => p.texto), ["Olá mundo", "Valor"]);
+  assert.equal(l[1].texto, "Linha de baixo");
+});
+
+test("texto: títulos, parágrafos que continuam, listas e tabelas", () => {
+  const p = pagina([
+    it("Título grande", 50, 780, 20), it("Primeira linha do parágrafo que segue", 50, 740), it("continuação do mesmo parágrafo", 50, 727),
+    it("•", 50, 700), it("item da lista", 62, 700),
+    it("Nome", 50, 650), it("Qtd", 200, 650), it("Pão", 50, 637), it("3", 205, 637), it("Leite", 50, 624), it("12", 203, 624)
+  ]);
+  const b = blocosDoPdf([p]);
+  assert.equal(b[0].tipo, "titulo"); assert.equal(b[0].texto, "Título grande");
+  assert.equal(b[1].tipo, "paragrafo"); assert.match(b[1].texto, /parágrafo que segue continuação/);
+  assert.deepEqual(b.filter((x) => x.tipo === "item").map((x) => x.texto), ["item da lista"]);
+  const t = b.find((x) => x.tipo === "tabela");
+  assert.deepEqual(t.linhas, [["Nome", "Qtd"], ["Pão", "3"], ["Leite", "12"]]);
+});
+
+test("texto: números à direita caem na coluna do título", () => {
+  const p = pagina([it("Produto", 50, 700), it("Valor", 200, 700), it("Caneta", 50, 686), it("1234,5", 215, 686), it("Total", 50, 672), it("9,00", 230, 672)]);
+  assert.deepEqual(tabelaDaPagina(p), [["Produto", "Valor"], ["Caneta", "1234,5"], ["Total", "9,00"]]);
+});
+
+test("números: formato brasileiro vira número, CPF e códigos com zero ficam texto", () => {
+  assert.equal(numeroDe("1.234,56"), 1234.56); assert.equal(numeroDe("12,5"), 12.5); assert.equal(numeroDe("-7"), -7); assert.equal(numeroDe("3.5"), 3.5);
+  assert.equal(numeroDe("0,5"), 0.5);
+  assert.equal(numeroDe("007"), null); assert.equal(numeroDe("123.456.789-00"), null); assert.equal(numeroDe("abc"), null);
+});
+
+test("Word: gerar, ler de volta, abrir no leitor e converter para PDF", async () => {
+  const blocos = [
+    { tipo: "titulo", nivel: 1, texto: "Relatório" }, { tipo: "paragrafo", texto: "Texto com acentuação: ação & coração <ok>." },
+    { tipo: "item", texto: "Primeiro" }, { tipo: "tabela", linhas: [["A", "B"], ["1", "2"]] }, { tipo: "paragrafo", texto: "Fim", paginaNova: true }
+  ];
+  const dados = await docxDeBlocos(blocos);
+  const lido = await blocosDoDocx(dados);
+  assert.deepEqual(lido.blocos.map((b) => b.tipo), ["titulo", "paragrafo", "item", "tabela", "paragrafo"]);
+  assert.equal(lido.blocos[1].texto, "Texto com acentuação: ação & coração <ok>.");
+  assert.equal(lido.blocos[4].paginaNova, true);
+  assert.ok((await Docx.abrir(dados)).paragrafos.some((p) => p.titulo === 1 && p.texto === "Relatório")); // o leitor do Vindex abre o que geramos
+  const pdfBytes = (await pdfDeDocx(dados)).dados;
+  assert.equal((await PDFDocument.load(pdfBytes)).getPageCount(), 2);
+  await assert.rejects(() => blocosDoDocx(new Uint8Array([1, 2, 3])));
+});
+
+test("Word → PDF: texto longo quebra de página e linhas", async () => {
+  const longo = "palavra ".repeat(900);
+  const pdfBytes = await pdfDeBlocos([{ tipo: "paragrafo", texto: longo }, { tipo: "paragrafo", texto: "x".repeat(400) }]);
+  const d = await PDFDocument.load(pdfBytes);
+  assert.ok(d.getPageCount() >= 2);
+});
+
+test("Excel: planilha → xlsx → leitura, e para PDF e Word", async () => {
+  const dados = await xlsxDeFolhas([{ nome: "Vendas", linhas: [["Produto", "Valor"], ["Caneta", "1.234,50"], ["007", "x & y"]] }, { nome: "Vendas", linhas: [["a"]] }]);
+  const pl = await abrirPlanilha("v.xlsx", dados);
+  assert.deepEqual(pl.abas, ["Vendas", "Vendas 2"]);
+  assert.equal(pl.ler(0, 2, 2), "1234.5"); // número de verdade
+  assert.equal(pl.ler(0, 3, 1), "007"); // texto preservado
+  assert.equal(pl.ler(0, 3, 2), "x & y");
+  const pdfBytes = await pdfDePlanilha(pl);
+  assert.ok((await PDFDocument.load(pdfBytes)).getPageCount() >= 2);
+  const word = await blocosDoDocx(await docxDePlanilha(pl));
+  assert.equal(word.blocos.filter((b) => b.tipo === "tabela").length, 2);
+  const csv = await abrirPlanilha("a.csv", new TextEncoder().encode("nome;qtd\nPão;3\n"));
+  assert.equal((await PDFDocument.load(await pdfDePlanilha(csv))).getPageCount(), 1);
+});
+
+test("Word → Excel: tabelas viram abas; sem tabela vira uma aba de texto", async () => {
+  const com = await xlsxDeDocx(await docxDeBlocos([{ tipo: "tabela", linhas: [["a", "b"], ["1", "2"]] }, { tipo: "tabela", linhas: [["x"]] }]));
+  assert.equal(com.tabelas, 2);
+  assert.deepEqual((await abrirPlanilha("a.xlsx", com.dados)).abas, ["Tabela 1", "Tabela 2"]);
+  const sem = await xlsxDeDocx(await docxDeBlocos([{ tipo: "paragrafo", texto: "linha 1" }, { tipo: "paragrafo", texto: "linha 2" }]));
+  assert.equal(sem.tabelas, 0);
+  assert.equal((await abrirPlanilha("a.xlsx", sem.dados)).ler(0, 2, 1), "linha 2");
+});
+
+test("PDF → Word e PDF → Excel a partir do texto lido", async () => {
+  const p = pagina([it("Título grande", 50, 780, 20), it("Nome", 50, 700), it("Qtd", 200, 700), it("Pão", 50, 686), it("3", 201, 686)]);
+  const w = await docxDeTextoDePdf([p]);
+  const lido = await blocosDoDocx(w.dados);
+  assert.equal(lido.blocos[0].tipo, "titulo");
+  assert.deepEqual(lido.blocos[1].linhas, [["Nome", "Qtd"], ["Pão", "3"]]);
+  const x = await xlsxDeTextoDePdf([p]);
+  const pl = await abrirPlanilha("a.xlsx", x.dados);
+  assert.equal(pl.abas[0], "Página 1");
+  assert.equal(pl.ler(0, 3, 2), "3");
+  await assert.rejects(() => docxDeTextoDePdf([pagina([])]), /Não achei texto/);
+  await assert.rejects(() => xlsxDeTextoDePdf([pagina([])]), /Não achei texto/);
+});
