@@ -26,13 +26,7 @@
   },
   "bundle": {
     "active": true,
-    "fileAssociations": [
-      { "ext": ["pdf"], "name": "Documento PDF", "description": "Documento PDF", "role": "Viewer" },
-      { "ext": ["docx"], "name": "Documento do Word", "description": "Documento do Word", "role": "Editor" },
-      { "ext": ["xlsx"], "name": "Planilha do Excel", "description": "Planilha do Excel", "role": "Editor" },
-      { "ext": ["pptx"], "name": "Apresentação do PowerPoint", "description": "Apresentação do PowerPoint", "role": "Editor" },
-      { "ext": ["csv"], "name": "Tabela CSV", "description": "Tabela CSV", "role": "Editor" }
-    ],
+    "resources": ["recursos/documento.ico"],
     "targets": [
       "nsis"
     ],

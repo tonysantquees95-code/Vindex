@@ -256,6 +256,8 @@ export function App() {
 
   if (apresentar) return <Apresentacao aoConcluir={() => { setNovidades([]); setApresentar(false); }} />;
   if (!demo && !sessao) return <Conta aparelho={aparelho} aoEntrar={definir} />;
+  // ler um documento não depende de internet: mesmo com a licença pedindo para confirmar online (ex.: sem rede há muitos dias), o leitor abre
+  if (docAberto && sessao && estadoTrava?.tipo === "validar_online") return <Suspense fallback={null}><Leitor doc={docAberto} aoFechar={() => setDocAberto(null)} /></Suspense>;
   if (!demo && sessao && estadoTrava?.tipo === "validar_online") return <TelaConfirmando motivo={estadoTrava.motivo} aoVerificar={revalidar} aoSair={() => { void sair(sessao.token); definir(null); }} />;
   if (!demo && sessao && estadoTrava?.tipo === "teste_acabou") return <TelaTesteAcabou sessao={sessao} aoVerificar={revalidar} aoSair={() => { void sair(sessao.token); definir(null); }} />;
   const lista = permissoes.lista;
