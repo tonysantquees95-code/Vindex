@@ -1,0 +1,4 @@
+@import "../index.css";
+@source "..";
+html { background: #05070d; }
+body { background: radial-gradient(1200px 600px at 50% -10%, color-mix(in srgb, var(--color-neon) 14%, transparent), transparent), #05070d; min-height: 100dvh; }

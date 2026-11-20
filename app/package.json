@@ -8,7 +8,9 @@
     "build": "tsc -p tsconfig.json && vite build",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test teste/*.test.mjs",
-    "test:visual": "node teste-visual/telas.mjs"
+    "test:visual": "node teste-visual/telas.mjs",
+    "build:pdf": "tsc -p tsconfig.json && vite build -c vite.pdf.config.ts && node scripts/montar-pdf-web.mjs",
+    "dev:pdf": "vite -c vite.pdf.config.ts"
   },
   "dependencies": {
     "@cantoo/pdf-lib": "^2.11.1",

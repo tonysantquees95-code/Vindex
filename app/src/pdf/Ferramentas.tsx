@@ -146,8 +146,10 @@ function PainelDaFerramenta({ f, saida, aoVoltar }: { f: Ferramenta; saida: Said
 }
 
 /** A grade de ferramentas do Vindex PDF. `saida` diz como salvar e compartilhar (no app ou no navegador). */
-export function FerramentasPdf({ saida, cabeca }: { saida: SaidaPdf; cabeca?: ReactNode }) {
-  const [aberta, setAberta] = useState<string | null>(() => { try { return new URLSearchParams(location.search).get("ferramenta"); } catch { return null; } });
+export function FerramentasPdf({ saida, cabeca, inicial = null, aoMudar }: { saida: SaidaPdf; cabeca?: ReactNode; inicial?: string | null; aoMudar?: (id: string | null) => void }) {
+  const [aberta, setAbertaEstado] = useState<string | null>(inicial);
+  const setAberta = (id: string | null) => { setAbertaEstado(id); aoMudar?.(id); };
+  useEffect(() => { const volta = () => setAbertaEstado(null); window.addEventListener("vindexpdf-voltar", volta); return () => window.removeEventListener("vindexpdf-voltar", volta); }, []);
   const f = FERRAMENTAS.find((x) => x.id === aberta);
   useEffect(() => { window.scrollTo?.({ top: 0 }); }, [aberta]);
   if (f) return <PainelDaFerramenta key={f.id} f={f} saida={saida} aoVoltar={() => setAberta(null)} />;
