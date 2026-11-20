@@ -23,3 +23,8 @@
 - Segurança: nada é enviado ao servidor; macros e links dos documentos nunca são executados; o original de outro app nunca é alterado (trabalha-se numa cópia temporária).
 - O worker do pdf.js sai como `.js` (ver `vite.config.ts`) e a CSP do Tauri libera `worker-src 'self' blob:`.
 - Teste visual: cenários `leitor-*` em `teste-visual/config.mjs`, com documentos gerados por `teste-visual/exemplos.mjs`.
+
+## Vindex PDF (ferramentas de PDF)
+- Código em `app/src/pdf/`: `paginas.ts` (escolha de páginas por texto), `editar.ts` (juntar, dividir, extrair, apagar, organizar, girar, cortar, marca d'água, numerar, reparar, otimizar, proteger/desbloquear, imagens→PDF; usa `@cantoo/pdf-lib`, o pdf-lib com senha), `navegador.ts` (pdf.js + canvas: PDF→imagem, compressão forte, texto das páginas), `ferramentas.ts` (a lista: cada ferramenta diz o que pede e o que faz), `Ferramentas.tsx` (a grade e o painel, montados a partir da lista), `saida.ts` (salvar/compartilhar no app ou no navegador), `LogoPdf.tsx`.
+- Ferramenta nova = uma entrada em `FERRAMENTAS` + um teste em `app/teste/pdf.test.mjs` + um cenário `pdf-*` em `teste-visual/config.mjs`. Módulos de lógica não usam `DOMParser`, e os que o teste do Node importa levam `.ts` nos imports.
+- Tudo roda no aparelho (nada é enviado). A aba "PDF" do Vindex é `telas/Pdf.tsx`.

@@ -40,6 +40,7 @@ import { Apresentacao } from "./telas/Apresentacao";
 import { Novidades } from "./telas/Novidades";
 import { LogoVivo } from "./logo";
 import { Widgets } from "./telas/Widgets";
+import { PdfTela } from "./telas/Pdf";
 
 const ABAS: readonly { id: string; rotulo: string; icone: NomeIcone }[] = [
   { id: "painel", rotulo: "Painel", icone: "painel" },
@@ -47,6 +48,7 @@ const ABAS: readonly { id: string; rotulo: string; icone: NomeIcone }[] = [
   { id: "desempenho", rotulo: "Desempenho", icone: "desempenho" },
   { id: "widgets", rotulo: "Widgets", icone: "widgets" },
   { id: "arquivos", rotulo: "Arquivos", icone: "arquivos" },
+  { id: "pdf", rotulo: "PDF", icone: "pdf_doc" },
   { id: "regras", rotulo: "Regras", icone: "regras" },
   { id: "descompactar", rotulo: "Descompactar", icone: "descompactar" },
   { id: "apps", rotulo: "Desinstalar", icone: "apps" },
@@ -55,7 +57,7 @@ const ABAS: readonly { id: string; rotulo: string; icone: NomeIcone }[] = [
   { id: "ajustes", rotulo: "Ajustes", icone: "ajustes" },
   { id: "conta", rotulo: "Conta", icone: "conta" }
 ] as const;
-type IdAba = "painel" | "otimizar" | "desempenho" | "widgets" | "arquivos" | "regras" | "descompactar" | "apps" | "seguranca" | "cofre" | "ajustes" | "conta";
+type IdAba = "painel" | "otimizar" | "desempenho" | "widgets" | "arquivos" | "pdf" | "regras" | "descompactar" | "apps" | "seguranca" | "cofre" | "ajustes" | "conta";
 
 export function App() {
   const motor = useMotor();
@@ -273,6 +275,7 @@ export function App() {
     desempenho: <Desempenho />,
     widgets: <Widgets />,
     arquivos: <Arquivos abrirEm={pastaPedida} aoAbrirDocumento={setDocAberto} />,
+    pdf: <PdfTela />,
     regras: <RegrasTela />,
     descompactar: <Descompactar inicio={inicio} aoUsarInicio={() => setInicio(null)} />,
     apps: <Desinstalar />,

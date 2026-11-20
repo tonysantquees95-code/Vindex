@@ -16,6 +16,22 @@ async function abrirDoc(p, ajuda, nome, bytes) {
   await p.getByRole("region", { name: /^Leitor:/ }).waitFor();
   await p.waitForTimeout(900);
 }
+
+/** Abre uma ferramenta do Vindex PDF pela aba PDF. */
+async function ferramenta(p, ajuda, nome) {
+  await ajuda.aba(p, "PDF");
+  await p.getByRole("heading", { name: "Vindex PDF" }).waitFor();
+  await p.getByRole("button", { name: new RegExp(`^${nome}`) }).click();
+  await p.getByRole("heading", { name: nome }).waitFor();
+}
+/** Escolhe arquivos pelo botão da ferramenta (o seletor de arquivos é simulado). */
+async function escolher(p, botao, arquivos) {
+  const [escolha] = await Promise.all([p.waitForEvent("filechooser"), p.getByRole("button", { name: botao }).click()]);
+  await escolha.setFiles(await Promise.all(arquivos.map(async ([name, bytes, mimeType]) => ({ name, mimeType: mimeType ?? "application/pdf", buffer: Buffer.from(await bytes) }))));
+  await p.waitForTimeout(300);
+}
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+const pronto = (p) => p.getByRole("heading", { name: "Pronto" }).waitFor({ timeout: 20000 });
 const leitor = (p) => p.getByRole("region", { name: /^Leitor:/ });
 
 export default {
@@ -29,6 +45,15 @@ export default {
   cenarios: [
     ["primeira-abertura", "primeira", async () => {}],
     ["o-que-ha-de-novo", "atualizou", async (p) => { await p.getByText("O que há de novo").first().waitFor(); }],
+    ["pdf-grade", "normal", async (p, a) => { await a.aba(p, "PDF"); await p.getByRole("heading", { name: "Vindex PDF" }).waitFor(); await p.getByRole("button", { name: /^Juntar PDF/ }).waitFor(); }],
+    ["pdf-juntar", "normal", async (p, a) => { await ferramenta(p, a, "Juntar PDF"); await escolher(p, "Escolher PDFs", [["a.pdf", ex.pdf(2)], ["b.pdf", ex.pdf(3)]]); await p.getByRole("button", { name: "Descer a.pdf" }).click(); await p.getByRole("button", { name: /^Juntar PDF$/ }).last().click(); await pronto(p); }],
+    ["pdf-dividir", "normal", async (p, a) => { await ferramenta(p, a, "Dividir PDF"); await escolher(p, "Escolher PDF", [["relatorio.pdf", ex.pdf(5)]]); await p.getByPlaceholder(/Exemplo: 1-3; 4-6/).fill("1-2; 3-"); await p.getByRole("button", { name: /^Dividir PDF$/ }).last().click(); await pronto(p); await p.getByRole("button", { name: "Salvar tudo (.zip)" }).waitFor(); }],
+    ["pdf-extrair-erro", "normal", async (p, a) => { await ferramenta(p, a, "Extrair páginas"); await escolher(p, "Escolher PDF", [["relatorio.pdf", ex.pdf(3)]]); await p.getByPlaceholder(/Exemplo: 1-3, 5/).fill("9"); await p.getByRole("button", { name: /^Extrair páginas$/ }).last().click(); await p.getByRole("alert").waitFor(); }],
+    ["pdf-comprimir", "normal", async (p, a) => { await ferramenta(p, a, "Comprimir PDF"); await escolher(p, "Escolher PDF", [["relatorio.pdf", ex.pdf(3)]]); await p.getByRole("button", { name: "Média" }).click(); await p.getByRole("button", { name: /^Comprimir PDF$/ }).last().click(); await pronto(p); }],
+    ["pdf-para-imagem", "normal", async (p, a) => { await ferramenta(p, a, "PDF para imagem"); await escolher(p, "Escolher PDF", [["relatorio.pdf", ex.pdf(2)]]); await p.getByRole("button", { name: /^PDF para imagem$/ }).last().click(); await pronto(p); await p.getByRole("button", { name: "Salvar tudo (.zip)" }).waitFor(); }],
+    ["pdf-imagem-para-pdf", "normal", async (p, a) => { await ferramenta(p, a, "Imagem para PDF"); await escolher(p, "Escolher imagens", [["foto.png", PNG, "image/png"]]); await p.getByRole("button", { name: /^Imagem para PDF$/ }).last().click(); await pronto(p); }],
+    ["pdf-proteger", "normal", async (p, a) => { await ferramenta(p, a, "Proteger com senha"); await escolher(p, "Escolher PDF", [["relatorio.pdf", ex.pdf(2)]]); const campos = p.locator("input[type=password]"); await campos.nth(0).fill("segredo1"); await campos.nth(1).fill("segredo1"); await p.getByRole("button", { name: /^Proteger com senha$/ }).last().click(); await pronto(p); }],
+    ["pdf-marca-dagua", "normal", async (p, a) => { await ferramenta(p, a, "Marca d'água"); await escolher(p, "Escolher PDF", [["relatorio.pdf", ex.pdf(2)]]); await p.getByPlaceholder("Exemplo: CONFIDENCIAL").fill("RASCUNHO"); await p.getByRole("button", { name: /^Marca d'água$/ }).last().click(); await pronto(p); }],
     ["leitor-pdf", "normal", async (p, a) => { await abrirDoc(p, a, "relatorio.pdf", ex.pdf()); }],
     ["leitor-pdf-anotar", "normal", async (p, a) => { await abrirDoc(p, a, "relatorio.pdf", ex.pdf()); await leitor(p).getByRole("button", { name: "Anotar no PDF" }).click(); await leitor(p).getByRole("button", { name: "Caneta" }).click(); const c = await p.locator("[data-pagina='1'] svg").boundingBox(); const y0 = Math.max(c.y, 0) + 20; await p.mouse.move(c.x + c.width * 0.2, y0); await p.mouse.down(); await p.mouse.move(c.x + c.width * 0.6, y0 + 25, { steps: 6 }); await p.mouse.up(); await p.waitForTimeout(200); await leitor(p).getByText("alterado").first().waitFor(); }],
     ["leitor-pdf-assinar", "normal", async (p, a) => { await abrirDoc(p, a, "relatorio.pdf", ex.pdf()); await leitor(p).getByRole("button", { name: "Anotar no PDF" }).click(); await leitor(p).getByRole("button", { name: "Assinar" }).click(); await p.getByRole("dialog", { name: "Sua assinatura" }).waitFor(); }],

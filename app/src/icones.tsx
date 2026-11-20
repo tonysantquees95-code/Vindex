@@ -13,7 +13,7 @@ function Svg({ children, tam = 24, style, ...r }: SVGProps<SVGSVGElement> & { ta
 }
 const L = { fill: "none" } as const;
 
-export type NomeIcone = "painel" | "otimizar" | "arquivos" | "regras" | "descompactar" | "seguranca" | "cofre" | "conta" | "ajustes" | "menu" | "fechar" | "atualizar" | "rede" | "pasta" | "recentes" | "imagens" | "videos" | "audios" | "documentos" | "planilhas" | "apresentacoes" | "compactados" | "instaladores" | "codigo" | "outros" | "apps" | "desempenho" | "widgets" | "voltar" | "compartilhar" | "salvar" | "imprimir" | "editar" | "mais" | "caneta" | "marcatexto" | "texto" | "assinatura" | "desfazer" | "buscar" | "noite" | "renomear" | "info" | "lixo" | "mais_item";
+export type NomeIcone = "painel" | "otimizar" | "arquivos" | "regras" | "descompactar" | "seguranca" | "cofre" | "conta" | "ajustes" | "menu" | "fechar" | "atualizar" | "rede" | "pasta" | "recentes" | "imagens" | "videos" | "audios" | "documentos" | "planilhas" | "apresentacoes" | "compactados" | "instaladores" | "codigo" | "outros" | "apps" | "desempenho" | "widgets" | "voltar" | "compartilhar" | "salvar" | "imprimir" | "editar" | "mais" | "caneta" | "marcatexto" | "texto" | "assinatura" | "desfazer" | "buscar" | "noite" | "renomear" | "info" | "lixo" | "mais_item" | "pdf_juntar" | "pdf_dividir" | "pdf_extrair" | "pdf_apagar" | "pdf_organizar" | "pdf_girar" | "pdf_cortar" | "pdf_marca" | "pdf_numero" | "pdf_senha" | "pdf_abrir" | "pdf_reparar" | "pdf_comprimir" | "pdf_de_imagem" | "pdf_para_imagem" | "pdf_doc" | "pdf_texto" | "pdf_comparar";
 
 const DESENHOS: Record<NomeIcone, ReactElement> = {
   painel: <><rect x="3.5" y="3.5" width="7" height="7" rx="2" /><rect x="13.5" y="3.5" width="7" height="4.5" rx="2" {...L} /><rect x="13.5" y="11" width="7" height="9.5" rx="2" /><rect x="3.5" y="13.5" width="7" height="7" rx="2" {...L} /></>,
@@ -60,6 +60,24 @@ const DESENHOS: Record<NomeIcone, ReactElement> = {
   info: <g {...L}><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.2M12 7.8v.4" /></g>,
   lixo: <g {...L}><path d="M5 7h14M9.5 7V4.5h5V7M7 7l.8 12.5h8.4L17 7" /></g>,
   mais_item: <g {...L}><path d="M12 5v14M5 12h14" /></g>,
+  pdf_juntar: <g {...L}><rect x="3.5" y="4" width="9" height="11" rx="2" /><rect x="11.5" y="9" width="9" height="11" rx="2" /></g>,
+  pdf_dividir: <g {...L}><path d="M6 3.5h8l4 4v13H6z" /><path d="M3 12h18" strokeDasharray="2 2.5" /></g>,
+  pdf_extrair: <g {...L}><path d="M6 3.5h8l4 4v3.5" /><path d="M6 3.5v17h6" /><path d="M14 17h7M18 14l3 3-3 3" /></g>,
+  pdf_apagar: <g {...L}><path d="M6 3.5h8l4 4v13H6z" /><path d="M9.5 14h5" /></g>,
+  pdf_organizar: <g {...L}><rect x="4" y="4" width="6.5" height="8" rx="1.5" /><rect x="13.5" y="4" width="6.5" height="8" rx="1.5" /><path d="M7 16.5h10M14 14l3 2.5-3 2.5" /></g>,
+  pdf_girar: <g {...L}><path d="M20 12a8 8 0 1 1-2.5-5.8" /><path d="M20 4v4.5h-4.5" /><rect x="9.2" y="9" width="5.6" height="6.5" rx="1" /></g>,
+  pdf_cortar: <g {...L}><path d="M7 3v14h14M3 7h14v14" /></g>,
+  pdf_marca: <g {...L}><path d="M12 3.5c3 3.8 5.5 6.6 5.5 9.5a5.5 5.5 0 0 1-11 0c0-2.9 2.5-5.7 5.5-9.5z" /></g>,
+  pdf_numero: <g {...L}><path d="M9 4 7.5 20M16.5 4 15 20M4.5 9h15M4 15h15" /></g>,
+  pdf_senha: <g {...L}><rect x="5" y="10.5" width="14" height="10" rx="2.5" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" /></g>,
+  pdf_abrir: <g {...L}><rect x="5" y="10.5" width="14" height="10" rx="2.5" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 6.6-1.6" /></g>,
+  pdf_reparar: <g {...L}><path d="M14.7 5.3a4.2 4.2 0 0 0-1.2 4.9L4.5 19.2l.3.3 9-9a4.2 4.2 0 0 0 4.9-1.2l-2.4-.5-.5-2.4z" /></g>,
+  pdf_comprimir: <g {...L}><path d="M12 3.5v6M9 7l3 3 3-3M12 20.5v-6M9 17l3-3 3 3M4 12h16" /></g>,
+  pdf_de_imagem: <g {...L}><rect x="3.5" y="5" width="13" height="11" rx="2" /><circle cx="8" cy="9.5" r="1.3" /><path d="m4 15 4-3.5 3 2.5 2-1.5 3.5 3M18 18.5h3M19.5 17l1.5 1.5-1.5 1.5" /></g>,
+  pdf_para_imagem: <g {...L}><path d="M6 3.5h7l4 4v4" /><path d="M6 3.5v16h5" /><rect x="12" y="13" width="9" height="7.5" rx="1.5" /><circle cx="15" cy="15.8" r=".9" /><path d="m12.5 19.5 3-2.3 2 1.5 3-2" /></g>,
+  pdf_doc: <g {...L}><path d="M6 3.5h8l4 4v13H6z" /><path d="m9 11.5 3 5 3-5" /></g>,
+  pdf_texto: <g {...L}><path d="M6 3.5h8l4 4v13H6z" /><path d="M9 11h6M9 14h6M9 17h3.5" /></g>,
+  pdf_comparar: <g {...L}><rect x="3.5" y="4.5" width="7.5" height="15" rx="1.8" /><rect x="13" y="4.5" width="7.5" height="15" rx="1.8" /><path d="M6 9h2.5M6 12h2.5M15.5 9h2.5M15.5 15h2.5" /></g>,
   rede: <g {...L}><path d="M3.5 9.5a12 12 0 0 1 17 0M6.5 12.8a8 8 0 0 1 11 0M9.4 16a4 4 0 0 1 5.2 0" /><circle cx="12" cy="19" r="1" /></g>,
 };
 

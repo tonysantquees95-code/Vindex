@@ -11,6 +11,7 @@
     "test:visual": "node teste-visual/telas.mjs"
   },
   "dependencies": {
+    "@cantoo/pdf-lib": "^2.11.1",
     "@capacitor/android": "^7.4.0",
     "@capacitor/core": "^7.4.0",
     "@tauri-apps/api": "^2.0.0",
