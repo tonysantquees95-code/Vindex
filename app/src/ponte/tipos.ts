@@ -67,7 +67,27 @@ export interface ResultadoDisco { letra: string; acao: string; resumo: string }
 export interface EstadoRam { total: number; disponivel: number; percentual: number; maiores: { pid: number; nome: string; memoria: number }[] }
 export interface AlvoDeLimpeza { id: string; rotulo: string; pasta: string }
 export interface PlanoDeLimpeza { total_bytes: number; arquivos: number; por_alvo: [string, number][] }
-export interface InicioPeloMenu { modo: "escolher" | "aqui"; arquivo: string }
+export interface InicioPeloMenu { modo: "escolher" | "aqui" | "abrir"; arquivo: string }
+
+/** Documento que o leitor vai abrir. `caminho` é um arquivo que o app consegue ler (no Android, de fora vem como cópia temporária). */
+export interface DocumentoAberto { caminho: string; nome: string; /** veio de outro app: é uma cópia temporária, o original não é alterado */ externo: boolean }
+/** Leitor de documentos: o mesmo contrato no Windows (Tauri) e no Android. */
+export interface MotorDocumentos {
+  /** arquivo que outro app mandou abrir com o Vindex (Android); entrega uma vez */
+  pedido?(): Promise<DocumentoAberto | null>;
+  /** a pessoa escolhe um documento no seletor do sistema */
+  escolher(): Promise<DocumentoAberto | null>;
+  ler(caminho: string): Promise<Uint8Array>;
+  gravar(caminho: string, dados: Uint8Array): Promise<void>;
+  /** guarda uma cópia no aparelho (Android: pasta Downloads/Vindex; Windows: a pessoa escolhe onde). Devolve onde ficou ou null se cancelou. */
+  salvarCopia(dados: Uint8Array, nome: string): Promise<string | null>;
+  /** Android: folha de compartilhar do sistema (no Windows não existe: o leitor oferece salvar cópia e mostrar na pasta). */
+  compartilhar?(dados: Uint8Array, nome: string, mime: string): Promise<void>;
+  /** Android: imprime o PDF pelo serviço de impressão. */
+  imprimirPdf?(dados: Uint8Array, nome: string): Promise<void>;
+  /** Imprime uma página HTML (Android: serviço de impressão; Windows: diálogo de impressão). */
+  imprimirHtml(html: string, nome: string): Promise<void>;
+}
 
 /** O que cada plataforma sabe fazer; a interface esconde o que não existe. */
 export interface Recursos {
@@ -76,6 +96,10 @@ export interface Recursos {
   desempenho: boolean; abrirPasta: boolean;
   /** abre arquivos com o programa padrão */
   abrirArquivos: boolean;
+  /** o leitor de documentos (PDF, Word, Excel, PowerPoint, texto) está disponível */
+  leitor: boolean;
+  /** o aparelho tem folha de compartilhar (Android); no Windows o botão vira “Mostrar na pasta” */
+  compartilhar: boolean;
   /** verificar arquivos suspeitos nas pastas (Windows e Android) */
   arquivosSuspeitos: boolean;
   /** verificar os apps instalados (Android) */
@@ -134,6 +158,8 @@ export interface Motor {
   progressoArquivo?(): Promise<ProgressoArquivo>;
   cancelarArquivo?(): Promise<void>;
   inicioPeloMenu(): Promise<InicioPeloMenu | null>;
+  /** Leitor e editor de documentos. */
+  documentos?: MotorDocumentos;
   /** Só no Android: pasta que outro app (o Vortex) pediu para abrir; entrega uma vez. */
   pastaPedida?(): Promise<string | null>;
   abrirPasta(caminho: string): Promise<void>;

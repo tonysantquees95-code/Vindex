@@ -26,12 +26,94 @@ struct Inicial {
 #[tauri::command]
 fn argumento_inicial() -> Option<Inicial> {
     let a: Vec<String> = std::env::args().skip(1).collect();
+    // duplo clique (ou "Abrir com") num PDF, Word, Excel, PowerPoint ou texto: o Windows manda o caminho como primeiro argumento
+    if let Some(primeiro) = a.first() {
+        let p = Path::new(primeiro);
+        if !primeiro.starts_with("--") && p.is_file() && extensao_do_leitor(p).is_some() {
+            return Some(Inicial { modo: "abrir".into(), arquivo: primeiro.clone() });
+        }
+    }
     let i = a.iter().position(|x| x == "--extrair" || x == "--extrair-aqui")?;
     let arquivo = a.get(i + 1)?.clone();
     if !Path::new(&arquivo).is_file() {
         return None;
     }
     Some(Inicial { modo: if a[i] == "--extrair-aqui" { "aqui".into() } else { "escolher".into() }, arquivo })
+}
+
+/// Tipos que o leitor do Vindex abre e grava. Qualquer outro (programas, scripts…) é recusado de propósito.
+const DOCUMENTOS: [&str; 16] = ["pdf", "docx", "xlsx", "xlsm", "pptx", "csv", "tsv", "txt", "md", "log", "json", "xml", "ini", "rtf", "xltx", "dotx"];
+const LIMITE_DOCUMENTO: u64 = 120 * 1024 * 1024;
+
+fn extensao_do_leitor(p: &Path) -> Option<String> {
+    let e = p.extension()?.to_str()?.to_lowercase();
+    if DOCUMENTOS.contains(&e.as_str()) { Some(e) } else { None }
+}
+
+/// Lê os bytes de um documento para o leitor (resposta binária, sem converter para texto).
+#[tauri::command]
+fn ler_bytes(caminho: String) -> Result<tauri::ipc::Response, String> {
+    let p = Path::new(&caminho);
+    if !p.is_file() {
+        return Err("O arquivo não existe.".into());
+    }
+    if extensao_do_leitor(p).is_none() {
+        return Err("Esse tipo de arquivo não abre no leitor.".into());
+    }
+    let tamanho = std::fs::metadata(p).map_err(|e| e.to_string())?.len();
+    if tamanho > LIMITE_DOCUMENTO {
+        return Err("O arquivo é grande demais para abrir aqui (mais de 120 MB).".into());
+    }
+    std::fs::read(p).map(tauri::ipc::Response::new).map_err(|e| format!("Não consegui ler o arquivo: {e}"))
+}
+
+fn decodificar_percentual(t: &str) -> String {
+    fn digito(c: u8) -> Option<u8> {
+        (c as char).to_digit(16).map(|d| d as u8)
+    }
+    let b = t.as_bytes();
+    let mut saida: Vec<u8> = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let (Some(alto), Some(baixo)) = (digito(b[i + 1]), digito(b[i + 2])) {
+                saida.push(alto * 16 + baixo);
+                i += 3;
+                continue;
+            }
+        }
+        saida.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&saida).into_owned()
+}
+
+/// Grava o documento editado. Só aceita os tipos do leitor: este comando nunca cria programa ou script.
+#[tauri::command]
+fn gravar_bytes(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(dados) = request.body() else {
+        return Err("Dados inválidos.".into());
+    };
+    let caminho = request
+        .headers()
+        .get("caminho")
+        .and_then(|v| v.to_str().ok())
+        .map(decodificar_percentual)
+        .ok_or("Faltou o caminho do arquivo.")?;
+    let p = Path::new(&caminho);
+    if extensao_do_leitor(p).is_none() {
+        return Err("Esse tipo de arquivo não pode ser gravado pelo leitor.".into());
+    }
+    if dados.len() as u64 > LIMITE_DOCUMENTO {
+        return Err("O arquivo ficou grande demais para gravar.".into());
+    }
+    // grava num arquivo ao lado e troca: se der erro no meio, o original não é perdido
+    let temporario = p.with_extension(format!("{}.vindex-tmp", p.extension().and_then(|e| e.to_str()).unwrap_or("tmp")));
+    std::fs::write(&temporario, dados).map_err(|e| format!("Não consegui gravar: {e}"))?;
+    std::fs::rename(&temporario, p).map_err(|e| {
+        let _ = std::fs::remove_file(&temporario);
+        format!("Não consegui salvar o arquivo: {e}")
+    })
 }
 
 fn abrir_com_o_sistema(alvo: &str) -> Result<(), String> {
@@ -316,7 +398,7 @@ fn main() {
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![motor, argumento_inicial, abrir_pasta, abrir_arquivo, abrir_link, instalar_atualizacao, baixar_atualizacao, progresso_atualizacao, instalar_atualizacao_baixada, widget_alternar, widget_aberto])
+        .invoke_handler(tauri::generate_handler![motor, argumento_inicial, ler_bytes, gravar_bytes, abrir_pasta, abrir_arquivo, abrir_link, instalar_atualizacao, baixar_atualizacao, progresso_atualizacao, instalar_atualizacao_baixada, widget_alternar, widget_aberto])
         .run(tauri::generate_context!())
         .expect("não foi possível iniciar o Vindex");
 }

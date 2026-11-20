@@ -3,5 +3,5 @@
   "identifier": "padrao",
   "description": "Permissões da janela principal do Vindex",
   "windows": ["main", "widget"],
-  "permissions": ["core:default", "dialog:allow-open", "core:window:allow-start-dragging", "core:window:allow-close", "core:window:allow-set-always-on-top", "core:window:allow-set-always-on-bottom"]
+  "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save", "core:window:allow-start-dragging", "core:window:allow-close", "core:window:allow-set-always-on-top", "core:window:allow-set-always-on-bottom"]
 }

@@ -24,6 +24,7 @@ public class MainActivity extends BridgeActivity {
 
     private static void lerPedido(Intent i) {
         if (i == null) return;
+        Documentos.lerIntent(i);
         String p = i.getStringExtra("vindex_pasta");
         if (p != null && p.startsWith("/")) pastaPedida = p;
         // outro app (navegador, etc.) pediu "abrir downloads": abre direto na pasta Download

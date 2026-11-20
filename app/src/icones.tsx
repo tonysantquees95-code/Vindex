@@ -13,7 +13,7 @@ function Svg({ children, tam = 24, style, ...r }: SVGProps<SVGSVGElement> & { ta
 }
 const L = { fill: "none" } as const;
 
-export type NomeIcone = "painel" | "otimizar" | "arquivos" | "regras" | "descompactar" | "seguranca" | "cofre" | "conta" | "ajustes" | "menu" | "fechar" | "atualizar" | "rede" | "pasta" | "recentes" | "imagens" | "videos" | "audios" | "documentos" | "planilhas" | "apresentacoes" | "compactados" | "instaladores" | "codigo" | "outros" | "apps" | "desempenho" | "widgets";
+export type NomeIcone = "painel" | "otimizar" | "arquivos" | "regras" | "descompactar" | "seguranca" | "cofre" | "conta" | "ajustes" | "menu" | "fechar" | "atualizar" | "rede" | "pasta" | "recentes" | "imagens" | "videos" | "audios" | "documentos" | "planilhas" | "apresentacoes" | "compactados" | "instaladores" | "codigo" | "outros" | "apps" | "desempenho" | "widgets" | "voltar" | "compartilhar" | "salvar" | "imprimir" | "editar" | "mais" | "caneta" | "marcatexto" | "texto" | "assinatura" | "desfazer" | "buscar" | "noite" | "renomear" | "info" | "lixo" | "mais_item";
 
 const DESENHOS: Record<NomeIcone, ReactElement> = {
   painel: <><rect x="3.5" y="3.5" width="7" height="7" rx="2" /><rect x="13.5" y="3.5" width="7" height="4.5" rx="2" {...L} /><rect x="13.5" y="11" width="7" height="9.5" rx="2" /><rect x="3.5" y="13.5" width="7" height="7" rx="2" {...L} /></>,
@@ -43,6 +43,23 @@ const DESENHOS: Record<NomeIcone, ReactElement> = {
   codigo: <g {...L}><path d="m9 7-5 5 5 5M15 7l5 5-5 5" /></g>,
   outros: <g><path d="M6.5 3.5h7l4.5 4.5v11a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 19V5a1.5 1.5 0 0 1 1.5-1.5z" /></g>,
   apps: <g {...L}><rect x="4" y="4" width="6.5" height="6.5" rx="1.6" /><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6" /><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6" /><path d="m14.5 14.5 5 5M19.5 14.5l-5 5" /></g>,
+  voltar: <g {...L}><path d="M15 5 8 12l7 7" /></g>,
+  compartilhar: <g {...L}><circle cx="6.5" cy="12" r="2.3" /><circle cx="17" cy="6" r="2.3" /><circle cx="17" cy="18" r="2.3" /><path d="m8.5 10.9 6.5-3.7M8.5 13.1l6.5 3.7" /></g>,
+  salvar: <g {...L}><path d="M12 4v10M8 10.5l4 4 4-4" /><path d="M5 17.5v1.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-1.5" /></g>,
+  imprimir: <g {...L}><path d="M7 9V4.5h10V9" /><rect x="4" y="9" width="16" height="7.5" rx="2" /><path d="M7 14h10v5.5H7z" /></g>,
+  editar: <g {...L}><path d="m14.5 5.5 4 4L8.5 19.5 4 20l.5-4.5z" /><path d="m13 7 4 4" /></g>,
+  mais: <g><circle cx="12" cy="5.5" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="12" cy="18.5" r="1.3" /></g>,
+  caneta: <g {...L}><path d="M4 20c2-.4 3.4-1.4 4.4-2.8l9-9.6a2 2 0 0 0-2.8-2.8l-9.6 9C4 14.8 4.2 18 4 20z" /><path d="M13.5 6.7l3.8 3.8" /></g>,
+  marcatexto: <g {...L}><path d="m9 13.5 6.5-6.5 3.5 3.5-6.5 6.5z" /><path d="M9 13.5 6 16.5l1 2.5 3.5.5 2-2" /><path d="M4 21h8" /></g>,
+  texto: <g {...L}><path d="M5.5 6.5V5h13v1.5M12 5v14M9.5 19h5" /></g>,
+  assinatura: <g {...L}><path d="M3.5 16c1.8-4 3-7 4.4-7 2.2 0 .2 6.5 2.2 6.5 1.6 0 2-3 3.4-3 1.2 0 .6 2.5 1.8 2.5 1 0 1.8-1 3.2-2.6" /><path d="M4 20h16" /></g>,
+  desfazer: <g {...L}><path d="M9 6 4.5 10.5 9 15" /><path d="M5 10.5h8.5a5 5 0 0 1 0 10H10" /></g>,
+  buscar: <g {...L}><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 5 5" /></g>,
+  noite: <g {...L}><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z" /></g>,
+  renomear: <g {...L}><path d="M4 6.5h16M4 12h8M4 17.5h8" /><path d="m14.5 18.5 5-5 1.5 1.5-5 5-2 .5z" /></g>,
+  info: <g {...L}><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.2M12 7.8v.4" /></g>,
+  lixo: <g {...L}><path d="M5 7h14M9.5 7V4.5h5V7M7 7l.8 12.5h8.4L17 7" /></g>,
+  mais_item: <g {...L}><path d="M12 5v14M5 12h14" /></g>,
   rede: <g {...L}><path d="M3.5 9.5a12 12 0 0 1 17 0M6.5 12.8a8 8 0 0 1 11 0M9.4 16a4 4 0 0 1 5.2 0" /><circle cx="12" cy="19" r="1" /></g>,
 };
 

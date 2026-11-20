@@ -14,3 +14,12 @@
 ## Teste visual das telas
 - `app/teste-visual/telas.mjs` (motor) + `config.mjs` (telas a visitar) — `npm run build && npm run test:visual` abre o app em 7 tamanhos (celular pequeno até janela do Windows) e confere se cada tela e janela cabe, não estoura para o lado e se todo botão dá para alcançar. Roda na publicação e guarda as fotos como artefato `fotos-das-telas`.
 - Tela ou janela nova: acrescente um cenário em `config.mjs`.
+
+## Leitor de documentos (PDF, Word, Excel, PowerPoint, CSV, texto)
+- Código em `app/src/leitor/`. Lógica pura e testada (`app/teste/leitor.test.mjs`): `formatos.ts`, `docx.ts`, `planilha.ts` (xlsx + csv), `pptx.ts`, `anotacoes.ts` (pdf-lib), `impressao.ts`. Telas: `Leitor.tsx` (barra, menu, salvar/compartilhar/imprimir/renomear) e um `Ver*.tsx` por formato, todos carregados sob demanda (`lazy`).
+- Word, Excel e PowerPoint são editados NO PRÓPRIO XML (só o parágrafo/célula mexido muda; estilos, imagens e o resto ficam iguais). Módulos de lógica não podem usar `DOMParser` nem propriedades de parâmetro do TypeScript (o teste roda no Node em modo "strip-only").
+- Formato novo: acrescente em `formatos.ts`, crie o `Ver*.tsx`, registre em `VISUALIZADOR` no `Leitor.tsx`, ponha o tipo (MIME) no filtro de intenção do workflow do Android (`FILTROS`) e em `fileAssociations` do `tauri.conf.json`.
+- Contrato com o sistema: `Motor.documentos` (`ponte/tipos.ts`). Android: `android/src/Documentos.java` + métodos no `VindexPlugin` (recebe `content://` e copia para o cache, salva em Downloads/Vindex por MediaStore, compartilha por FileProvider, imprime por PrintManager). Windows: `ler_bytes`/`gravar_bytes` em `desktop/src-tauri/src/main.rs` (só aceitam as extensões do leitor) e `argumento_inicial` com `modo: "abrir"`.
+- Segurança: nada é enviado ao servidor; macros e links dos documentos nunca são executados; o original de outro app nunca é alterado (trabalha-se numa cópia temporária).
+- O worker do pdf.js sai como `.js` (ver `vite.config.ts`) e a CSP do Tauri libera `worker-src 'self' blob:`.
+- Teste visual: cenários `leitor-*` em `teste-visual/config.mjs`, com documentos gerados por `teste-visual/exemplos.mjs`.

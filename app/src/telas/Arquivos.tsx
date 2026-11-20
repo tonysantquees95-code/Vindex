@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { useMotor, usePastas } from "../estado";
 import { bytes, nomeDoArquivo, pastaDoArquivo } from "../formato";
-import type { Arquivo, GrupoDuplicado, Movimento, ResultadoDeMovimento, ResumoVarredura } from "../ponte";
+import type { Arquivo, DocumentoAberto, GrupoDuplicado, Movimento, ResultadoDeMovimento, ResumoVarredura } from "../ponte";
+import { Icone } from "../icones";
 import { Aviso, Botao, Cartao } from "../ui";
 import { Explorar } from "./Explorar";
 import { Pastas } from "./Pastas";
 
 /** Arquivos: abre como um gerenciador (Explorar) e guarda as ferramentas de organização em “Organizar”. */
-export function Arquivos({ abrirEm = null }: { abrirEm?: string | null }) {
+export function Arquivos({ abrirEm = null, aoAbrirDocumento }: { abrirEm?: string | null; aoAbrirDocumento?: (d: DocumentoAberto) => void }) {
+  const motor = useMotor();
+  const [erroDoc, setErroDoc] = useState("");
   const [aba, setAba] = useState<"explorar" | "organizar">(() => { try { return sessionStorage.getItem("vindex.arquivos.aba") === "organizar" ? "organizar" : "explorar"; } catch { return "explorar"; } });
   useEffect(() => { if (abrirEm) setAba("explorar"); }, [abrirEm]);
   const trocar = (a: "explorar" | "organizar") => { setAba(a); try { sessionStorage.setItem("vindex.arquivos.aba", a); } catch { /* ok */ } };
@@ -18,7 +21,14 @@ export function Arquivos({ abrirEm = null }: { abrirEm?: string | null }) {
           <button key={id} role="tab" aria-selected={aba === id} onClick={() => trocar(id)} className={`min-h-10 rounded-xl px-4 text-sm ${aba === id ? "bg-neon/15 text-neon" : "border border-borda text-suave"}`}>{r}</button>
         ))}
       </div>
-      {aba === "explorar" ? <Explorar abrirEm={abrirEm} /> : <Organizar />}
+      {aba === "explorar" && motor.documentos && aoAbrirDocumento && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-borda p-3">
+          <div className="min-w-0 flex-1"><p className="text-sm font-bold">Ler e editar documentos</p><p className="text-xs text-suave">PDF, Word, Excel, PowerPoint, CSV e texto. Abre aqui mesmo, sem outro app.</p></div>
+          <Botao variante="primario" onClick={() => { setErroDoc(""); void motor.documentos!.escolher().then((d) => { if (d) aoAbrirDocumento(d); }).catch((e) => setErroDoc(e instanceof Error ? e.message : "Não consegui abrir o seletor.")); }}><Icone nome="documentos" tam={18} />Abrir documento</Botao>
+          {erroDoc && <div className="basis-full"><Aviso tom="erro">{erroDoc}</Aviso></div>}
+        </div>
+      )}
+      {aba === "explorar" ? <Explorar abrirEm={abrirEm} aoAbrirDocumento={aoAbrirDocumento} /> : <Organizar />}
     </div>
   );
 }

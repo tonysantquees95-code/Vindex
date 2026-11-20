@@ -1,6 +1,8 @@
 import type { Diagnostico, Motor } from "./tipos";
 
 /** Navegador comum (sem motor nativo): dados de demonstração, claramente identificados na tela. */
+/** Modo demonstração (navegador e teste visual): documentos ficam só na memória. */
+export const ARQUIVOS = new Map<string, Uint8Array>();
 export function motorDemo(): Motor {
   let t = 0;
   const diag = (): Diagnostico => {
@@ -19,7 +21,7 @@ export function motorDemo(): Motor {
   const vazio = { movidos: [], falhas: ["Modo demonstração: abra o app do Windows ou do Android para mexer nos arquivos."], simulacao: true };
   return {
     plataforma: "demonstracao",
-    recursos: { extrair: false, defender: false, inicializacao: false, desempenho: false, abrirPasta: false, abrirArquivos: false, arquivosSuspeitos: false, verificarApps: false, suite: false, permissoes: false, atualizaSozinho: false, desinstalar: false, restosDeProgramas: false, desinstalarSilencioso: false },
+    recursos: { extrair: false, defender: false, inicializacao: false, desempenho: false, abrirPasta: false, leitor: true, compartilhar: false, abrirArquivos: false, arquivosSuspeitos: false, verificarApps: false, suite: false, permissoes: false, atualizaSozinho: false, desinstalar: false, restosDeProgramas: false, desinstalarSilencioso: false },
     diagnostico: async () => diag(),
     video: async () => ({ suportado: true, gpu_nome: "GPU de demonstração", gpu_uso: 34, vram_usada: 1.2e9, vram_total: 6e9, gpu_temp: 55, taxa_hz: 144, resolucao: "1920×1080", rede_tipo: "Wi-Fi", rede_nome: "Wi-Fi", rede_mbps: 866, sinal: 80, ping_ms: 18 }),
     otimizarTudo: async () => ({ limpeza: { apagados: 0, liberado_bytes: 0, falhas: [], simulacao: true }, memoria: { suportado: false, processos_ajustados: 0, liberado_bytes: 0, nota: "Demonstração." }, ram_antes: 55, ram_depois: 55 }),
@@ -36,6 +38,17 @@ export function motorDemo(): Motor {
     extrair: async () => { throw new Error("Modo demonstração."); },
     armazenamentos: async () => [], listarPasta: async () => { throw new Error("Modo demonstração."); }, recentes: async () => [], colecao: async () => [], buscarNome: async () => [],
     novaPasta: async () => { throw new Error("Modo demonstração."); }, renomear: async () => { throw new Error("Modo demonstração."); }, paraLixeira: async () => vazio, apagarDeVez: async () => ({ apagados: 0, falhas: [] }), quarentenas: async () => [], abrirArquivo: async () => undefined,
+    documentos: {
+      escolher: async () => new Promise((resolve) => {
+        const i = document.createElement("input"); i.type = "file";
+        i.onchange = async () => { const f = i.files?.[0]; if (!f) { resolve(null); return; } ARQUIVOS.set(f.name, new Uint8Array(await f.arrayBuffer())); resolve({ caminho: f.name, nome: f.name, externo: true }); };
+        i.click();
+      }),
+      ler: async (c) => { const d = ARQUIVOS.get(c); if (!d) throw new Error("Arquivo não encontrado."); return d; },
+      gravar: async (c, d) => { ARQUIVOS.set(c, d); },
+      salvarCopia: async (d, nome) => { ARQUIVOS.set(nome, d); return `Demonstração: ${nome}`; },
+      imprimirHtml: async () => undefined
+    },
     inicioPeloMenu: async () => null, abrirPasta: async () => undefined, abrirLink: async (u) => { window.open(u, "_blank"); },
     estadoProtecao: async () => ({ suportado: false, antivirus_ligado: null, tempo_real_ligado: null, assinaturas_dias: null, firewall: [], nota: "Modo demonstração." }),
     defenderVarrer: async () => { throw new Error("Modo demonstração."); },

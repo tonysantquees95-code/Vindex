@@ -21,6 +21,7 @@ export const NOVIDADES: Novidade[] = [
   { id: 14, data: "2026-11-18", tipo: "correcao", titulo: "Tela \"O que há de novo\" rola direito", texto: "Quando a lista de novidades era grande, o botão Entendi ficava escondido embaixo. Agora a lista rola e o botão fica sempre à mostra." },
   { id: 15, data: "2026-11-18", tipo: "melhoria", titulo: "Botões mais fáceis de tocar", texto: "Os botões de fechar, pular e ver mais ficaram maiores, para acertar com o dedo sem errar." },
   { id: 16, data: "2026-11-18", tipo: "novo", titulo: "V-Space e Vetogoshi na suíte", texto: "O Vindex agora também acompanha e atualiza o V-Space (launcher) e o Vetogoshi (bichinho virtual) junto com os outros apps da Vetorial." },
+  { id: 17, data: "2026-11-20", tipo: "novo", titulo: "Leitor de documentos: PDF, Word, Excel e PowerPoint", texto: "O Vindex agora abre e edita documentos, então você pode tirar os outros leitores do aparelho. Toque num PDF, Word, Excel, PowerPoint, CSV ou texto (em qualquer app, ou em Arquivos › Abrir documento) e ele abre aqui. No PDF dá para anotar com caneta e marca-texto, escrever texto e assinar com o dedo. No Word, no Excel e no PowerPoint dá para corrigir o texto e as células. Em qualquer um você pode compartilhar, guardar uma cópia, renomear e imprimir. No Windows também abre ao dar dois cliques no arquivo ou arrastar para a janela. Nada é enviado para a internet. Arquivos antigos (.doc, .xls, .ppt) ainda não abrem." },
 ];
 
 export const ROTULO: Record<TipoNovidade, string> = { novo: "Novo", melhoria: "Melhorou", correcao: "Corrigido" };

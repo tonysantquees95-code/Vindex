@@ -1,5 +1,5 @@
 import { instalarVoltar, registrarVoltar } from "./voltar";
-import { useCallback, useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
 import { avaliar } from "./trava";
 import { TelaConfirmando, TelaTesteAcabou } from "./telas/Trava";
 import { gravarVisto, lerVisto, aparelhoLocal, buscarPedidos, guardarSessao, responderPedido, sair, sessaoGuardada, verificar, ErroConta, SERVIDOR, type Sessao } from "./conta";
@@ -11,7 +11,12 @@ import { useAjustes } from "./usarAjustes";
 import { Icone, type NomeIcone } from "./icones";
 import { AjustesTela } from "./telas/Ajustes";
 import { TelaDePermissoes, usePermissoes } from "./telas/Permissoes";
-import type { Movimento } from "./ponte";
+import type { DocumentoAberto, Movimento } from "./ponte";
+import { leitorAbre } from "./leitor/formatos";
+import { nomeDoArquivo } from "./formato";
+
+// o leitor (PDF, Word, Excel…) só é carregado quando alguém abre um documento
+const Leitor = lazy(() => import("./leitor/Leitor"));
 import { executarPedido } from "./ponteVenus";
 import { Arquivos } from "./telas/Arquivos";
 import { Conta } from "./telas/Conta";
@@ -60,7 +65,39 @@ export function App() {
   const [aba, setAba] = useState<IdAba>("painel");
   const [inicio, setInicio] = useState<InicioPeloMenu | null>(null);
   // aberto pelo menu do botão direito ("Extrair com o Vindex…"): vai direto para Descompactar
-  useEffect(() => { void motor.inicioPeloMenu().then((i) => { if (i) { setInicio(i); setAba("descompactar"); } }).catch(() => undefined); }, [motor]);
+  // documento aberto no leitor do Vindex (toque num PDF/Word/Excel em outro app, duplo clique no Windows, seletor ou Arquivos)
+  const [docAberto, setDocAberto] = useState<DocumentoAberto | null>(null);
+  useEffect(() => {
+    void motor.inicioPeloMenu().then((i) => {
+      if (!i) return;
+      if (i.modo === "abrir") setDocAberto({ caminho: i.arquivo, nome: nomeDoArquivo(i.arquivo), externo: false });
+      else { setInicio(i); setAba("descompactar"); }
+    }).catch(() => undefined);
+  }, [motor]);
+  // Android: outro app mandou abrir um documento com o Vindex; vale ao abrir e quando o app volta para a frente
+  useEffect(() => {
+    const pedido = motor.documentos?.pedido;
+    if (!pedido) return;
+    const ver = () => { void pedido().then((d) => { if (d) setDocAberto(d); }).catch(() => undefined); };
+    ver();
+    document.addEventListener("visibilitychange", ver);
+    window.addEventListener("focus", ver);
+    return () => { document.removeEventListener("visibilitychange", ver); window.removeEventListener("focus", ver); };
+  }, [motor]);
+  // Windows: arrastar um documento para a janela abre no leitor
+  useEffect(() => {
+    if (motor.plataforma !== "windows") return;
+    let desligar: (() => void) | undefined; let vivo = true;
+    void import("@tauri-apps/api/webview").then(async ({ getCurrentWebview }) => {
+      const un = await getCurrentWebview().onDragDropEvent((e) => {
+        if (e.payload.type !== "drop") return;
+        const caminho = e.payload.paths.find((p) => leitorAbre(nomeDoArquivo(p)));
+        if (caminho) setDocAberto({ caminho, nome: nomeDoArquivo(caminho), externo: false });
+      });
+      if (vivo) desligar = un; else un();
+    }).catch(() => undefined);
+    return () => { vivo = false; desligar?.(); };
+  }, [motor]);
   // o Vortex abre o Vindex direto na pasta dos jogos: vale ao abrir e quando o app volta para a frente
   const [pastaPedida, setPastaPedida] = useState<string | null>(null);
   useEffect(() => {
@@ -233,7 +270,7 @@ export function App() {
     otimizar: <Otimizar />,
     desempenho: <Desempenho />,
     widgets: <Widgets />,
-    arquivos: <Arquivos abrirEm={pastaPedida} />,
+    arquivos: <Arquivos abrirEm={pastaPedida} aoAbrirDocumento={setDocAberto} />,
     regras: <RegrasTela />,
     descompactar: <Descompactar inicio={inicio} aoUsarInicio={() => setInicio(null)} />,
     apps: <Desinstalar />,
@@ -249,6 +286,7 @@ export function App() {
   return (
     <div onTouchStart={aoTocar} onTouchEnd={aoSoltar} className="mx-auto flex min-h-dvh max-w-7xl">
       {novidades.length > 0 && <Novidades itens={novidades} aoFechar={() => setNovidades([])} />}
+      {docAberto && <Suspense fallback={null}><Leitor doc={docAberto} aoFechar={() => setDocAberto(null)} /></Suspense>}
       {/* barra lateral (computador e telas largas): todas as seções à vista, sem rolar para os lados */}
       <aside className="sticky top-0 hidden h-dvh w-56 flex-none flex-col border-r border-white/10 px-3 pb-3 pt-4 sm:flex">
         <div className="mb-4 flex items-center gap-2 px-1"><LogoVivo tam={44} /><div><div className="text-lg font-semibold leading-tight tracking-wide">Vindex</div><div className="text-[11px] text-suave">Manager e Vault</div></div></div>

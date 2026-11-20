@@ -3,7 +3,8 @@ import { useMotor } from "../estado";
 import { bytes, ehCompactado, nomeDoArquivo } from "../formato";
 import { useAjustes } from "../usarAjustes";
 import { PainelCompactado, PainelCompactar } from "./Compactados";
-import type { Armazenamento, ItemDePasta, Movimento, PastaConhecida } from "../ponte";
+import type { Armazenamento, DocumentoAberto, ItemDePasta, Movimento, PastaConhecida } from "../ponte";
+import { leitorAbre } from "../leitor/formatos";
 import { Aviso, Botao, Cartao } from "../ui";
 import { Icone, type NomeIcone } from "../icones";
 import { registrarVoltar } from "../voltar";
@@ -26,7 +27,7 @@ const quando = (s: number) => (s ? new Date(s * 1000).toLocaleDateString("pt-BR"
 const nomeDe = (c: string) => nomeDoArquivo(c.replace(/[\\/]+$/, "")) || c;
 
 /** Gerenciador de arquivos: armazenamentos, favoritos, coleções (recentes, fotos, música…), pastas e busca. */
-export function Explorar({ abrirEm = null }: { abrirEm?: string | null }) {
+export function Explorar({ abrirEm = null, aoAbrirDocumento }: { abrirEm?: string | null; aoAbrirDocumento?: (d: DocumentoAberto) => void }) {
   const motor = useMotor();
   const [vista, setVista] = useState<Vista>({ tipo: "inicio" });
   useEffect(() => { if (abrirEm) { setBusca(""); setVista({ tipo: "pasta", caminho: abrirEm }); } }, [abrirEm]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -76,6 +77,8 @@ export function Explorar({ abrirEm = null }: { abrirEm?: string | null }) {
   const abrir = (i: ItemDePasta) => {
     if (i.pasta) { setBusca(""); setVista({ tipo: "pasta", caminho: i.caminho }); return; }
     if (motor.recursos.extrair && ehCompactado(i.nome)) { setPainel({ tipo: "abrir", caminho: i.caminho, direto: ajustes.autoExtrair }); return; }
+    // PDF, Word, Excel, PowerPoint, CSV e texto abrem no leitor do próprio Vindex
+    if (aoAbrirDocumento && motor.documentos && leitorAbre(i.nome)) { aoAbrirDocumento({ caminho: i.caminho, nome: i.nome, externo: false }); return; }
     if (motor.recursos.abrirArquivos) void motor.abrirArquivo(i.caminho).catch((e) => setErro(texto(e)));
     else setMsg("Esta versão não abre arquivos.");
   };

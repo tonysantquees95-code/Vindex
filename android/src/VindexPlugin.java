@@ -36,7 +36,9 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import androidx.activity.result.ActivityResult;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -1280,6 +1282,155 @@ public class VindexPlugin extends Plugin {
     @PluginMethod
     public void cofreProteger(PluginCall call) {
         CofreBio.proteger(getActivity(), Boolean.TRUE.equals(call.getBoolean("ligado", false)));
+        call.resolve();
+    }
+
+    // ------------------------------------------------------------ leitor de documentos (PDF, Word, Excel, PowerPoint, texto)
+
+    private void resolverDocumento(final PluginCall call, final Uri uri) {
+        getBridge().execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String[] r = Documentos.copiarParaCache(getContext(), uri);
+                    JSObject s = new JSObject();
+                    s.put("caminho", r[0]);
+                    s.put("nome", r[1]);
+                    call.resolve(s);
+                } catch (Exception e) {
+                    call.reject(e.getMessage() == null ? "Não consegui abrir o arquivo." : e.getMessage());
+                }
+            }
+        });
+    }
+
+    /** Arquivo que outro app mandou abrir com o Vindex (toque num PDF, Word, Excel…). Entrega uma vez. */
+    @PluginMethod
+    public void documentoPedido(final PluginCall call) {
+        Uri u = Documentos.pedido;
+        Documentos.pedido = null;
+        if (u == null) {
+            JSObject s = new JSObject();
+            s.put("caminho", JSObject.NULL);
+            s.put("nome", "");
+            call.resolve(s);
+            return;
+        }
+        resolverDocumento(call, u);
+    }
+
+    /** Seletor de arquivos do sistema: não pede permissão nenhuma. */
+    @PluginMethod
+    public void escolherDocumento(final PluginCall call) {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        i.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+            "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "text/csv", "text/comma-separated-values", "text/plain", "text/markdown", "application/json", "application/xml", "text/xml", "application/rtf", "application/octet-stream"});
+        startActivityForResult(call, i, "aoEscolherDocumento");
+    }
+
+    @ActivityCallback
+    private void aoEscolherDocumento(PluginCall call, ActivityResult resultado) {
+        if (call == null) return;
+        Intent dados = resultado == null ? null : resultado.getData();
+        if (resultado == null || resultado.getResultCode() != android.app.Activity.RESULT_OK || dados == null || dados.getData() == null) {
+            JSObject s = new JSObject();
+            s.put("caminho", JSObject.NULL);
+            s.put("nome", "");
+            call.resolve(s);
+            return;
+        }
+        resolverDocumento(call, dados.getData());
+    }
+
+    @PluginMethod
+    public void lerArquivo(final PluginCall call) {
+        final File f = new File(call.getString("caminho", ""));
+        getBridge().execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (!f.isFile() || !Documentos.tipoPermitido(f.getName())) throw new java.io.IOException("O arquivo não existe ou não é de um tipo que o leitor abre.");
+                    JSObject s = new JSObject();
+                    s.put("base64", Documentos.paraBase64(Documentos.ler(f)));
+                    call.resolve(s);
+                } catch (Exception e) { call.reject(e.getMessage() == null ? "Não consegui ler o arquivo." : e.getMessage()); }
+            }
+        });
+    }
+
+    @PluginMethod
+    public void gravarArquivo(final PluginCall call) {
+        final String caminho = call.getString("caminho", "");
+        final String b64 = call.getString("base64", "");
+        getBridge().execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    File f = new File(caminho);
+                    File cache = getContext().getCacheDir();
+                    // só grava dentro do cache do app ou onde a pessoa liberou "Acesso a todos os arquivos"
+                    if (!f.getCanonicalPath().startsWith(cache.getCanonicalPath()) && !temAcessoATudo()) throw new java.io.IOException("Libere “Acesso a todos os arquivos” para o Vindex para salvar neste lugar.");
+                    Documentos.gravar(f, Documentos.deBase64(b64));
+                    call.resolve();
+                } catch (Exception e) { call.reject(e.getMessage() == null ? "Não consegui salvar." : e.getMessage()); }
+            }
+        });
+    }
+
+    @PluginMethod
+    public void salvarCopia(final PluginCall call) {
+        final String nome = call.getString("nome", "documento");
+        final String b64 = call.getString("base64", "");
+        getBridge().execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    JSObject s = new JSObject();
+                    s.put("onde", Documentos.salvarCopia(getContext(), nome, Documentos.deBase64(b64)));
+                    call.resolve(s);
+                } catch (Exception e) { call.reject(e.getMessage() == null ? "Não consegui salvar a cópia." : e.getMessage()); }
+            }
+        });
+    }
+
+    @PluginMethod
+    public void compartilhar(final PluginCall call) {
+        final String nome = call.getString("nome", "documento");
+        final String mime = call.getString("mime", "");
+        final String b64 = call.getString("base64", "");
+        getBridge().execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Documentos.compartilhar(getActivity(), nome, mime, Documentos.deBase64(b64));
+                    call.resolve();
+                } catch (Exception e) { call.reject(e.getMessage() == null ? "Não consegui compartilhar." : e.getMessage()); }
+            }
+        });
+    }
+
+    @PluginMethod
+    public void imprimirPdf(final PluginCall call) {
+        final String nome = call.getString("nome", "documento");
+        final String b64 = call.getString("base64", "");
+        getBridge().execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Documentos.imprimirPdf(getActivity(), nome, Documentos.deBase64(b64));
+                    call.resolve();
+                } catch (Exception e) { call.reject(e.getMessage() == null ? "Não consegui imprimir." : e.getMessage()); }
+            }
+        });
+    }
+
+    @PluginMethod
+    public void imprimirHtml(final PluginCall call) {
+        Documentos.imprimirHtml(getActivity(), call.getString("nome", "documento"), call.getString("html", ""));
         call.resolve();
     }
 }

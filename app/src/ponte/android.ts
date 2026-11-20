@@ -1,6 +1,19 @@
 import { registerPlugin } from "@capacitor/core";
 import type { AppInstalado, AppSuite, Motor, Permissao, ProgramaInstalado } from "./tipos";
 import { pastaDeExtracao } from "../formato";
+import { Capacitor } from "@capacitor/core";
+
+/** Bytes ⇄ texto base64 em pedaços (btoa de uma vez só estoura a pilha em arquivos grandes). */
+export function paraBase64(d: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < d.length; i += 0x8000) s += String.fromCharCode(...d.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+export function deBase64(t: string): Uint8Array {
+  const s = atob(t); const d = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) d[i] = s.charCodeAt(i);
+  return d;
+}
 
 /** Mesmo contrato do Rust, implementado em Kotlin (plugin "Vindex"). */
 interface PluginVindex {
@@ -22,6 +35,14 @@ interface PluginVindex {
   cofreBioAbrir(o: { conta: string }): Promise<{ valor: string }>;
   cofreBioApagar(o: { conta: string }): Promise<void>;
   cofreProteger(o: { ligado: boolean }): Promise<void>;
+  documentoPedido(): Promise<{ caminho: string | null; nome: string }>;
+  escolherDocumento(): Promise<{ caminho: string | null; nome: string }>;
+  lerArquivo(o: { caminho: string }): Promise<{ base64: string }>;
+  gravarArquivo(o: { caminho: string; base64: string }): Promise<void>;
+  salvarCopia(o: { nome: string; base64: string }): Promise<{ onde: string }>;
+  compartilhar(o: { nome: string; mime: string; base64: string }): Promise<void>;
+  imprimirPdf(o: { nome: string; base64: string }): Promise<void>;
+  imprimirHtml(o: { nome: string; html: string }): Promise<void>;
   desinstalarApp(o: { pacote: string }): Promise<void>;
   detalhesApp(o: { pacote: string }): Promise<void>;
 }
@@ -33,7 +54,7 @@ export function motorAndroid(): Motor {
   const c = async <T>(comando: string, args: Record<string, unknown> = {}): Promise<T> => JSON.parse((await Vindex.motor({ comando, args: JSON.stringify(args) })).resultado) as T;
   return {
     plataforma: "android",
-    recursos: { extrair: true, defender: false, inicializacao: false, desempenho: false, abrirPasta: false, abrirArquivos: true, arquivosSuspeitos: true, verificarApps: true, suite: true, permissoes: true, atualizaSozinho: true, desinstalar: true, restosDeProgramas: false, desinstalarSilencioso: false },
+    recursos: { extrair: true, defender: false, inicializacao: false, desempenho: false, abrirPasta: false, leitor: true, compartilhar: true, abrirArquivos: true, arquivosSuspeitos: true, verificarApps: true, suite: true, permissoes: true, atualizaSozinho: true, desinstalar: true, restosDeProgramas: false, desinstalarSilencioso: false },
     diagnostico: (processos = 8) => c("diagnostico", { processos }),
     otimizarTudo: (simulacao = false) => c("otimizar_tudo", { simulacao }),
     escolherPasta: async () => (await Vindex.escolherPasta()).pasta,
@@ -64,6 +85,23 @@ export function motorAndroid(): Motor {
     progressoArquivo: () => c("arquivo_progresso"),
     cancelarArquivo: async () => { await c("arquivo_cancelar"); },
     inicioPeloMenu: async () => null,
+    documentos: {
+      pedido: async () => { const r = await Vindex.documentoPedido(); return r.caminho ? { caminho: r.caminho, nome: r.nome, externo: true } : null; },
+      escolher: async () => { const r = await Vindex.escolherDocumento(); return r.caminho ? { caminho: r.caminho, nome: r.nome, externo: true } : null; },
+      ler: async (caminho) => {
+        // o Capacitor serve o arquivo direto para a tela (sem converter); se falhar, o plugin lê e entrega em base64
+        try {
+          const r = await fetch(Capacitor.convertFileSrc(caminho));
+          if (!r.ok) throw new Error(String(r.status));
+          return new Uint8Array(await r.arrayBuffer());
+        } catch { return deBase64((await Vindex.lerArquivo({ caminho })).base64); }
+      },
+      gravar: (caminho, dados) => Vindex.gravarArquivo({ caminho, base64: paraBase64(dados) }),
+      salvarCopia: async (dados, nome) => (await Vindex.salvarCopia({ nome, base64: paraBase64(dados) })).onde,
+      compartilhar: (dados, nome, mime) => Vindex.compartilhar({ nome, mime, base64: paraBase64(dados) }),
+      imprimirPdf: (dados, nome) => Vindex.imprimirPdf({ nome, base64: paraBase64(dados) }),
+      imprimirHtml: (html, nome) => Vindex.imprimirHtml({ nome, html })
+    },
     pastaPedida: async () => (await Vindex.pastaPedida()).pasta,
     armazenamentos: () => c("explorar_armazenamentos"),
     listarPasta: (caminho, ocultos = false) => c("explorar_listar", { caminho, ocultos }),

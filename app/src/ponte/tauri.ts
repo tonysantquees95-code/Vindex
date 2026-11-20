@@ -1,4 +1,23 @@
 import type { Motor } from "./tipos";
+import { nomeDoArquivo } from "../formato";
+import { EXTENSOES_DO_LEITOR } from "../leitor/formatos";
+
+/** Imprime uma página HTML com o diálogo de impressão do Windows, sem abrir janela nova. */
+export function imprimirNaJanela(html: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const f = document.createElement("iframe");
+    f.setAttribute("aria-hidden", "true");
+    f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    f.onload = () => {
+      try {
+        f.contentWindow?.focus(); f.contentWindow?.print();
+        window.setTimeout(() => { f.remove(); resolve(); }, 1500);
+      } catch (e) { f.remove(); reject(e instanceof Error ? e : new Error("Não consegui abrir a impressão.")); }
+    };
+    document.body.appendChild(f);
+    f.srcdoc = html;
+  });
+}
 
 /** Windows: fala com o motor em Rust pelo comando "motor" do Tauri. */
 export async function motorTauri(): Promise<Motor> {
@@ -7,7 +26,7 @@ export async function motorTauri(): Promise<Motor> {
   const c = <T>(comando: string, args: Record<string, unknown> = {}) => invoke<T>("motor", { comando, args });
   return {
     plataforma: "windows",
-    recursos: { extrair: true, defender: true, inicializacao: true, desempenho: true, abrirPasta: true, abrirArquivos: true, arquivosSuspeitos: true, verificarApps: false, suite: false, permissoes: false, atualizaSozinho: true, desinstalar: true, restosDeProgramas: true, desinstalarSilencioso: true },
+    recursos: { extrair: true, defender: true, inicializacao: true, desempenho: true, abrirPasta: true, leitor: true, compartilhar: false, abrirArquivos: true, arquivosSuspeitos: true, verificarApps: false, suite: false, permissoes: false, atualizaSozinho: true, desinstalar: true, restosDeProgramas: true, desinstalarSilencioso: true },
     diagnostico: (processos = 8) => c("diagnostico", { processos }),
     video: () => c("video"),
     otimizarTudo: (simulacao = false) => c("otimizar_tudo", { simulacao }),
@@ -43,6 +62,23 @@ export async function motorTauri(): Promise<Motor> {
     progressoArquivo: () => c("progresso_arquivo"),
     cancelarArquivo: async () => { await c("cancelar_arquivo"); },
     inicioPeloMenu: () => invoke("argumento_inicial"),
+    documentos: {
+      pedido: async () => { const i = await invoke<{ modo: string; arquivo: string } | null>("argumento_inicial"); return i?.modo === "abrir" ? { caminho: i.arquivo, nome: nomeDoArquivo(i.arquivo), externo: false } : null; },
+      escolher: async () => {
+        const p = await open({ multiple: false, filters: [{ name: "Documentos", extensions: EXTENSOES_DO_LEITOR }] });
+        return typeof p === "string" ? { caminho: p, nome: nomeDoArquivo(p), externo: false } : null;
+      },
+      ler: async (caminho) => new Uint8Array(await invoke<ArrayBuffer>("ler_bytes", { caminho })),
+      gravar: async (caminho, dados) => { await invoke("gravar_bytes", dados, { headers: { caminho: encodeURIComponent(caminho) } }); },
+      salvarCopia: async (dados, nome) => {
+        const { save } = await import("@tauri-apps/plugin-dialog");
+        const alvo = await save({ defaultPath: nome });
+        if (!alvo) return null;
+        await invoke("gravar_bytes", dados, { headers: { caminho: encodeURIComponent(alvo) } });
+        return alvo;
+      },
+      imprimirHtml: (html) => imprimirNaJanela(html)
+    },
     armazenamentos: () => c("explorar_armazenamentos"),
     listarPasta: (caminho, ocultos = false) => c("explorar_listar", { caminho, ocultos }),
     recentes: (raizes, limite = 60) => c("explorar_recentes", { raizes, limite }),
