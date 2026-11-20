@@ -5,6 +5,10 @@ import { LogoPdf } from "../pdf/LogoPdf";
 import { saidaNavegador, podeCompartilharNoNavegador } from "../pdf/saida";
 import { Botao } from "../ui";
 
+/** Já está aberto como app instalado (sem a barra do navegador)? */
+const instalado = (): boolean => window.matchMedia?.("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
+const ehApple = (): boolean => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
 interface EventoInstalar extends Event { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> }
 
 const base = (): string => import.meta.env.BASE_URL;
@@ -18,6 +22,8 @@ function ferramentaDoEndereco(): string | null {
 export function PdfWeb() {
   const [instalar, setInstalar] = useState<EventoInstalar | null>(null);
   const [chave, setChave] = useState(0);
+  const [ajuda, setAjuda] = useState(false);
+  const jaInstalado = instalado();
   const inicial = ferramentaDoEndereco();
   useEffect(() => {
     const f = (e: Event) => { e.preventDefault(); setInstalar(e as EventoInstalar); };
@@ -39,7 +45,15 @@ export function PdfWeb() {
           <LogoPdf tam={44} /><span className="text-xl font-extrabold">Vindex PDF</span>
         </a>
         <span className="rounded-full border border-neon/40 bg-neon/10 px-3 py-1 text-xs text-neon">Grátis · Seus arquivos não saem do aparelho</span>
-        {instalar && <Botao className="ml-auto" onClick={() => void instalar.prompt().then(() => setInstalar(null))}>Instalar o app</Botao>}
+        {!jaInstalado && <Botao className="ml-auto" onClick={() => (instalar ? void instalar.prompt().then(() => setInstalar(null)) : setAjuda((a) => !a))}>Colocar na tela inicial</Botao>}
+        {ajuda && !jaInstalado && (
+          <div className="basis-full rounded-2xl border border-neon/30 bg-neon/10 p-3 text-sm" role="status">
+            {ehApple()
+              ? <p><b>No iPhone ou iPad:</b> toque no botão de compartilhar do Safari (o quadrado com a seta) e escolha <b>Adicionar à Tela de Início</b>.</p>
+              : <p><b>No celular Android:</b> abra o menu do navegador (os três pontinhos) e toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.<br /><b>No computador:</b> no Chrome ou Edge, clique no ícone de instalar no canto direito da barra de endereço.</p>}
+            <p className="mt-1 text-suave">Depois disso o Vindex PDF abre com um toque, como um aplicativo, e funciona até sem internet.</p>
+          </div>
+        )}
       </header>
       <main className="flex-1">
         <FerramentasPdf key={chave} saida={{ ...saidaNavegador, compartilhar: podeCompartilharNoNavegador() ? saidaNavegador.compartilhar : undefined }} inicial={inicial} aoMudar={mudou} cabeca={
