@@ -33,5 +33,7 @@
 - Prévia de páginas: `FaixaDePaginas` em `GradeDeFerramentas.tsx` (miniaturas por `abrirMiniaturas`, desenhadas só quando aparecem). Se a ferramenta tem um campo `paginas`, tocar na miniatura escolhe a página.
 - Web (`/pdf/`): abas por formato (`FORMATOS`/`formatosDe` em `ferramentas.ts`; ferramenta nova nasce em `FORMATOS_DA_FERRAMENTA` se não for só de PDF) e vitrine da suíte em `app/src/pdfweb/suite.ts` (só apps que já estão no site público; Drive, V-Space e Vetogoshi ficam de fora). Ícones pequenos em `public-pdf/suite/`.
 
+- Web (`/pdf/`): baixar e compartilhar passam pelo Vetorial ID (`pdfweb/contaPdf.ts` + `PortaoDeConta.tsx`): sem login abre a janela `/id` do servidor; o servidor conta 10 downloads por dia por conta (`POST /pdf/uso`, `servidor/src/pdf/uso.js`; plano pago sem limite). Dentro do Vindex não há portão. Teste: `npm run build:pdf && npm run test:portao`. A faixa de páginas tem Pequeno/Médio/Grande (`FaixaDePaginas`).
+
 ## Feedback e relato de erro
 - Ajustes › Sobre tem "Enviar feedback" e "Reportar um erro": abrem `telas/FeedbackDoApp.tsx` (página do servidor `/feedback?app=vindex&v=<versão>&p=<plataforma>` num iframe, com o visual do app). Os relatos chegam no Painel Dev › Feedback. Windows: o CSP do `tauri.conf.json` precisa de `frame-src` do servidor. Cenário `feedback` no teste visual.

@@ -6,6 +6,9 @@ import { saidaNavegador, podeCompartilharNoNavegador } from "../pdf/saida";
 import { Botao } from "../ui";
 import { Carrossel } from "./Carrossel";
 import { SITE } from "./suite";
+import { usePortao } from "./PortaoDeConta";
+import type { Situacao } from "./contaPdf";
+import type { SaidaPdf } from "../pdf/saida";
 
 /** Já está aberto como app instalado (sem a barra do navegador)? */
 const instalado = (): boolean => window.matchMedia?.("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
@@ -25,6 +28,13 @@ export function PdfWeb() {
   const [instalar, setInstalar] = useState<EventoInstalar | null>(null);
   const [chave, setChave] = useState(0);
   const [ajuda, setAjuda] = useState(false);
+  const [hoje, setHoje] = useState<Situacao | null>(null);
+  const { liberar, janela } = usePortao(setHoje);
+  // baixar e compartilhar passam pelo Vetorial ID e pelo limite diário (10 por conta; plano pago sem limite)
+  const saida: SaidaPdf = {
+    salvar: async (d, n, m) => ((await liberar()) ? saidaNavegador.salvar(d, n, m) : null),
+    compartilhar: podeCompartilharNoNavegador() ? async (d, n, m) => { if (await liberar()) await saidaNavegador.compartilhar!(d, n, m); } : undefined
+  };
   const jaInstalado = instalado();
   const inicial = ferramentaDoEndereco();
   useEffect(() => {
@@ -47,6 +57,7 @@ export function PdfWeb() {
           <LogoPdf tam={44} /><span className="text-xl font-extrabold">Vindex PDF</span>
         </a>
         <span className="rounded-full border border-neon/40 bg-neon/10 px-3 py-1 text-xs text-neon">Grátis · Seus arquivos não saem do aparelho</span>
+        {hoje && !hoje.ilimitado && hoje.restantes !== null && <span className="rounded-full border border-white/15 px-3 py-1 text-xs text-suave" aria-live="polite">Downloads de hoje: {hoje.usados} de {hoje.limite}</span>}
         {!jaInstalado && <Botao className="ml-auto" onClick={() => (instalar ? void instalar.prompt().then(() => setInstalar(null)) : setAjuda((a) => !a))}>Colocar na tela inicial</Botao>}
         {ajuda && !jaInstalado && (
           <div className="basis-full rounded-2xl border border-neon/30 bg-neon/10 p-3 text-sm" role="status">
@@ -58,7 +69,7 @@ export function PdfWeb() {
         )}
       </header>
       <main className="flex-1">
-        <FerramentasPdf key={chave} comAbas saida={{ ...saidaNavegador, compartilhar: podeCompartilharNoNavegador() ? saidaNavegador.compartilhar : undefined }} inicial={inicial} aoMudar={mudou} cabeca={
+        <FerramentasPdf key={chave} comAbas saida={saida} inicial={inicial} aoMudar={mudou} cabeca={
           <div className="space-y-2">
             <h1 className="text-3xl font-extrabold leading-tight sm:text-4xl">Todas as ferramentas de PDF, Word e Excel. Grátis.</h1>
             <p className="max-w-2xl text-base text-suave">Junte, divida, comprima, converta, proteja e edite. Tudo é feito no seu próprio aparelho: nenhum arquivo é enviado para a internet.</p>
@@ -68,6 +79,7 @@ export function PdfWeb() {
       <footer className="mt-10 border-t border-white/10 pt-4 text-xs text-suave">
         <p>Vindex PDF é da <a className="text-neon underline" href={SITE + "/"}>Vetorial Tech</a>. Quem usa o Vindex no celular ou no Windows já tem estas ferramentas dentro do app.</p>
       </footer>
+      {janela}
     </div>
   );
 }
@@ -75,7 +87,7 @@ export function PdfWeb() {
 /** Embaixo das ferramentas: o que o Vindex PDF é e a vitrine da suíte Vetorial Tech. Só aparece na tela inicial. */
 function Sobre() {
   const ponto = [
-    ["Grátis, sem cadastro", "Use quantas vezes quiser. Não precisa criar conta nem aceitar e-mails."],
+    ["Grátis com o Vetorial ID", "Use à vontade e baixe até 10 arquivos por dia. Para baixar, entre com o Vetorial ID (grátis, leva um minuto)."],
     ["Seus arquivos ficam com você", "A conversão acontece no seu celular ou computador. Nada é enviado para um servidor, por isso serve até para documentos pessoais."],
     ["Do jeito que você usa", "Veja as páginas, escolha as que quer, converta entre PDF, Word e Excel e salve ou compartilhe na hora."],
     ["Vira um aplicativo", "Coloque na tela inicial do celular ou do computador e abra com um toque, até sem internet."]

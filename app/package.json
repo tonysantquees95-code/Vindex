@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test teste/*.test.mjs",
     "test:visual": "node teste-visual/telas.mjs",
+    "test:portao": "node teste-visual/portao-pdf.mjs",
     "build:pdf": "tsc -p tsconfig.json && vite build -c vite.pdf.config.ts && node scripts/montar-pdf-web.mjs",
     "dev:pdf": "vite -c vite.pdf.config.ts"
   },

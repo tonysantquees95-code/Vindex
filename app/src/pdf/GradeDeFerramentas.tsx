@@ -40,7 +40,11 @@ function CampoDeTela({ c, v, mudar }: { c: Campo; v: Valores; mudar: (id: string
 const MAX_MINIATURAS = 400;
 
 /** Uma miniatura: só é desenhada quando chega perto da tela (PDFs grandes não travam). */
-function Miniatura({ n, mini, marcada, escolhivel, aoTocar }: { n: number; mini: Miniaturas; marcada: boolean; escolhivel: boolean; aoTocar: () => void }) {
+const TAMANHOS = [{ id: "p", nome: "Pequeno", px: 88 }, { id: "m", nome: "Médio", px: 150 }, { id: "g", nome: "Grande", px: 260 }] as const;
+const CHAVE_TAMANHO = "vindex.pdf.tamanho-das-paginas";
+const lerTamanho = (): number => { try { const i = TAMANHOS.findIndex((t) => t.id === localStorage.getItem(CHAVE_TAMANHO)); return i >= 0 ? i : 1; } catch { return 1; } };
+
+function Miniatura({ n, mini, marcada, escolhivel, aoTocar, largura }: { n: number; mini: Miniaturas; marcada: boolean; escolhivel: boolean; aoTocar: () => void; largura: number }) {
   const caixa = useRef<HTMLDivElement>(null);
   const [img, setImg] = useState<{ url: string; proporcao: number } | null>(null);
   const [falhou, setFalhou] = useState(false);
@@ -48,14 +52,14 @@ function Miniatura({ n, mini, marcada, escolhivel, aoTocar }: { n: number; mini:
     const el = caixa.current;
     if (!el || img) return;
     let vivo = true;
-    const desenhar = () => { mini.desenhar(n, 220).then((r) => { if (vivo) setImg(r); }).catch(() => { if (vivo) setFalhou(true); }); };
+    const desenhar = () => { mini.desenhar(n, Math.min(640, Math.round(largura * 2))).then((r) => { if (vivo) setImg(r); }).catch(() => { if (vivo) setFalhou(true); }); };
     if (typeof IntersectionObserver === "undefined") { desenhar(); return () => { vivo = false; }; }
     const o = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { o.disconnect(); desenhar(); } }, { rootMargin: "300px" });
     o.observe(el);
     return () => { vivo = false; o.disconnect(); };
   }, [mini, n, img]);
   const corpo = (
-    <div ref={caixa} className={`relative w-[88px] overflow-hidden rounded-lg border-2 bg-white transition ${marcada ? "border-neon shadow-[0_0_14px_-2px_var(--color-neon)]" : "border-white/20"}`} style={{ aspectRatio: img ? `1 / ${img.proporcao}` : "1 / 1.41" }}>
+    <div ref={caixa} className={`relative overflow-hidden rounded-lg border-2 bg-white transition ${marcada ? "border-neon shadow-[0_0_14px_-2px_var(--color-neon)]" : "border-white/20"}`} style={{ width: `min(${largura}px, calc(100vw - 6rem))`, aspectRatio: img ? `1 / ${img.proporcao}` : "1 / 1.41" }}>
       {img ? <img src={img.url} alt="" draggable={false} className="block size-full object-cover" /> : <span className="absolute inset-0 grid place-items-center text-xs text-neutral-400">{falhou ? "—" : "…"}</span>}
       {marcada && <span className="absolute inset-0 bg-neon/25" aria-hidden />}
       {marcada && <span className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-neon text-fundo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span>}
@@ -77,6 +81,9 @@ function FaixaDePaginas({ dados, senha, texto, aoTexto, vazioVaiTodas }: { dados
       .catch((e: unknown) => { if (vivo) setProblema(e instanceof Error && /senha/i.test(e.message) ? "Digite a senha abaixo para ver as páginas." : "Não consegui mostrar as páginas, mas a ferramenta continua funcionando."); });
     return () => { vivo = false; aberta?.fechar(); };
   }, [dados, senha]);
+  const [tam, setTam] = useState(lerTamanho);
+  const escolherTamanho = (i: number) => { setTam(i); try { localStorage.setItem(CHAVE_TAMANHO, TAMANHOS[i]!.id); } catch { /* ok */ } };
+  const largura = TAMANHOS[tam]!.px;
   const escolhivel = texto !== null;
   const total = mini?.total ?? 0;
   const marcadas = useMemo(() => { if (!escolhivel || !total || !texto?.trim()) return new Set<number>(); try { return new Set<number>(lerPaginas(texto, total)); } catch { return new Set<number>(); } }, [escolhivel, texto, total]);
@@ -96,8 +103,15 @@ function FaixaDePaginas({ dados, senha, texto, aoTexto, vazioVaiTodas }: { dados
           <button type="button" disabled={!marcadas.size} onClick={() => aoTexto("")} className="min-h-10 rounded-full border border-borda px-4 text-xs font-medium hover:bg-white/5 disabled:opacity-40">Limpar</button>
         </>}
       </div>
-      <div role="group" aria-label="Páginas do PDF" className="flex snap-x gap-3 overflow-x-auto pb-2">
-        {Array.from({ length: mostradas }, (_, i) => <Miniatura key={i} n={i + 1} mini={mini} marcada={marcadas.has(i)} escolhivel={escolhivel} aoTocar={() => alternar(i)} />)}
+      <div role="radiogroup" aria-label="Tamanho das páginas" className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs text-suave">Tamanho</span>
+        {TAMANHOS.map((t, i) => (
+          <button key={t.id} type="button" role="radio" aria-checked={tam === i} onClick={() => escolherTamanho(i)}
+            className={`min-h-10 rounded-full border px-4 text-xs font-medium transition ${tam === i ? "border-neon bg-neon/15 text-neon" : "border-borda text-suave hover:bg-white/5"}`}>{t.nome}</button>
+        ))}
+      </div>
+      <div role="group" aria-label="Páginas do PDF" className={tam === 2 ? "flex flex-wrap justify-center gap-4 pb-2 sm:justify-start" : "flex snap-x gap-3 overflow-x-auto pb-2"}>
+        {Array.from({ length: mostradas }, (_, i) => <Miniatura key={`${tam}-${i}`} largura={largura} n={i + 1} mini={mini} marcada={marcadas.has(i)} escolhivel={escolhivel} aoTocar={() => alternar(i)} />)}
       </div>
       {total > mostradas && <p className="text-xs text-suave">Mostrando as {mostradas} primeiras páginas. Para as outras, escreva os números no campo abaixo.</p>}
     </div>

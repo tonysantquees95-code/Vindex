@@ -26,6 +26,7 @@ export const NOVIDADES: Novidade[] = [
   { id: 19, data: "2026-11-20", tipo: "novo", titulo: "Vindex PDF: ferramentas de PDF", texto: "Nova aba PDF: junte, divida, extraia e apague páginas, organize, gire, corte, comprima, numere, ponha marca d'água, proteja com senha, tire a senha, conserte PDFs e converta imagens em PDF e PDF em imagens. Tudo no seu aparelho, sem enviar nada para a internet." },
   { id: 20, data: "2026-11-20", tipo: "novo", titulo: "Vindex PDF converte Word e Excel", texto: "Na aba PDF agora você converte PDF para Word e Excel (para editar) e Word e Excel para PDF, além de Word para Excel e Excel para Word. Ao abrir um PDF para dividir, extrair ou apagar páginas, aparece uma faixa com as páginas: toque nas que você quer, e no Dividir as escolhidas vão para um arquivo e o resto para outro." },
   { id: 21, data: "2026-11-21", tipo: "novo", titulo: "Feedback e relato de erros", texto: "Em Ajustes › Sobre o Vindex você encontra Enviar feedback e Reportar um erro: conte o que achou, avise quando algo não funcionou e responda uma pesquisa rápida de 1 minuto. O Vindex está em fase de testes (beta) e cada relato ajuda a melhorar." },
+  { id: 22, data: "2026-11-22", tipo: "melhoria", titulo: "Páginas do PDF maiores", texto: "Nas ferramentas de PDF, agora você escolhe o tamanho das páginas na prévia: Pequeno, Médio ou Grande. Assim dá para ver melhor antes de escolher, no celular e no computador." },
 ];
 
 export const ROTULO: Record<TipoNovidade, string> = { novo: "Novo", melhoria: "Melhorou", correcao: "Corrigido" };
