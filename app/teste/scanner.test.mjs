@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { caber, aposGiro, girarMais, aplicarFiltro, nomePadrao, nomeDoArquivo } from "../src/scanner/imagem.ts";
+import { caber, aposGiro, girarMais, aplicarFiltro, nomePadrao, nomeDoArquivo, acharPapel, caberNoCartao, nomeDoCartao, CARTAO } from "../src/scanner/imagem.ts";
 import { adicionar, remover, lerLista, rotuloDaData, rotuloDePaginas } from "../src/scanner/recentes.ts";
 
 test("tamanho: reduz sem deformar e nunca aumenta", () => {
@@ -68,4 +68,32 @@ test("recentes: rótulos", () => {
   assert.equal(rotuloDaData(new Date(2026, 10, 23, 9, 5).getTime(), agora), "ontem 09:05");
   assert.equal(rotuloDaData(new Date(2026, 9, 2, 9, 5).getTime(), agora), "02/10/2026");
   assert.equal(rotuloDePaginas(1), "1 página"); assert.equal(rotuloDePaginas(3), "3 páginas");
+});
+
+function cena(w, h, fundo, papelCor, r) {
+  const px = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const dentro = x >= r[0] && x < r[2] && y >= r[1] && y < r[3];
+    const v = dentro ? papelCor : fundo, i = (y * w + x) * 4;
+    px[i] = px[i + 1] = px[i + 2] = v; px[i + 3] = 255;
+  }
+  return px;
+}
+test("papel: acha o retângulo claro sobre fundo escuro e o escuro sobre claro", () => {
+  const a = acharPapel(cena(400, 300, 50, 210, [60, 40, 340, 270]), 400, 300);
+  assert.ok(a, "deveria achar o papel");
+  assert.ok(Math.abs(a.x - 0.15) < 0.03 && Math.abs(a.y - 40 / 300) < 0.03 && Math.abs(a.w - 0.7) < 0.04 && Math.abs(a.h - 230 / 300) < 0.04, JSON.stringify(a));
+  const b = acharPapel(cena(400, 300, 220, 70, [60, 40, 340, 270]), 400, 300);
+  assert.ok(b && Math.abs(b.w - 0.7) < 0.04, "cartão escuro sobre mesa clara");
+});
+test("papel: foto toda uniforme ou papel pequeno demais não recorta", () => {
+  assert.equal(acharPapel(cena(200, 200, 120, 120, [0, 0, 0, 0]), 200, 200), null);
+  assert.equal(acharPapel(cena(400, 300, 50, 210, [10, 10, 60, 60]), 400, 300), null);
+});
+test("cartão ID: moldura de tamanho real, centralizada, e nome próprio", () => {
+  const c = caberNoCartao(1000, 500);
+  assert.deepEqual(c, { x: 0, y: Math.round((CARTAO.h - 337) / 2), w: 674, h: 337 });
+  const d = caberNoCartao(300, 600);
+  assert.equal(d.h, 425); assert.ok(d.x > 0);
+  assert.equal(nomeDoCartao(new Date(2026, 10, 24, 18, 41)), "Cartão ID 24-11-2026 18h41");
 });

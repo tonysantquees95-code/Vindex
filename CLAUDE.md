@@ -39,7 +39,8 @@
 - Código em `app/src/scanner/`: `imagem.ts` (filtros Colorido/Documento/Cinza sobre os pixels, tamanho, giro, nomes; puro e testado em `teste/scanner.test.mjs`), `recentes.ts` (lista de Recentes, pura), `armazem.ts` (PDFs em IndexedDB `vindex-scanner` + lista em `localStorage "vindex.scanner.recentes"`), `Scanner.tsx` (tela). O PDF sai de `imagensParaPdf` (`pdf/editar.ts`); salvar/compartilhar pela mesma `SaidaPdf` das ferramentas.
 - "Tirar foto" é `<input type=file capture>`: usa a câmera do sistema e NÃO precisa da permissão CAMERA (não ponha no manifesto: com ela declarada o Android passa a exigir pedido em tempo de execução). Só aparece em aparelho de toque; "Importar imagens" aparece sempre.
 - Nada é enviado ao servidor. Limites: 60 páginas por PDF, 30 Recentes, lado maior da página 2000 px.
-- Falta (etapa 2): recorte/bordas automáticas, Extrair texto (OCR) e Cartões ID. Cenários `scanner-*` no teste visual.
+- Recorte automático: `acharPapel` (`imagem.ts`, Otsu numa grade de 120 px + maior mancha; sem perspectiva, só tira as sobras; devolve null se não achar papel). Cartão ID: frente e verso a 200 dpi no tamanho real (85,6×54 mm) numa folha A4 (`CARTAO`, `caberNoCartao`).
+- Falta: correção de perspectiva (cantos) e Extrair texto (OCR). Cenários `scanner-*` no teste visual.
 
 ## Feedback e relato de erro
 - Ajustes › Sobre tem "Enviar feedback" e "Reportar um erro": abrem `telas/FeedbackDoApp.tsx` (página do servidor `/feedback?app=vindex&v=<versão>&p=<plataforma>` num iframe, com o visual do app). Os relatos chegam no Painel Dev › Feedback. Windows: o CSP do `tauri.conf.json` precisa de `frame-src` do servidor. Cenário `feedback` no teste visual.

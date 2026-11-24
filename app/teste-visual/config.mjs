@@ -73,6 +73,19 @@ export default {
       await p.getByRole("button", { name: /^Gerar PDF · 3 páginas/ }).scrollIntoViewIfNeeded();
       await p.waitForTimeout(600);
     }],
+    ["scanner-cartao", "normal", async (p, a) => {
+      await a.aba(p, "PDF"); await p.getByRole("heading", { name: "VindexScanner" }).waitFor();
+      await p.getByRole("button", { name: "Cartão ID" }).click();
+      if ((await p.getByRole("button", { name: "Cartão ID" }).getAttribute("aria-pressed")) !== "true") throw new Error("Cartão ID deveria aparecer escolhido");
+      const f = await ex.foto(6);
+      const [escolha] = await Promise.all([p.waitForEvent("filechooser"), p.getByRole("button", { name: "Importar imagens" }).click()]);
+      await escolha.setFiles([{ name: "frente.jpg", mimeType: "image/jpeg", buffer: f }, { name: "verso.jpg", mimeType: "image/jpeg", buffer: f }]);
+      await p.getByRole("img", { name: "Página 2" }).waitFor({ timeout: 20000 });
+      await p.getByText("Verso", { exact: true }).waitFor();
+      await p.getByRole("button", { name: "Gerar PDF do cartão" }).click();
+      await p.getByRole("heading", { name: "Pronto" }).waitFor({ timeout: 20000 });
+      await p.getByRole("list", { name: "Digitalizações recentes" }).getByText(/1 página · hoje/).waitFor();
+    }],
     ["pdf-grade", "normal", async (p, a) => { await a.aba(p, "PDF"); await p.getByRole("heading", { name: "Vindex PDF" }).waitFor(); await p.getByRole("button", { name: /^Juntar PDF/ }).waitFor(); }],
     ["pdf-juntar", "normal", async (p, a) => { await ferramenta(p, a, "Juntar PDF"); await escolher(p, "Escolher PDFs", [["a.pdf", ex.pdf(2)], ["b.pdf", ex.pdf(3)]]); await p.getByRole("button", { name: "Descer a.pdf" }).click(); await p.getByRole("button", { name: /^Juntar PDF$/ }).last().click(); await pronto(p); }],
     ["pdf-dividir", "normal", async (p, a) => { await ferramenta(p, a, "Dividir PDF"); await escolher(p, "Escolher PDF", [["relatorio.pdf", ex.pdf(5)]]); const faixa = p.getByTestId("faixa-de-paginas"); await faixa.getByRole("button", { name: "Página 3" }).waitFor(); await faixa.getByRole("button", { name: "Página 3" }).click(); await faixa.getByRole("button", { name: "Página 5" }).click(); await p.getByText("2 escolhidas").waitFor(); await p.locator('input[placeholder*="Toque nas páginas"]').waitFor(); if ((await p.locator('input[placeholder*="Toque nas páginas"]').inputValue()) !== "3, 5") throw new Error("o campo deveria mostrar 3, 5"); await p.getByRole("button", { name: /^Dividir PDF$/ }).last().click(); await pronto(p); await p.getByText("(páginas 3,5).pdf").waitFor(); await p.getByText("(restante).pdf").waitFor(); }],

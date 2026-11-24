@@ -28,6 +28,7 @@ export const NOVIDADES: Novidade[] = [
   { id: 21, data: "2026-11-21", tipo: "novo", titulo: "Feedback e relato de erros", texto: "Em Ajustes › Sobre o Vindex você encontra Enviar feedback e Reportar um erro: conte o que achou, avise quando algo não funcionou e responda uma pesquisa rápida de 1 minuto. O Vindex está em fase de testes (beta) e cada relato ajuda a melhorar." },
   { id: 22, data: "2026-11-22", tipo: "melhoria", titulo: "Páginas do PDF maiores", texto: "Nas ferramentas de PDF, agora você escolhe o tamanho das páginas na prévia: Pequeno, Médio ou Grande. Assim dá para ver melhor antes de escolher, no celular e no computador." },
   { id: 23, data: "2026-11-24", tipo: "novo", titulo: "VindexScanner: escaneie papéis em PDF", texto: "Na aba PDF agora tem o VindexScanner: tire foto de um papel (ou importe imagens), escolha o visual Documento, Colorido ou Cinza, gire e ordene as páginas e gere um PDF limpo, sem sombra. Os PDFs ficam guardados em Recentes, só no seu aparelho, para salvar ou compartilhar quando quiser." },
+  { id: 24, data: "2026-11-24", tipo: "novo", titulo: "Scanner: recorte automático e Cartão ID", texto: "No VindexScanner, o papel agora é recortado sozinho (tira a mesa e as sobras ao redor; dá para desligar). Também chegou o Cartão ID: fotografe a frente e o verso do documento e receba uma folha A4 com os dois no tamanho real, pronta para imprimir ou mandar." },
 ];
 
 export const ROTULO: Record<TipoNovidade, string> = { novo: "Novo", melhoria: "Melhorou", correcao: "Corrigido" };

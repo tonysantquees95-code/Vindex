@@ -68,3 +68,78 @@ export function nomeDoArquivo(nome: string): string {
   const limpo = nome.replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().replace(/\.pdf$/i, "").trim().slice(0, 80);
   return `${limpo || "Digitalização"}.pdf`;
 }
+
+/** Cartão de identidade em tamanho real (85,6 × 54 mm) a 200 pontos por polegada, e a página A4 na mesma escala. */
+export const CARTAO = { w: 674, h: 425, paginaW: 1654, paginaH: 2339 };
+export const nomeDoCartao = (d: Date): string => nomePadrao(d).replace("Digitalização", "Cartão ID");
+/** Cabe a imagem dentro da moldura do cartão, centralizada e sem deformar. */
+export function caberNoCartao(w: number, h: number): { x: number; y: number; w: number; h: number } {
+  const k = Math.min(CARTAO.w / Math.max(w, 1), CARTAO.h / Math.max(h, 1));
+  const dw = Math.round(w * k), dh = Math.round(h * k);
+  return { x: Math.round((CARTAO.w - dw) / 2), y: Math.round((CARTAO.h - dh) / 2), w: dw, h: dh };
+}
+
+/** Limiar de Otsu (0-255) de um histograma de 256 faixas. */
+function otsu(hist: number[], total: number): number {
+  let soma = 0;
+  for (let i = 0; i < 256; i++) soma += i * hist[i];
+  let somaB = 0, wB = 0, melhor = 0, limiar = 128;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (!wB) continue;
+    const wF = total - wB;
+    if (!wF) break;
+    somaB += t * hist[t];
+    const dif = somaB / wB - (soma - somaB) / wF;
+    const v = wB * wF * dif * dif;
+    if (v > melhor) { melhor = v; limiar = t; }
+  }
+  return limiar;
+}
+
+/**
+ * Acha o retângulo do papel numa foto (papel claro sobre fundo mais escuro, ou o contrário): separa claro de escuro,
+ * pega a maior mancha que não é a imagem toda e devolve a caixa em frações (0-1). Sem papel claro, devolve null
+ * (a página fica inteira). Não corrige perspectiva: só tira as sobras ao redor.
+ */
+export function acharPapel(rgba: Uint8ClampedArray | Uint8Array, w: number, h: number): { x: number; y: number; w: number; h: number } | null {
+  if (w < 8 || h < 8) return null;
+  const lado = 120; // grade pequena: rápido e ignora detalhes como letras
+  const gw = Math.max(4, Math.round(w >= h ? lado : (lado * w) / h)), gh = Math.max(4, Math.round(w >= h ? (lado * h) / w : lado));
+  const g = new Uint8Array(gw * gh), hist = new Array(256).fill(0);
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
+    const x0 = Math.floor((i * w) / gw), x1 = Math.max(x0 + 1, Math.floor(((i + 1) * w) / gw)), y0 = Math.floor((j * h) / gh), y1 = Math.max(y0 + 1, Math.floor(((j + 1) * h) / gh));
+    let s = 0, n = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const p = (y * w + x) * 4; s += cinzaDe(rgba[p], rgba[p + 1], rgba[p + 2]); n++; }
+    const v = Math.round(s / n); g[j * gw + i] = v; hist[v]++;
+  }
+  const t = otsu(hist, gw * gh);
+  let melhor: { x0: number; y0: number; x1: number; y1: number; area: number } | null = null;
+  for (const claro of [true, false]) {
+    const marca = new Uint8Array(gw * gh);
+    for (let k = 0; k < gw * gh; k++) marca[k] = (claro ? g[k] > t : g[k] <= t) ? 1 : 0;
+    const fila = new Int32Array(gw * gh);
+    for (let ini = 0; ini < gw * gh; ini++) {
+      if (marca[ini] !== 1) continue;
+      let a = 0, b = 0, area = 0, x0 = gw, y0 = gh, x1 = 0, y1 = 0;
+      fila[b++] = ini; marca[ini] = 2;
+      while (a < b) {
+        const k = fila[a++], x = k % gw, y = (k - x) / gw;
+        area++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+          const nk = ny * gw + nx;
+          if (marca[nk] === 1) { marca[nk] = 2; fila[b++] = nk; }
+        }
+      }
+      const caixa = (x1 - x0 + 1) * (y1 - y0 + 1), preenchido = area / caixa;
+      const todaAImagem = caixa > gw * gh * 0.97;
+      // vale o papel que ocupa boa parte da foto, é compacto (não uma mancha rala) e não é a imagem inteira
+      if (!todaAImagem && caixa >= gw * gh * 0.25 && preenchido > 0.6 && (!melhor || area > melhor.area)) melhor = { x0, y0, x1, y1, area };
+    }
+    if (melhor) break; // o claro tem preferência
+  }
+  if (!melhor) return null;
+  return { x: melhor.x0 / gw, y: melhor.y0 / gh, w: (melhor.x1 - melhor.x0 + 1) / gw, h: (melhor.y1 - melhor.y0 + 1) / gh };
+}
