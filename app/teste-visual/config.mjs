@@ -86,6 +86,25 @@ export default {
       await p.getByRole("heading", { name: "Pronto" }).waitFor({ timeout: 20000 });
       await p.getByRole("list", { name: "Digitalizações recentes" }).getByText(/1 página · hoje/).waitFor();
     }],
+    ["scanner-cantos", "normal", async (p, a) => {
+      await a.aba(p, "PDF"); await p.getByRole("heading", { name: "VindexScanner" }).waitFor();
+      const [escolha] = await Promise.all([p.waitForEvent("filechooser"), p.getByRole("button", { name: "Importar imagens" }).click()]);
+      await escolha.setFiles([{ name: "a.jpg", mimeType: "image/jpeg", buffer: await ex.fotoTorta() }]);
+      await p.getByRole("img", { name: "Página 1" }).waitFor({ timeout: 20000 });
+      await p.getByRole("button", { name: "Ajustar os cantos da página 1" }).click();
+      await p.getByRole("dialog", { name: "Ajustar os cantos da folha" }).waitFor();
+      const canto = p.getByRole("button", { name: "Canto em cima à esquerda" });
+      await canto.waitFor(); await p.waitForTimeout(800);
+      const antes = await canto.boundingBox();
+      await canto.focus(); for (let i = 0; i < 4; i++) await p.keyboard.press("ArrowRight");
+      await p.waitForTimeout(200);
+      const depois = await canto.boundingBox();
+      if (!(depois.x > antes.x + 2)) throw new Error("o canto deveria andar com as setas");
+      await p.getByRole("button", { name: "Aplicar" }).click();
+      await p.getByText("Cantos ✓").waitFor();
+      await p.getByRole("button", { name: /^Gerar PDF · 1 página/ }).click();
+      await p.getByRole("heading", { name: "Pronto" }).waitFor({ timeout: 20000 });
+    }],
     ["pdf-grade", "normal", async (p, a) => { await a.aba(p, "PDF"); await p.getByRole("heading", { name: "Vindex PDF" }).waitFor(); await p.getByRole("button", { name: /^Juntar PDF/ }).waitFor(); }],
     ["pdf-juntar", "normal", async (p, a) => { await ferramenta(p, a, "Juntar PDF"); await escolher(p, "Escolher PDFs", [["a.pdf", ex.pdf(2)], ["b.pdf", ex.pdf(3)]]); await p.getByRole("button", { name: "Descer a.pdf" }).click(); await p.getByRole("button", { name: /^Juntar PDF$/ }).last().click(); await pronto(p); }],
     ["pdf-dividir", "normal", async (p, a) => { await ferramenta(p, a, "Dividir PDF"); await escolher(p, "Escolher PDF", [["relatorio.pdf", ex.pdf(5)]]); const faixa = p.getByTestId("faixa-de-paginas"); await faixa.getByRole("button", { name: "Página 3" }).waitFor(); await faixa.getByRole("button", { name: "Página 3" }).click(); await faixa.getByRole("button", { name: "Página 5" }).click(); await p.getByText("2 escolhidas").waitFor(); await p.locator('input[placeholder*="Toque nas páginas"]').waitFor(); if ((await p.locator('input[placeholder*="Toque nas páginas"]').inputValue()) !== "3, 5") throw new Error("o campo deveria mostrar 3, 5"); await p.getByRole("button", { name: /^Dividir PDF$/ }).last().click(); await pronto(p); await p.getByText("(páginas 3,5).pdf").waitFor(); await p.getByText("(restante).pdf").waitFor(); }],

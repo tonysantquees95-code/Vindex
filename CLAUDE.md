@@ -40,7 +40,8 @@
 - "Tirar foto" é `<input type=file capture>`: usa a câmera do sistema e NÃO precisa da permissão CAMERA (não ponha no manifesto: com ela declarada o Android passa a exigir pedido em tempo de execução). Só aparece em aparelho de toque; "Importar imagens" aparece sempre.
 - Nada é enviado ao servidor. Limites: 60 páginas por PDF, 30 Recentes, lado maior da página 2000 px.
 - Recorte automático: `acharPapel` (`imagem.ts`, Otsu numa grade de 120 px + maior mancha; sem perspectiva, só tira as sobras; devolve null se não achar papel). Cartão ID: frente e verso a 200 dpi no tamanho real (85,6×54 mm) numa folha A4 (`CARTAO`, `caberNoCartao`).
-- Falta: correção de perspectiva (cantos) e Extrair texto (OCR). Cenários `scanner-*` no teste visual.
+- Perspectiva: `acharPapel` devolve também `cantos` (extremos de x+y e x−y da mancha, validados por `quadValido`); `corrigirPerspectiva` (homografia 4 pontos + bilinear) endireita a folha. `canvas.ts` (`desenhar`, `detectarPapel`) usa os cantos escolhidos na página (`EditorDeCantos.tsx`, bolinhas arrastáveis e setas do teclado) ou, sem eles, os automáticos.
+- Falta: Extrair texto (OCR). Cenários `scanner-*` no teste visual.
 
 ## Feedback e relato de erro
 - Ajustes › Sobre tem "Enviar feedback" e "Reportar um erro": abrem `telas/FeedbackDoApp.tsx` (página do servidor `/feedback?app=vindex&v=<versão>&p=<plataforma>` num iframe, com o visual do app). Os relatos chegam no Painel Dev › Feedback. Windows: o CSP do `tauri.conf.json` precisa de `frame-src` do servidor. Cenário `feedback` no teste visual.

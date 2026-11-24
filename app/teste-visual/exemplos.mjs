@@ -49,3 +49,12 @@ export async function foto(linhas = 14) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1100"><defs><linearGradient id="s" x1="0" x2="1"><stop offset="0" stop-color="#8d8a84"/><stop offset="1" stop-color="#e9e5dc"/></linearGradient></defs><rect width="800" height="1100" fill="url(#s)"/><rect x="90" y="60" width="380" height="30" rx="6" fill="#111"/>${r}</svg>`;
   return sharp(Buffer.from(svg)).jpeg({ quality: 88 }).toBuffer();
 }
+
+/** Foto de um papel visto de lado (trapézio) sobre uma mesa escura, para o teste dos cantos. */
+export async function fotoTorta() {
+  const { default: sharp } = await import("sharp");
+  let r = "";
+  for (let i = 0; i < 9; i++) r += `<rect x="${300 - i * 6}" y="${190 + i * 62}" width="${290 + i * 14}" height="12" rx="5" fill="#222"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900"><rect width="900" height="900" fill="#2a2420"/><polygon points="250,120 650,120 790,820 110,820" fill="#ece8de"/>${r}</svg>`;
+  return sharp(Buffer.from(svg)).jpeg({ quality: 88 }).toBuffer();
+}

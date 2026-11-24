@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { caber, aposGiro, girarMais, aplicarFiltro, nomePadrao, nomeDoArquivo, acharPapel, caberNoCartao, nomeDoCartao, CARTAO } from "../src/scanner/imagem.ts";
+import { caber, aposGiro, girarMais, aplicarFiltro, nomePadrao, nomeDoArquivo, acharPapel, corrigirPerspectiva, quadValido, tamanhoDoQuad, CANTOS_INTEIRA, caberNoCartao, nomeDoCartao, CARTAO } from "../src/scanner/imagem.ts";
 import { adicionar, remover, lerLista, rotuloDaData, rotuloDePaginas } from "../src/scanner/recentes.ts";
 
 test("tamanho: reduz sem deformar e nunca aumenta", () => {
@@ -96,4 +96,47 @@ test("cartão ID: moldura de tamanho real, centralizada, e nome próprio", () =>
   const d = caberNoCartao(300, 600);
   assert.equal(d.h, 425); assert.ok(d.x > 0);
   assert.equal(nomeDoCartao(new Date(2026, 10, 24, 18, 41)), "Cartão ID 24-11-2026 18h41");
+});
+
+// papel torto: trapézio claro (mais largo embaixo) sobre fundo escuro
+function trapezio(w, h) {
+  const px = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const t = (y - 40) / 220, esq = 120 - 60 * t, dir = 280 + 60 * t;
+    const dentro = y >= 40 && y < 260 && x >= esq && x < dir, i = (y * w + x) * 4;
+    px[i] = px[i + 1] = px[i + 2] = dentro ? 215 : 45; px[i + 3] = 255;
+  }
+  return px;
+}
+test("perspectiva: acha os quatro cantos de um papel torto", () => {
+  const a = acharPapel(trapezio(400, 300), 400, 300);
+  assert.ok(a && a.cantos, "deveria achar os cantos");
+  const [tl, tr, br, bl] = a.cantos;
+  assert.ok(tl[0] > 0.25 && tl[0] < 0.36 && Math.abs(tl[1] - 40 / 300) < 0.04, JSON.stringify(tl));
+  assert.ok(tr[0] > 0.64 && tr[0] < 0.75, JSON.stringify(tr));
+  assert.ok(bl[0] < 0.2 && br[0] > 0.8, "embaixo é mais largo que em cima");
+  assert.ok(quadValido(a.cantos));
+  assert.ok(!quadValido([[0, 0], [1, 1], [1, 0], [0, 1]]), "laço não vale");
+  assert.ok(!quadValido([[0, 0], [1, 0], [0, 1], [1, 1]]), "ordem trocada não vale");
+});
+test("perspectiva: o retângulo vira página reta (brancos nos cantos, letra no lugar certo)", () => {
+  const w = 400, h = 300, px = trapezio(w, h);
+  // uma "letra" escura no centro do papel
+  for (let y = 145; y < 155; y++) for (let x = 195; x < 205; x++) { const i = (y * w + x) * 4; px[i] = px[i + 1] = px[i + 2] = 20; }
+  const a = acharPapel(px, w, h);
+  const { w: dw, h: dh } = tamanhoDoQuad(a.cantos, w, h, 200);
+  const o = corrigirPerspectiva(px, w, h, a.cantos, dw, dh);
+  const v = (x, y) => o[(y * dw + x) * 4];
+  assert.ok(v(4, 4) > 150 && v(dw - 5, 4) > 150 && v(4, dh - 5) > 150 && v(dw - 5, dh - 5) > 150, "os quatro cantos são papel");
+  // a letra (única mancha escura no interior) fica no meio da largura; na altura ela desce um pouco porque o lado de cima é o mais estreito (perspectiva)
+  let n = 0, sx = 0;
+  for (let y = 20; y < dh - 20; y++) for (let x = 20; x < dw - 20; x++) if (v(x, y) < 120) { n++; sx += x; }
+  assert.ok(n > 20, "a letra deveria aparecer");
+  assert.ok(Math.abs(sx / n - dw / 2) < 6, `letra no meio da largura (${sx / n} de ${dw})`);
+});
+test("perspectiva: página inteira devolve a mesma imagem", () => {
+  const px = new Uint8ClampedArray(8 * 8 * 4);
+  for (let i = 0; i < 64; i++) { px[i * 4] = i * 3; px[i * 4 + 1] = 100; px[i * 4 + 2] = 50; px[i * 4 + 3] = 255; }
+  const o = corrigirPerspectiva(px, 8, 8, CANTOS_INTEIRA, 8, 8);
+  for (let i = 0; i < 64; i++) assert.ok(Math.abs(o[i * 4] - px[i * 4]) <= 1, `pixel ${i}`);
 });

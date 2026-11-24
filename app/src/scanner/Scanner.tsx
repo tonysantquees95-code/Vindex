@@ -4,51 +4,15 @@ import { Aviso, Botao, Cartao, Interruptor } from "../ui";
 import { imagensParaPdf } from "../pdf/editar.ts";
 import type { SaidaPdf } from "../pdf/saida";
 import { apagar, guardar, lerPdf, lerRecentes } from "./armazem.ts";
-import { CARTAO, FILTROS, acharPapel, aposGiro, aplicarFiltro, caber, caberNoCartao, girarMais, nomeDoArquivo, nomeDoCartao, nomePadrao, LADO_MAXIMO, type Filtro } from "./imagem.ts";
+import { desenhar, jpeg } from "./canvas.ts";
+import { EditorDeCantos } from "./EditorDeCantos";
+import { CARTAO, FILTROS, caberNoCartao, girarMais, nomeDoArquivo, nomeDoCartao, nomePadrao, LADO_MAXIMO, type Cantos, type Filtro } from "./imagem.ts";
 import { rotuloDaData, rotuloDePaginas, type Recente } from "./recentes.ts";
 
-interface Pagina { id: string; origem: Blob; giro: number; previa: string }
+interface Pagina { id: string; origem: Blob; giro: number; previa: string; cantos?: Cantos }
 const novoId = (): string => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 const tamanho = (n: number): string => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 const temCamera = (): boolean => /Android|iPhone|iPad/i.test(navigator.userAgent) || (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches);
-
-async function carregar(b: Blob): Promise<ImageBitmap | HTMLImageElement> {
-  try { return await createImageBitmap(b, { imageOrientation: "from-image" }); } catch { /* cai para a imagem comum */ }
-  const url = URL.createObjectURL(b);
-  try {
-    const img = new Image();
-    img.src = url;
-    await img.decode();
-    return img;
-  } finally { window.setTimeout(() => URL.revokeObjectURL(url), 5000); }
-}
-
-/** Desenha a página: tamanho, giro e filtro. `lado` = maior lado da imagem pronta. */
-async function desenhar(origem: Blob, filtro: Filtro, giro: number, lado: number, recortar = false): Promise<HTMLCanvasElement> {
-  const img = await carregar(origem);
-  // recorte: acha o papel numa cópia pequena e usa só essa parte da foto
-  let sx = 0, sy = 0, sw = img.width, sh = img.height;
-  if (recortar) {
-    const m = caber(img.width, img.height, 240), pc = document.createElement("canvas");
-    pc.width = m.w; pc.height = m.h;
-    const px = pc.getContext("2d", { willReadFrequently: true })!;
-    px.drawImage(img, 0, 0, m.w, m.h);
-    const r = acharPapel(px.getImageData(0, 0, m.w, m.h).data, m.w, m.h);
-    if (r) { const f = 0.006; sx = Math.max(0, (r.x - f) * img.width); sy = Math.max(0, (r.y - f) * img.height); sw = Math.min(img.width - sx, (r.w + 2 * f) * img.width); sh = Math.min(img.height - sy, (r.h + 2 * f) * img.height); }
-  }
-  const { w, h } = caber(sw, sh, lado);
-  const fim = aposGiro(w, h, giro);
-  const c = document.createElement("canvas");
-  c.width = fim.w; c.height = fim.h;
-  const x = c.getContext("2d", { willReadFrequently: true })!;
-  x.fillStyle = "#fff"; x.fillRect(0, 0, fim.w, fim.h);
-  x.translate(fim.w / 2, fim.h / 2); x.rotate((giro * Math.PI) / 180);
-  x.drawImage(img, sx, sy, sw, sh, -w / 2, -h / 2, w, h);
-  if ("close" in img) img.close();
-  if (filtro !== "original") { const d = x.getImageData(0, 0, fim.w, fim.h); aplicarFiltro(d.data, fim.w, fim.h, filtro); x.putImageData(d, 0, 0); }
-  return c;
-}
-const jpeg = (c: HTMLCanvasElement, q = 0.85): Promise<Uint8Array> => new Promise((ok, erro) => c.toBlob(async (b) => (b ? ok(new Uint8Array(await b.arrayBuffer())) : erro(new Error("Não consegui preparar a imagem."))), "image/jpeg", q));
 
 /** Opções lado a lado: a escolhida fica preenchida, com borda forte e visto; as outras ficam separadas. */
 function Opcoes<T extends string>({ valor, opcoes, aoMudar, rotulo }: { valor: T; opcoes: { id: T; nome: string }[]; aoMudar: (v: T) => void; rotulo: string }) {
@@ -83,6 +47,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
   const [pronto, setPronto] = useState<{ nome: string; dados: Uint8Array } | null>(null);
   const [recentes, setRecentes] = useState<Recente[]>(() => lerRecentes());
   const [apagando, setApagando] = useState("");
+  const [editando, setEditando] = useState("");
   const [aviso, setAviso] = useState("");
   const foto = useRef<HTMLInputElement>(null);
   const importar = useRef<HTMLInputElement>(null);
@@ -95,7 +60,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
     (async () => {
       for (const p of paginas) {
         if (!vivo || v !== versao.current) return;
-        const c = await desenhar(p.origem, filtro, p.giro, 520, recortar).catch(() => null);
+        const c = await desenhar(p.origem, filtro, p.giro, 520, recortar, p.cantos).catch(() => null);
         if (!c || !vivo || v !== versao.current) continue;
         const url = c.toDataURL("image/jpeg", 0.7);
         setPaginas((atual) => atual.map((x) => (x.id === p.id && (x.previa !== url) ? { ...x, previa: url } : x)));
@@ -103,7 +68,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
     })();
     return () => { vivo = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtro, recortar, paginas.map((p) => `${p.id}:${p.giro}`).join("|")]);
+  }, [filtro, recortar, paginas.map((p) => `${p.id}:${p.giro}:${p.cantos ? p.cantos.flat().join(",") : ""}`).join("|")]);
 
   function adicionar(arquivos: FileList | null) {
     setErro(""); setPronto(null);
@@ -126,16 +91,16 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
         f.fillStyle = "#fff"; f.fillRect(0, 0, folha.width, folha.height);
         const x0 = Math.round((CARTAO.paginaW - CARTAO.w) / 2);
         for (let i = 0; i < paginas.length; i++) {
-          const c = await desenhar(paginas[i].origem, filtro, paginas[i].giro, 1400, recortar);
+          const c = await desenhar(paginas[i].origem, filtro, paginas[i].giro, 1400, recortar, paginas[i].cantos);
           const q = caberNoCartao(c.width, c.height), y0 = 330 + i * (CARTAO.h + 150);
           f.drawImage(c, x0 + q.x, y0 + q.y, q.w, q.h);
           f.strokeStyle = "#bbb"; f.lineWidth = 2; f.strokeRect(x0 + q.x, y0 + q.y, q.w, q.h);
         }
         imgs.push({ dados: await jpeg(folha, 0.9), tipo: "jpg" as const });
-      } else for (const p of paginas) imgs.push({ dados: await jpeg(await desenhar(p.origem, filtro, p.giro, LADO_MAXIMO, recortar)), tipo: "jpg" as const });
+      } else for (const p of paginas) imgs.push({ dados: await jpeg(await desenhar(p.origem, filtro, p.giro, LADO_MAXIMO, recortar, p.cantos)), tipo: "jpg" as const });
       const dados = await imagensParaPdf(imgs, { pagina: modo === "cartao" ? "a4" : formato, margem: modo === "cartao" ? 0 : formato === "a4" ? 10 : 0 });
       const arquivo = nomeDoArquivo(nome);
-      const mini = (await desenhar(paginas[0].origem, filtro, paginas[0].giro, 160, recortar)).toDataURL("image/jpeg", 0.6);
+      const mini = (await desenhar(paginas[0].origem, filtro, paginas[0].giro, 160, recortar, paginas[0].cantos)).toDataURL("image/jpeg", 0.6);
       const lista = await guardar({ id: novoId(), nome: arquivo, paginas: imgs.length, criado: Date.now(), bytes: dados.length, miniatura: mini }, dados);
       setRecentes(lista); setPronto({ nome: arquivo, dados }); setPaginas([]); setNome(modo === "cartao" ? nomeDoCartao(new Date()) : nomePadrao(new Date()));
     } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui montar o PDF."); } finally { setOcupado(""); }
@@ -185,11 +150,14 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
                     {p.previa ? <img src={p.previa} alt={`Página ${i + 1}`} className="max-h-full max-w-full object-contain" /> : <span className="text-xs text-suave">Preparando…</span>}
                     <span className="absolute left-1.5 top-1.5 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold">{modo === "cartao" ? (i === 0 ? "Frente" : "Verso") : i + 1}</span>
                   </div>
-                  <div className="mt-2 grid grid-cols-4 gap-1.5">
+                  <div className="mt-2 grid grid-cols-3 gap-1.5">
                     <button type="button" aria-label={`Mover a página ${i + 1} para trás`} disabled={i === 0} onClick={() => mover(i, -1)} className="grid min-h-11 place-items-center rounded-xl border border-borda text-lg disabled:opacity-30">‹</button>
                     <button type="button" aria-label={`Mover a página ${i + 1} para frente`} disabled={i === paginas.length - 1} onClick={() => mover(i, 1)} className="grid min-h-11 place-items-center rounded-xl border border-borda text-lg disabled:opacity-30">›</button>
                     <button type="button" aria-label={`Girar a página ${i + 1}`} onClick={() => setPaginas((a) => a.map((x) => (x.id === p.id ? { ...x, giro: girarMais(x.giro) } : x)))} className="grid min-h-11 place-items-center rounded-xl border border-borda"><Icone nome="pdf_girar" tam={20} /></button>
-                    <button type="button" aria-label={`Apagar a página ${i + 1}`} onClick={() => setPaginas((a) => a.filter((x) => x.id !== p.id))} className="grid min-h-11 place-items-center rounded-xl border border-erro/40 text-erro"><Icone nome="lixo" tam={20} /></button>
+                  </div>
+                  <div className="mt-1.5 grid grid-cols-[1fr_auto] gap-1.5">
+                    <button type="button" aria-label={`Ajustar os cantos da página ${i + 1}`} onClick={() => setEditando(p.id)} className="min-h-11 rounded-xl border border-borda px-2 text-sm font-medium">{p.cantos ? "Cantos ✓" : "Cantos"}</button>
+                    <button type="button" aria-label={`Apagar a página ${i + 1}`} onClick={() => setPaginas((a) => a.filter((x) => x.id !== p.id))} className="grid min-h-11 w-11 place-items-center rounded-xl border border-erro/40 text-erro"><Icone nome="lixo" tam={20} /></button>
                   </div>
                 </li>
               ))}
@@ -216,6 +184,10 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
       )}
       {aviso && <Aviso tom="ok">{aviso}</Aviso>}
 
+      {editando && paginas.find((p) => p.id === editando) && (
+        <EditorDeCantos origem={paginas.find((p) => p.id === editando)!.origem} inicial={paginas.find((p) => p.id === editando)!.cantos ?? null}
+          aoCancelar={() => setEditando("")} aoAplicar={(c) => { setPaginas((a) => a.map((x) => (x.id === editando ? { ...x, cantos: c } : x))); setEditando(""); }} />
+      )}
       <Cartao titulo="Recentes">
         {recentes.length === 0 ? <p className="text-sm text-suave">Os PDFs que você digitalizar aparecem aqui, guardados só neste aparelho.</p> : (
           <ul aria-label="Digitalizações recentes" className="space-y-3">
