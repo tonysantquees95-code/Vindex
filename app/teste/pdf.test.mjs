@@ -253,3 +253,18 @@ test("PDF → Word e PDF → Excel a partir do texto lido", async () => {
   await assert.rejects(() => docxDeTextoDePdf([pagina([])]), /Não achei texto/);
   await assert.rejects(() => xlsxDeTextoDePdf([pagina([])]), /Não achei texto/);
 });
+
+test("imagens para PDF com texto escondido: o texto fica no PDF e a posição bate", async () => {
+  const pdfBytes = await imagensParaPdf([{ dados: PNG, tipo: "png", largura: 200, altura: 100, palavras: [{ t: "Contrato", x0: 20, y0: 10, x1: 120, y1: 30 }, { t: "João", x0: 130, y0: 10, x1: 180, y1: 30 }, { t: "日本", x0: 20, y0: 50, x1: 60, y1: 70 }] }], { pagina: "a4", margem: 0 }); // a imagem de 1 pixel ocupa a largura da folha (595 pt)
+  const doc = await PDFDocument.load(pdfBytes);
+  assert.equal(doc.getPageCount(), 1);
+  // lê o texto de volta com o pdf.js, como um leitor de PDF faria na busca
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const lido = await (await pdfjs.getDocument({ data: new Uint8Array(pdfBytes), useSystemFonts: true }).promise).getPage(1);
+  const itens = (await lido.getTextContent()).items.map((i) => ({ t: i.str, x: i.transform[4], y: i.transform[5] }));
+  const textos = itens.map((i) => i.t);
+  assert.ok(textos.includes("Contrato") && textos.includes("João"), `texto lido: ${JSON.stringify(textos)}`);
+  assert.ok(!textos.includes("日本"), "palavra que a fonte não tem fica de fora, sem quebrar o PDF");
+  const c = itens.find((i) => i.t === "Contrato"), j = itens.find((i) => i.t === "João");
+  assert.ok(Math.abs(c.x - 20 * (595.28 / 200)) < 1 && j.x > c.x + 200 && Math.abs(c.y - j.y) < 1, `posições: ${JSON.stringify([c, j])}`);
+});

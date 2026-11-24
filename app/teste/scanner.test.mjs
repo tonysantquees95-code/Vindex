@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { caber, aposGiro, girarMais, aplicarFiltro, nomePadrao, nomeDoArquivo, acharPapel, corrigirPerspectiva, quadValido, tamanhoDoQuad, CANTOS_INTEIRA, caberNoCartao, nomeDoCartao, CARTAO } from "../src/scanner/imagem.ts";
+import { palavrasDe } from "../src/scanner/ocr.ts";
 import { arrumarTexto, juntarPaginas, nomeDoTxt, contarPalavras } from "../src/scanner/ocr.ts";
 import { adicionar, remover, lerLista, rotuloDaData, rotuloDePaginas } from "../src/scanner/recentes.ts";
 
@@ -154,4 +155,14 @@ test("ocr: junta páginas com separador só quando há mais de uma", () => {
   assert.equal(juntarPaginas([]), "");
   assert.equal(nomeDoTxt("Contrato João.pdf"), "Contrato João.txt");
   assert.equal(contarPalavras("Olá, mundo! 3 vezes"), 4);
+});
+
+test("ocr: achata blocos em palavras e descarta as sem caixa ou de baixa confiança", () => {
+  const blocos = [{ paragraphs: [{ lines: [{ words: [
+    { text: "Olá", bbox: { x0: 10, y0: 10, x1: 50, y1: 30 }, confidence: 95 },
+    { text: "?", bbox: { x0: 60, y0: 10, x1: 62, y1: 30 }, confidence: 5 },
+    { text: "sem", confidence: 90 }, { text: " ", bbox: { x0: 1, y0: 1, x1: 2, y1: 2 } }, { text: "mundo", bbox: { x0: 70, y0: 10, x1: 140, y1: 30 }, confidence: 88 }
+  ] }] }] }];
+  assert.deepEqual(palavrasDe(blocos).map((p) => p.t), ["Olá", "mundo"]);
+  assert.deepEqual(palavrasDe(null), []);
 });

@@ -1,6 +1,6 @@
 // Ferramentas de PDF do Vindex: tudo roda no aparelho (nada é enviado). Lógica pura sobre bytes, testada em app/teste.
 // Usa o @cantoo/pdf-lib (o pdf-lib com suporte a senha) só aqui; o leitor continua com o pdf-lib de sempre.
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont } from "@cantoo/pdf-lib";
+import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from "@cantoo/pdf-lib";
 import { todas } from "./paginas.ts";
 
 export class SenhaDoPdf extends Error { constructor(msg = "Este PDF tem senha.") { super(msg); this.name = "SenhaDoPdf"; } }
@@ -233,13 +233,15 @@ export async function trocarInformacoes(dados: Uint8Array, i: { titulo?: string;
   return doc.save(SALVAR);
 }
 
-export type ImagemParaPdf = { dados: Uint8Array; tipo: "jpg" | "png" };
+/** `palavras` (opcional): texto reconhecido com a caixa em pixels de uma imagem de `largura × altura`; vira texto invisível sobre a página (PDF pesquisável). */
+export type ImagemParaPdf = { dados: Uint8Array; tipo: "jpg" | "png"; palavras?: { t: string; x0: number; y0: number; x1: number; y1: number }[]; largura?: number; altura?: number };
 export interface OpcoesImagens { pagina?: "a4" | "carta" | "imagem"; orientacao?: "auto" | "retrato" | "paisagem"; margem?: number }
 
 /** Uma imagem por página. "imagem" = a página tem o tamanho da própria imagem. Medidas em pontos (1/72 pol). */
 export async function imagensParaPdf(imagens: ImagemParaPdf[], o: OpcoesImagens = {}): Promise<Uint8Array> {
   if (!imagens.length) throw new Error("Escolha pelo menos uma imagem.");
   const doc = await PDFDocument.create();
+  const fonte = imagens.some((i) => i.palavras?.length) ? await doc.embedFont(StandardFonts.Helvetica) : null;
   const tipo = o.pagina ?? "a4", margem = Math.max(0, Math.min(100, o.margem ?? (tipo === "imagem" ? 0 : 24)));
   for (const im of imagens) {
     const img = im.tipo === "png" ? await doc.embedPng(im.dados) : await doc.embedJpg(im.dados);
@@ -254,6 +256,24 @@ export async function imagensParaPdf(imagens: ImagemParaPdf[], o: OpcoesImagens 
     const k = Math.min((pw - margem * 2) / img.width, (ph - margem * 2) / img.height);
     const w = img.width * k, h = img.height * k;
     pagina.drawImage(img, { x: (pw - w) / 2, y: (ph - h) / 2, width: w, height: h });
+    if (fonte && im.palavras?.length) camadaDeTexto(pagina, fonte, im.palavras, im.largura ?? img.width, im.altura ?? img.height, (pw - w) / 2, (ph - h) / 2, w, h);
   }
   return doc.save(SALVAR);
+}
+
+
+/** Texto invisível por cima da imagem, palavra por palavra, na mesma posição em que ela aparece: dá para buscar e selecionar no leitor de PDF. */
+function camadaDeTexto(pagina: PDFPage, fonte: PDFFont, palavras: NonNullable<ImagemParaPdf["palavras"]>, iw: number, ih: number, ox: number, oy: number, w: number, h: number): void {
+  const ex = w / iw, ey = h / ih;
+  for (const p of palavras) {
+    let tamanho: number;
+    try {
+      const larg1 = fonte.widthOfTextAtSize(p.t, 1); // lança se a palavra tem letra fora do alfabeto da fonte: essa palavra fica de fora
+      if (!(larg1 > 0)) continue;
+      const alturaCaixa = (p.y1 - p.y0) * ey;
+      tamanho = Math.min(((p.x1 - p.x0) * ex) / larg1, alturaCaixa * 1.4); // a largura da palavra bate com a caixa; sem passar da altura
+      if (!(tamanho >= 1)) continue;
+      pagina.drawText(p.t, { x: ox + p.x0 * ex, y: oy + h - p.y1 * ey + (p.y1 - p.y0) * ey * 0.2, size: tamanho, font: fonte, opacity: 0 });
+    } catch { /* palavra com caractere que a fonte não tem */ }
+  }
 }

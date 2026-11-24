@@ -41,6 +41,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
   const [filtro, setFiltro] = useState<Filtro>("documento");
   const [modo, setModo] = useState<"paginas" | "cartao">("paginas");
   const [recortar, setRecortar] = useState(true);
+  const [pesquisavel, setPesquisavel] = useState(false);
   const [formato, setFormato] = useState<"a4" | "imagem">("a4");
   const [nome, setNome] = useState(() => nomePadrao(new Date()));
   const [ocupado, setOcupado] = useState("");
@@ -84,6 +85,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
 
   async function gerar() {
     setErro(""); setOcupado("Montando o PDF…");
+    let semTexto = "";
     try {
       const imgs = [];
       if (modo === "cartao") {
@@ -100,12 +102,27 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
           f.strokeStyle = "#bbb"; f.lineWidth = 2; f.strokeRect(x0 + q.x, y0 + q.y, q.w, q.h);
         }
         imgs.push({ dados: await jpeg(folha, 0.9), tipo: "jpg" as const });
-      } else for (const p of paginas) imgs.push({ dados: await jpeg(await desenhar(p.origem, filtro, p.giro, LADO_MAXIMO, recortar, p.cantos)), tipo: "jpg" as const });
+      } else {
+        // uma página por vez (só uma imagem grande na memória); com "PDF pesquisável" o leitor de texto lê cada página e a posição das palavras vai junto
+        const montar = async (i: number): Promise<HTMLCanvasElement> => desenhar(paginas[i].origem, filtro, paginas[i].giro, LADO_MAXIMO, recortar, paginas[i].cantos);
+        let ok = false;
+        if (pesquisavel) {
+          try {
+            const guardadas: { dados: Uint8Array; w: number; h: number }[] = [];
+            const { lerComPosicao } = await import("./ocrNavegador.ts");
+            const lidos = await lerComPosicao(paginas.length, async (i) => { const c = await montar(i); guardadas[i] = { dados: await jpeg(c), w: c.width, h: c.height }; return c; },
+              (a) => setOcupado(a.etapa === "Lendo" ? `Lendo a página ${a.pagina} de ${a.total}… ${Math.round(a.progresso * 100)}%` : `${a.etapa}…`));
+            guardadas.forEach((g, i) => imgs.push({ dados: g.dados, tipo: "jpg" as const, palavras: lidos[i]?.palavras, largura: g.w, altura: g.h }));
+            ok = true;
+          } catch (e) { semTexto = e instanceof Error && e.message ? e.message : "erro desconhecido"; imgs.length = 0; }
+        }
+        if (!ok) { setOcupado("Montando o PDF…"); for (let i = 0; i < paginas.length; i++) imgs.push({ dados: await jpeg(await montar(i)), tipo: "jpg" as const }); }
+      }
       const dados = await imagensParaPdf(imgs, { pagina: modo === "cartao" ? "a4" : formato, margem: modo === "cartao" ? 0 : formato === "a4" ? 10 : 0 });
       const arquivo = nomeDoArquivo(nome);
       const mini = (await desenhar(paginas[0].origem, filtro, paginas[0].giro, 160, recortar, paginas[0].cantos)).toDataURL("image/jpeg", 0.6);
       const lista = await guardar({ id: novoId(), nome: arquivo, paginas: imgs.length, criado: Date.now(), bytes: dados.length, miniatura: mini }, dados);
-      setRecentes(lista); setPronto({ nome: arquivo, dados }); setPaginas([]); setNome(modo === "cartao" ? nomeDoCartao(new Date()) : nomePadrao(new Date()));
+      setRecentes(lista); setPronto({ nome: arquivo, dados }); if (semTexto) setErro(`O PDF saiu, mas sem o texto pesquisável (${semTexto}).`); setPaginas([]); setNome(modo === "cartao" ? nomeDoCartao(new Date()) : nomePadrao(new Date()));
     } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui montar o PDF."); } finally { setOcupado(""); }
   }
   async function salvar(dados: Uint8Array, arquivo: string, mime = "application/pdf") {
@@ -187,6 +204,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
             <div><span className="mb-2 block text-sm font-medium">Visual das páginas</span><Opcoes valor={filtro} opcoes={FILTROS} aoMudar={setFiltro} rotulo="Visual das páginas" /><p className="mt-2 text-xs text-suave">{FILTROS.find((f) => f.id === filtro)?.texto}</p></div>
             {modo === "paginas" && <div><span className="mb-2 block text-sm font-medium">Tamanho da página do PDF</span><Opcoes valor={formato} opcoes={[{ id: "a4", nome: "A4" }, { id: "imagem", nome: "Do tamanho da foto" }]} aoMudar={setFormato} rotulo="Tamanho da página do PDF" /></div>}
             <label className="block"><span className="mb-1.5 block text-sm font-medium">Nome do arquivo</span><input className={CAMPO} value={nome} onChange={(e) => setNome(e.target.value)} autoComplete="off" /></label>
+            {modo === "paginas" && <div className="flex min-h-11 items-center justify-between gap-3"><span className="text-sm font-medium">PDF pesquisável <span className="block text-xs font-normal text-suave">Dá para buscar palavras no PDF. Leva alguns segundos a mais.</span></span><Interruptor ligado={pesquisavel} aoMudar={setPesquisavel} rotulo="PDF pesquisável" /></div>}
             <Botao className="w-full" disabled={!!ocupado || !!lendo} onClick={() => void extrairTexto()}>Extrair texto das páginas</Botao>
             {lendo && <Aviso>{lendo}</Aviso>}
             <Botao variante="primario" className="w-full" disabled={!!ocupado || !!lendo} onClick={() => void gerar()}>{modo === "cartao" ? `Gerar PDF do cartão` : `Gerar PDF · ${rotuloDePaginas(paginas.length)}`}</Botao>

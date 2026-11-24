@@ -19,3 +19,17 @@ export function juntarPaginas(textos: string[]): string {
 }
 export const nomeDoTxt = (nomePdf: string): string => `${nomePdf.replace(/\.(pdf|txt)$/i, "").trim() || "Texto"}.txt`;
 export function contarPalavras(texto: string): number { return (texto.match(/\p{L}[\p{L}\p{N}'’-]*|\p{N}+/gu) ?? []).length; }
+
+/** Uma palavra lida, com a caixa em pixels da imagem lida. */
+export interface Palavra { t: string; x0: number; y0: number; x1: number; y1: number }
+interface Bloco { paragraphs?: { lines?: { words?: { text?: string; bbox?: { x0: number; y0: number; x1: number; y1: number }; confidence?: number }[] }[] }[] }
+/** Achata o resultado do leitor (blocos > parágrafos > linhas > palavras) numa lista de palavras com caixa válida e confiança mínima. */
+export function palavrasDe(blocos: Bloco[] | null | undefined, confiancaMinima = 30): Palavra[] {
+  const fora: Palavra[] = [];
+  for (const b of blocos ?? []) for (const p of b.paragraphs ?? []) for (const l of p.lines ?? []) for (const w of l.words ?? []) {
+    const t = (w.text ?? "").trim(), c = w.bbox;
+    if (!t || !c || !(c.x1 > c.x0) || !(c.y1 > c.y0) || (w.confidence ?? 100) < confiancaMinima) continue;
+    fora.push({ t, x0: c.x0, y0: c.y0, x1: c.x1, y1: c.y1 });
+  }
+  return fora;
+}
