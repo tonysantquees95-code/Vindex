@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { caber, aposGiro, girarMais, aplicarFiltro, nomePadrao, nomeDoArquivo, acharPapel, corrigirPerspectiva, quadValido, tamanhoDoQuad, CANTOS_INTEIRA, caberNoCartao, nomeDoCartao, CARTAO } from "../src/scanner/imagem.ts";
+import { arrumarTexto, juntarPaginas, nomeDoTxt, contarPalavras } from "../src/scanner/ocr.ts";
 import { adicionar, remover, lerLista, rotuloDaData, rotuloDePaginas } from "../src/scanner/recentes.ts";
 
 test("tamanho: reduz sem deformar e nunca aumenta", () => {
@@ -139,4 +140,18 @@ test("perspectiva: página inteira devolve a mesma imagem", () => {
   for (let i = 0; i < 64; i++) { px[i * 4] = i * 3; px[i * 4 + 1] = 100; px[i * 4 + 2] = 50; px[i * 4 + 3] = 255; }
   const o = corrigirPerspectiva(px, 8, 8, CANTOS_INTEIRA, 8, 8);
   for (let i = 0; i < 64; i++) assert.ok(Math.abs(o[i * 4] - px[i * 4]) <= 1, `pixel ${i}`);
+});
+
+test("ocr: arruma espaços, hífen no fim da linha e linhas em branco", () => {
+  assert.equal(arrumarTexto("Olá   mundo \r\n\n\n\nsegunda  linha"), "Olá mundo\n\nsegunda linha");
+  assert.equal(arrumarTexto("conti-\nnuação do texto"), "continuação do texto");
+  assert.equal(arrumarTexto("Rua A-\n12"), "Rua A-\n12", "hífen antes de número fica");
+  assert.equal(arrumarTexto("  \n  "), "");
+});
+test("ocr: junta páginas com separador só quando há mais de uma", () => {
+  assert.equal(juntarPaginas(["um"]), "um");
+  assert.equal(juntarPaginas(["um", " "]), "— Página 1 —\num\n\n— Página 2 —\n(sem texto reconhecido)");
+  assert.equal(juntarPaginas([]), "");
+  assert.equal(nomeDoTxt("Contrato João.pdf"), "Contrato João.txt");
+  assert.equal(contarPalavras("Olá, mundo! 3 vezes"), 4);
 });

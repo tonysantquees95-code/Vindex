@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5177",
-    "build": "tsc -p tsconfig.json && vite build",
+    "build": "node scripts/copiar-ocr.mjs && tsc -p tsconfig.json && vite build",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test teste/*.test.mjs",
     "test:visual": "node teste-visual/telas.mjs",
@@ -19,11 +19,13 @@
     "@capacitor/core": "^7.4.0",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tesseract.js-data/por": "^1.0.0",
     "jszip": "^3.10.2",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.10.38",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

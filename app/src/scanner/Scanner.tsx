@@ -6,6 +6,7 @@ import type { SaidaPdf } from "../pdf/saida";
 import { apagar, guardar, lerPdf, lerRecentes } from "./armazem.ts";
 import { desenhar, jpeg } from "./canvas.ts";
 import { EditorDeCantos } from "./EditorDeCantos";
+import { contarPalavras, juntarPaginas, nomeDoTxt } from "./ocr.ts";
 import { CARTAO, FILTROS, caberNoCartao, girarMais, nomeDoArquivo, nomeDoCartao, nomePadrao, LADO_MAXIMO, type Cantos, type Filtro } from "./imagem.ts";
 import { rotuloDaData, rotuloDePaginas, type Recente } from "./recentes.ts";
 
@@ -48,6 +49,8 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
   const [recentes, setRecentes] = useState<Recente[]>(() => lerRecentes());
   const [apagando, setApagando] = useState("");
   const [editando, setEditando] = useState("");
+  const [lendo, setLendo] = useState("");
+  const [texto, setTexto] = useState<{ valor: string; nome: string } | null>(null);
   const [aviso, setAviso] = useState("");
   const foto = useRef<HTMLInputElement>(null);
   const importar = useRef<HTMLInputElement>(null);
@@ -105,18 +108,36 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
       setRecentes(lista); setPronto({ nome: arquivo, dados }); setPaginas([]); setNome(modo === "cartao" ? nomeDoCartao(new Date()) : nomePadrao(new Date()));
     } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui montar o PDF."); } finally { setOcupado(""); }
   }
-  async function salvar(dados: Uint8Array, arquivo: string) {
+  async function salvar(dados: Uint8Array, arquivo: string, mime = "application/pdf") {
     setErro(""); setAviso("");
-    try { const onde = await saida.salvar(dados, arquivo, "application/pdf"); if (onde) setAviso(`Salvo: ${onde}`); } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui salvar."); }
+    try { const onde = await saida.salvar(dados, arquivo, mime); if (onde) setAviso(`Salvo: ${onde}`); } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui salvar."); }
   }
-  async function compartilhar(dados: Uint8Array, arquivo: string) {
+  async function compartilhar(dados: Uint8Array, arquivo: string, mime = "application/pdf") {
     setErro(""); setAviso("");
-    try { await saida.compartilhar?.(dados, arquivo, "application/pdf"); } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui compartilhar."); }
+    try { await saida.compartilhar?.(dados, arquivo, mime); } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui compartilhar."); }
   }
   async function dosRecentes(r: Recente, acao: "salvar" | "compartilhar") {
     const dados = await lerPdf(r.id).catch(() => null);
     if (!dados) { setErro("Esse arquivo não está mais guardado no aparelho."); return; }
     await (acao === "salvar" ? salvar(dados, r.nome) : compartilhar(dados, r.nome));
+  }
+
+  /** Extrair texto: lê as páginas com o leitor de texto que vem dentro do app (nada sai do aparelho). */
+  async function extrairTexto() {
+    setErro(""); setAviso(""); setTexto(null); setLendo("Preparando o leitor de texto…");
+    try {
+      const imagens = [];
+      for (const p of paginas) imagens.push(await desenhar(p.origem, "cinza", p.giro, 2000, recortar, p.cantos));
+      const { lerTextos } = await import("./ocrNavegador.ts");
+      const lidos = await lerTextos(imagens, (a) => setLendo(a.etapa === "Lendo" ? `Lendo a página ${a.pagina} de ${a.total}… ${Math.round(a.progresso * 100)}%` : `${a.etapa}…`));
+      const valor = juntarPaginas(lidos);
+      if (!valor.trim()) setErro("Não consegui ler texto nestas páginas. Tente uma foto mais nítida e bem iluminada.");
+      else setTexto({ valor, nome: nomeDoTxt(nome) });
+    } catch (e) { setErro(e instanceof Error && e.message ? `Não consegui extrair o texto: ${e.message}` : "Não consegui extrair o texto."); } finally { setLendo(""); }
+  }
+  async function copiarTexto() {
+    if (!texto) return;
+    try { await navigator.clipboard.writeText(texto.valor); setAviso("Texto copiado."); } catch { setErro("Não consegui copiar. Segure no texto e escolha copiar."); }
   }
 
   const agora = Date.now();
@@ -166,7 +187,9 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
             <div><span className="mb-2 block text-sm font-medium">Visual das páginas</span><Opcoes valor={filtro} opcoes={FILTROS} aoMudar={setFiltro} rotulo="Visual das páginas" /><p className="mt-2 text-xs text-suave">{FILTROS.find((f) => f.id === filtro)?.texto}</p></div>
             {modo === "paginas" && <div><span className="mb-2 block text-sm font-medium">Tamanho da página do PDF</span><Opcoes valor={formato} opcoes={[{ id: "a4", nome: "A4" }, { id: "imagem", nome: "Do tamanho da foto" }]} aoMudar={setFormato} rotulo="Tamanho da página do PDF" /></div>}
             <label className="block"><span className="mb-1.5 block text-sm font-medium">Nome do arquivo</span><input className={CAMPO} value={nome} onChange={(e) => setNome(e.target.value)} autoComplete="off" /></label>
-            <Botao variante="primario" className="w-full" disabled={!!ocupado} onClick={() => void gerar()}>{modo === "cartao" ? `Gerar PDF do cartão` : `Gerar PDF · ${rotuloDePaginas(paginas.length)}`}</Botao>
+            <Botao className="w-full" disabled={!!ocupado || !!lendo} onClick={() => void extrairTexto()}>Extrair texto das páginas</Botao>
+            {lendo && <Aviso>{lendo}</Aviso>}
+            <Botao variante="primario" className="w-full" disabled={!!ocupado || !!lendo} onClick={() => void gerar()}>{modo === "cartao" ? `Gerar PDF do cartão` : `Gerar PDF · ${rotuloDePaginas(paginas.length)}`}</Botao>
           </div>
         </Cartao>
       )}
@@ -179,6 +202,17 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
             <Botao variante="primario" onClick={() => void salvar(pronto.dados, pronto.nome)}><Icone nome="salvar" tam={18} />Salvar</Botao>
             {saida.compartilhar && <Botao onClick={() => void compartilhar(pronto.dados, pronto.nome)}><Icone nome="compartilhar" tam={18} />Compartilhar</Botao>}
             <Botao onClick={() => setPronto(null)}>Nova digitalização</Botao>
+          </div>
+        </Cartao>
+      )}
+      {texto && (
+        <Cartao titulo={`Texto extraído · ${contarPalavras(texto.valor)} palavras`} acao={<Botao className="min-h-9 px-3" onClick={() => setTexto(null)}>Fechar</Botao>}>
+          <textarea aria-label="Texto extraído" className={`${CAMPO} min-h-56 py-2 leading-relaxed`} value={texto.valor} onChange={(e) => setTexto({ ...texto, valor: e.target.value })} />
+          <p className="mt-2 text-xs text-suave">Confira antes de usar: o leitor pode errar letras em fotos tortas ou com pouca luz. Você pode corrigir aqui mesmo.</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Botao variante="primario" onClick={() => void copiarTexto()}>Copiar</Botao>
+            <Botao onClick={() => void salvar(new TextEncoder().encode(texto.valor), texto.nome, "text/plain")}><Icone nome="salvar" tam={18} />Salvar .txt</Botao>
+            {saida.compartilhar && <Botao onClick={() => void compartilhar(new TextEncoder().encode(texto.valor), texto.nome, "text/plain")}><Icone nome="compartilhar" tam={18} />Compartilhar</Botao>}
           </div>
         </Cartao>
       )}

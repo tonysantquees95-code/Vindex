@@ -58,3 +58,12 @@ export async function fotoTorta() {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900"><rect width="900" height="900" fill="#2a2420"/><polygon points="250,120 650,120 790,820 110,820" fill="#ece8de"/>${r}</svg>`;
   return sharp(Buffer.from(svg)).jpeg({ quality: 88 }).toBuffer();
 }
+
+/** Foto de uma página com texto de verdade (para o teste do Extrair texto). */
+export async function fotoComTexto() {
+  const { default: sharp } = await import("sharp");
+  const linhas = ["CONTRATO DE SERVICO", "Maria da Silva paga 150 reais", "ate o dia 10 de dezembro"];
+  const t = linhas.map((l, i) => `<text x="80" y="${200 + i * 110}" font-family="DejaVu Sans, Arial, sans-serif" font-size="58" fill="#161616">${l}</text>`).join("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="700"><rect width="1400" height="700" fill="#f4f1ea"/>${t}</svg>`;
+  return sharp(Buffer.from(svg)).jpeg({ quality: 90 }).toBuffer();
+}
