@@ -3,6 +3,7 @@ import { useMotor } from "../estado";
 import { LogoPdf } from "../pdf/LogoPdf";
 import { saidaNavegador, type SaidaPdf } from "../pdf/saida";
 
+const Scanner = lazy(() => import("../scanner/Scanner").then((m) => ({ default: m.Scanner })));
 const Ferramentas = lazy(() => import("../pdf/GradeDeFerramentas").then((m) => ({ default: m.FerramentasPdf })));
 
 /** Aba "PDF" do Vindex: as ferramentas do Vindex PDF (juntar, dividir, comprimir, converter...) dentro do app. */
@@ -16,9 +17,13 @@ export function PdfTela() {
   return (
     <Suspense fallback={<p className="text-sm text-suave">Abrindo as ferramentas…</p>}>
       <Ferramentas saida={saida} cabeca={
-        <div className="flex items-center gap-3">
-          <LogoPdf tam={44} />
-          <div><h1 className="text-xl font-extrabold">Vindex PDF</h1><p className="text-sm text-suave">Juntar, dividir, comprimir e converter PDFs, no seu aparelho.</p></div>
+        <div className="space-y-5">
+          <div className="flex items-center gap-3">
+            <LogoPdf tam={44} />
+            <div><h1 className="text-xl font-extrabold">Vindex PDF</h1><p className="text-sm text-suave">Escanear, juntar, dividir, comprimir e converter PDFs, no seu aparelho.</p></div>
+          </div>
+          <Scanner saida={saida} />
+          <h2 className="pt-2 text-lg font-extrabold">Ferramentas de PDF</h2>
         </div>
       } />
     </Suspense>

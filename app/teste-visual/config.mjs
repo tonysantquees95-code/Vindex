@@ -45,6 +45,34 @@ export default {
   cenarios: [
     ["primeira-abertura", "primeira", async () => {}],
     ["o-que-ha-de-novo", "atualizou", async (p) => { await p.getByText("O que há de novo").first().waitFor(); }],
+    ["scanner-vazio", "normal", async (p, a) => { await a.aba(p, "PDF"); await p.getByRole("heading", { name: "VindexScanner" }).waitFor(); await p.getByRole("button", { name: "Importar imagens" }).waitFor(); await p.getByText("Os PDFs que você digitalizar aparecem aqui").waitFor(); }],
+    ["scanner-fluxo", "normal", async (p, a) => {
+      await a.aba(p, "PDF"); await p.getByRole("heading", { name: "VindexScanner" }).waitFor();
+      const f = await ex.foto();
+      const [escolha] = await Promise.all([p.waitForEvent("filechooser"), p.getByRole("button", { name: "Importar imagens" }).click()]);
+      await escolha.setFiles([{ name: "a.jpg", mimeType: "image/jpeg", buffer: f }, { name: "b.jpg", mimeType: "image/jpeg", buffer: f }]);
+      await p.getByRole("img", { name: "Página 2" }).waitFor({ timeout: 20000 });
+      await p.getByRole("button", { name: "Cinza" }).click();
+      if ((await p.getByRole("button", { name: "Cinza" }).getAttribute("aria-pressed")) !== "true") throw new Error("Cinza deveria aparecer escolhido");
+      await p.getByRole("button", { name: "Girar a página 1" }).click();
+      await p.getByRole("button", { name: "Mover a página 1 para frente" }).click();
+      await p.getByRole("button", { name: "Apagar a página 2" }).waitFor();
+      await p.getByRole("button", { name: /^Gerar PDF · 2 páginas/ }).click();
+      await p.getByRole("heading", { name: "Pronto" }).waitFor({ timeout: 20000 });
+      await p.getByRole("list", { name: "Digitalizações recentes" }).getByText(/2 páginas · hoje/).waitFor();
+      await p.getByRole("button", { name: /^Apagar Digitalização/ }).click();
+      await p.getByRole("button", { name: "Apagar mesmo?" }).click();
+      await p.getByText("Os PDFs que você digitalizar aparecem aqui").waitFor();
+    }],
+    ["scanner-paginas", "normal", async (p, a) => {
+      await a.aba(p, "PDF"); await p.getByRole("heading", { name: "VindexScanner" }).waitFor();
+      const f = await ex.foto();
+      const [escolha] = await Promise.all([p.waitForEvent("filechooser"), p.getByRole("button", { name: "Importar imagens" }).click()]);
+      await escolha.setFiles([{ name: "a.jpg", mimeType: "image/jpeg", buffer: f }, { name: "b.jpg", mimeType: "image/jpeg", buffer: f }, { name: "c.jpg", mimeType: "image/jpeg", buffer: f }]);
+      await p.getByRole("img", { name: "Página 3" }).waitFor({ timeout: 20000 });
+      await p.getByRole("button", { name: /^Gerar PDF · 3 páginas/ }).scrollIntoViewIfNeeded();
+      await p.waitForTimeout(600);
+    }],
     ["pdf-grade", "normal", async (p, a) => { await a.aba(p, "PDF"); await p.getByRole("heading", { name: "Vindex PDF" }).waitFor(); await p.getByRole("button", { name: /^Juntar PDF/ }).waitFor(); }],
     ["pdf-juntar", "normal", async (p, a) => { await ferramenta(p, a, "Juntar PDF"); await escolher(p, "Escolher PDFs", [["a.pdf", ex.pdf(2)], ["b.pdf", ex.pdf(3)]]); await p.getByRole("button", { name: "Descer a.pdf" }).click(); await p.getByRole("button", { name: /^Juntar PDF$/ }).last().click(); await pronto(p); }],
     ["pdf-dividir", "normal", async (p, a) => { await ferramenta(p, a, "Dividir PDF"); await escolher(p, "Escolher PDF", [["relatorio.pdf", ex.pdf(5)]]); const faixa = p.getByTestId("faixa-de-paginas"); await faixa.getByRole("button", { name: "Página 3" }).waitFor(); await faixa.getByRole("button", { name: "Página 3" }).click(); await faixa.getByRole("button", { name: "Página 5" }).click(); await p.getByText("2 escolhidas").waitFor(); await p.locator('input[placeholder*="Toque nas páginas"]').waitFor(); if ((await p.locator('input[placeholder*="Toque nas páginas"]').inputValue()) !== "3, 5") throw new Error("o campo deveria mostrar 3, 5"); await p.getByRole("button", { name: /^Dividir PDF$/ }).last().click(); await pronto(p); await p.getByText("(páginas 3,5).pdf").waitFor(); await p.getByText("(restante).pdf").waitFor(); }],

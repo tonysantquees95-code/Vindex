@@ -40,3 +40,12 @@ export async function pdf(paginas = 3) {
 }
 export const csv = () => new TextEncoder().encode("nome;idade;cidade\nAna;30;Porto Alegre\nBruno;41;Canoas\n");
 export const txt = () => new TextEncoder().encode("Lista de compras\n\n- arroz\n- feijão\n- café\n");
+
+/** Foto de um papel com sombra e linhas de "texto" (retângulos), para o teste do VindexScanner. */
+export async function foto(linhas = 14) {
+  const { default: sharp } = await import("sharp");
+  let r = "";
+  for (let i = 0; i < linhas; i++) r += `<rect x="90" y="${120 + i * 55}" width="${i % 5 === 4 ? 300 : 620}" height="14" rx="5" fill="#2b2b33"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1100"><defs><linearGradient id="s" x1="0" x2="1"><stop offset="0" stop-color="#8d8a84"/><stop offset="1" stop-color="#e9e5dc"/></linearGradient></defs><rect width="800" height="1100" fill="url(#s)"/><rect x="90" y="60" width="380" height="30" rx="6" fill="#111"/>${r}</svg>`;
+  return sharp(Buffer.from(svg)).jpeg({ quality: 88 }).toBuffer();
+}

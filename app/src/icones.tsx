@@ -13,7 +13,7 @@ function Svg({ children, tam = 24, style, ...r }: SVGProps<SVGSVGElement> & { ta
 }
 const L = { fill: "none" } as const;
 
-export type NomeIcone = "painel" | "otimizar" | "arquivos" | "regras" | "descompactar" | "seguranca" | "cofre" | "conta" | "ajustes" | "menu" | "fechar" | "atualizar" | "rede" | "pasta" | "recentes" | "imagens" | "videos" | "audios" | "documentos" | "planilhas" | "apresentacoes" | "compactados" | "instaladores" | "codigo" | "outros" | "apps" | "desempenho" | "widgets" | "voltar" | "compartilhar" | "salvar" | "imprimir" | "editar" | "mais" | "caneta" | "marcatexto" | "texto" | "assinatura" | "desfazer" | "buscar" | "noite" | "renomear" | "info" | "lixo" | "mais_item" | "pdf_juntar" | "pdf_dividir" | "pdf_extrair" | "pdf_apagar" | "pdf_organizar" | "pdf_girar" | "pdf_cortar" | "pdf_marca" | "pdf_numero" | "pdf_senha" | "pdf_abrir" | "pdf_reparar" | "pdf_comprimir" | "pdf_de_imagem" | "pdf_para_imagem" | "pdf_doc" | "pdf_texto" | "pdf_comparar";
+export type NomeIcone = "camera" | "painel" | "otimizar" | "arquivos" | "regras" | "descompactar" | "seguranca" | "cofre" | "conta" | "ajustes" | "menu" | "fechar" | "atualizar" | "rede" | "pasta" | "recentes" | "imagens" | "videos" | "audios" | "documentos" | "planilhas" | "apresentacoes" | "compactados" | "instaladores" | "codigo" | "outros" | "apps" | "desempenho" | "widgets" | "voltar" | "compartilhar" | "salvar" | "imprimir" | "editar" | "mais" | "caneta" | "marcatexto" | "texto" | "assinatura" | "desfazer" | "buscar" | "noite" | "renomear" | "info" | "lixo" | "mais_item" | "pdf_juntar" | "pdf_dividir" | "pdf_extrair" | "pdf_apagar" | "pdf_organizar" | "pdf_girar" | "pdf_cortar" | "pdf_marca" | "pdf_numero" | "pdf_senha" | "pdf_abrir" | "pdf_reparar" | "pdf_comprimir" | "pdf_de_imagem" | "pdf_para_imagem" | "pdf_doc" | "pdf_texto" | "pdf_comparar";
 
 const DESENHOS: Record<NomeIcone, ReactElement> = {
   painel: <><rect x="3.5" y="3.5" width="7" height="7" rx="2" /><rect x="13.5" y="3.5" width="7" height="4.5" rx="2" {...L} /><rect x="13.5" y="11" width="7" height="9.5" rx="2" /><rect x="3.5" y="13.5" width="7" height="7" rx="2" {...L} /></>,
@@ -32,6 +32,7 @@ const DESENHOS: Record<NomeIcone, ReactElement> = {
   atualizar: <g {...L}><path d="M20 12a8 8 0 1 1-2.6-5.9" /><path d="M20 4v4.6h-4.6" /></g>,
   pasta: <path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.2h7a2 2 0 0 1 2 2V17.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />,
   recentes: <g {...L}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></g>,
+  camera: <g><path d="M4.5 8h3l1.6-2.5h5.8L16.5 8h3a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-8A1.5 1.5 0 0 1 4.5 8z" /><circle cx="12" cy="13.2" r="3.4" {...L} /></g>,
   imagens: <g><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><circle cx="9" cy="10" r="1.6" {...L} /><path d="m4.5 17 4.5-4.2 3.2 3 2.6-2.4 4.7 4.3" {...L} /></g>,
   videos: <g><rect x="3.5" y="5.5" width="17" height="13" rx="2.5" /><path d="m10.5 9.4 4.2 2.6-4.2 2.6z" {...L} /></g>,
   audios: <g {...L}><path d="M9 17.5V6.5l9-2v11" /><circle cx="6.8" cy="17.5" r="2.2" /><circle cx="15.8" cy="15.5" r="2.2" /></g>,
