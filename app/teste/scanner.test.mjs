@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { caber, aposGiro, girarMais, aplicarFiltro, nomePadrao, nomeDoArquivo, acharPapel, corrigirPerspectiva, quadValido, tamanhoDoQuad, CANTOS_INTEIRA, caberNoCartao, nomeDoCartao, CARTAO } from "../src/scanner/imagem.ts";
 import { palavrasDe } from "../src/scanner/ocr.ts";
 import { arrumarTexto, juntarPaginas, nomeDoTxt, contarPalavras } from "../src/scanner/ocr.ts";
-import { adicionar, remover, lerLista, rotuloDaData, rotuloDePaginas } from "../src/scanner/recentes.ts";
+import { adicionar, remover, lerLista, rotuloDaData, rotuloDePaginas, buscar, trechoDe, paraBusca } from "../src/scanner/recentes.ts";
+import { nomeSugerido, IDIOMAS } from "../src/scanner/ocr.ts";
+import { predefinicao, MODOS } from "../src/scanner/imagem.ts";
 
 test("tamanho: reduz sem deformar e nunca aumenta", () => {
   assert.deepEqual(caber(4000, 3000, 2000), { w: 2000, h: 1500 });
@@ -223,4 +225,53 @@ test("A4: folha com cara de A4 usa a proporção exata; outras ficam como estão
   assert.deepEqual(encaixarA4(1500, 1000), { w: 1500, h: 1061 });
   assert.deepEqual(encaixarA4(1000, 1000), { w: 1000, h: 1000 }, "quadrado não é A4");
   assert.deepEqual(encaixarA4(674, 425), { w: 674, h: 425 }, "cartão não é A4");
+});
+
+test("modos: cada um tem predefinição e o nome muda", () => {
+  assert.deepEqual(MODOS.map((m) => m.id), ["paginas", "recibo", "livro", "quadro", "cartao"]);
+  assert.equal(predefinicao("recibo").formato, "imagem");
+  assert.equal(predefinicao("recibo").pesquisavel, true);
+  assert.equal(predefinicao("livro").recortar, false);
+  assert.equal(predefinicao("quadro").filtro, "quadro");
+  assert.match(nomePadrao(new Date(2026, 10, 25, 9, 5), "Recibo"), /^Recibo 25-11-2026 09h05$/);
+  assert.match(nomePadrao(new Date(2026, 10, 25, 9, 5)), /^Digitalização 25-11-2026/);
+});
+
+test("filtro quadro: fundo vira branco e o traço mantém a cor", () => {
+  const w = 40, h = 40, px = new Uint8ClampedArray(w * h * 4);
+  for (let i = 0; i < w * h; i++) { px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = 150; px[i * 4 + 3] = 255; }
+  for (let y = 18; y < 22; y++) for (let x = 5; x < 35; x++) { const i = (y * w + x) * 4; px[i] = 200; px[i + 1] = 30; px[i + 2] = 30; }
+  aplicarFiltro(px, w, h, "quadro");
+  assert.equal(px[0], 255); assert.equal(px[1], 255); assert.equal(px[2], 255);
+  const t = (20 * w + 20) * 4;
+  assert.ok(px[t] > px[t + 1] + 60, "o traço continua vermelho");
+});
+
+test("nome sugerido: título do papel + data", () => {
+  const d = new Date(2026, 10, 25);
+  assert.equal(nomeSugerido("SUPERMERCADO BOM PREÇO LTDA\nCNPJ 12.345.678/0001-90\nTotal 45,90", d), "Supermercado Bom Preço Ltda 25-11-2026");
+  assert.equal(nomeSugerido("\n\n12345 67890\nContrato de Aluguel\n", d, "Livro"), "Livro - Contrato de Aluguel 25-11-2026");
+  assert.equal(nomeSugerido("123 456\n7 8\n", d), "");
+  assert.equal(nomeSugerido("", d), "");
+  assert.ok(nomeSugerido("Uma linha muito comprida que passa dos quarenta caracteres de limite", d).length < 70);
+});
+
+test("busca nos recentes: nome ou texto, sem acento", () => {
+  const lista = [
+    { id: "a", nome: "Recibo luz.pdf", paginas: 1, criado: 2, bytes: 1, miniatura: "" },
+    { id: "b", nome: "Digitalização 1.pdf", paginas: 1, criado: 1, bytes: 1, miniatura: "" }
+  ];
+  const textos = { b: "Fatura da Água — total a pagar R$ 45,90 até dia 10" };
+  assert.equal(buscar(lista, textos, "").length, 2);
+  assert.deepEqual(buscar(lista, textos, "LUZ").map((x) => x.recente.id), ["a"]);
+  const r = buscar(lista, textos, "agua");
+  assert.deepEqual(r.map((x) => x.recente.id), ["b"]);
+  assert.match(r[0].trecho, /Água/);
+  assert.equal(buscar(lista, textos, "xyz").length, 0);
+  assert.equal(paraBusca("Ação É"), "acao e");
+  assert.equal(trechoDe("abc", "zzz"), "");
+});
+
+test("idiomas do leitor de texto", () => {
+  assert.deepEqual(IDIOMAS.map((i) => i.id), ["por", "eng", "spa"]);
 });

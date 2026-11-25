@@ -33,3 +33,33 @@ export function palavrasDe(blocos: Bloco[] | null | undefined, confiancaMinima =
   }
   return fora;
 }
+
+/** Idiomas que o leitor de texto sabe (os dados vêm dentro do app, tudo offline). */
+export type Idioma = "por" | "eng" | "spa";
+export const IDIOMAS: { id: Idioma; nome: string }[] = [{ id: "por", nome: "Português" }, { id: "eng", nome: "Inglês" }, { id: "spa", nome: "Espanhol" }];
+
+const MINUSCULAS = new Set(["de", "da", "do", "das", "dos", "e", "em", "a", "o", "para", "com", "the", "of", "and", "la", "el", "y"]);
+const dois = (n: number): string => String(n).padStart(2, "0");
+/** Se a linha está toda em maiúsculas, vira "Título Assim" (com de/da/do em minúsculas); senão fica como está. */
+function aoJeitoDeTitulo(linha: string): string {
+  const letras = linha.replace(/[^\p{L}]/gu, "");
+  if (!letras || letras !== letras.toUpperCase()) return linha;
+  return linha.toLowerCase().split(" ").map((p, i) => (i > 0 && MINUSCULAS.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1))).join(" ");
+}
+/**
+ * Um nome para o arquivo a partir do texto lido: a primeira linha que parece um título (palavras de verdade, não só números),
+ * mais a data. Devolve "" se não achar nada que sirva (aí fica o nome padrão).
+ */
+export function nomeSugerido(texto: string, d: Date, prefixo = ""): string {
+  for (const bruta of texto.split("\n")) {
+    const linha = bruta.replace(/[^\p{L}\p{N} .,&'’-]/gu, " ").replace(/\s+/g, " ").trim();
+    const letras = (linha.match(/\p{L}/gu) ?? []).length, digitos = (linha.match(/\p{N}/gu) ?? []).length;
+    const palavras = linha.split(" ").filter((p) => /\p{L}{2,}/u.test(p));
+    if (letras < 5 || palavras.length < 1 || digitos > letras || linha.length > 70) continue;
+    let titulo = aoJeitoDeTitulo(linha).replace(/[ .,&'’-]+$/u, "");
+    if (titulo.length > 40) titulo = titulo.slice(0, 40).replace(/ \S*$/, "");
+    if (!titulo) continue;
+    return `${prefixo ? prefixo + " - " : ""}${titulo} ${dois(d.getDate())}-${dois(d.getMonth() + 1)}-${d.getFullYear()}`;
+  }
+  return "";
+}

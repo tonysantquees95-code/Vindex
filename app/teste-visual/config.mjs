@@ -126,13 +126,51 @@ export default {
       await p.getByRole("button", { name: /^Gerar PDF · 1 página/ }).click();
       await p.getByRole("heading", { name: "Pronto" }).waitFor({ timeout: 90000 });
       // o PDF fica guardado no aparelho (IndexedDB): pega os bytes de lá
-      const bytes = await p.evaluate(() => new Promise((ok, erro) => { const r = indexedDB.open("vindex-scanner", 1); r.onsuccess = () => { const q = r.result.transaction("pdfs").objectStore("pdfs").getAll(); q.onsuccess = () => ok([...q.result[0]]); q.onerror = () => erro(q.error); }; r.onerror = () => erro(r.error); }));
+      const bytes = await p.evaluate(() => new Promise((ok, erro) => { const r = indexedDB.open("vindex-scanner"); r.onsuccess = () => { const q = r.result.transaction("pdfs").objectStore("pdfs").getAll(); q.onsuccess = () => ok([...q.result[0]]); q.onerror = () => erro(q.error); }; r.onerror = () => erro(r.error); }));
       // lê o PDF salvo com o pdf.js e procura as palavras, como a busca de um leitor de PDF
       const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
       const dados = new Uint8Array(bytes);
       const pagina = await (await pdfjs.getDocument({ data: dados, useSystemFonts: true }).promise).getPage(1);
       const texto = (await pagina.getTextContent()).items.map((i) => i.str).join(" ").toUpperCase();
       if (!/CONTRATO/.test(texto) || !/MARIA/.test(texto)) throw new Error(`o PDF não tem o texto pesquisável: ${texto.slice(0, 100)}`);
+    }],
+    ["scanner-modos", "normal", async (p, a) => {
+      await a.aba(p, "PDF"); await p.getByRole("heading", { name: "VindexScanner" }).waitFor();
+      for (const nome of ["Documento", "Recibo", "Livro", "Quadro", "Cartão ID"]) await p.getByRole("button", { name: nome, exact: true }).waitFor();
+      await p.getByRole("button", { name: "Recibo", exact: true }).click();
+      if ((await p.getByRole("button", { name: "Recibo", exact: true }).getAttribute("aria-pressed")) !== "true") throw new Error("Recibo deveria aparecer escolhido");
+      const [escolha] = await Promise.all([p.waitForEvent("filechooser"), p.getByRole("button", { name: "Importar imagens" }).click()]);
+      await escolha.setFiles([{ name: "a.jpg", mimeType: "image/jpeg", buffer: await ex.fotoComTexto() }]);
+      await p.getByRole("img", { name: "Página 1" }).waitFor({ timeout: 20000 });
+      for (const idioma of ["Português", "Inglês", "Espanhol"]) await p.getByRole("button", { name: idioma, exact: true }).waitFor();
+      const visual = p.getByRole("group", { name: "Visual das páginas" }).getByRole("button", { name: "Quadro", exact: true });
+      await visual.click(); // o filtro Quadro aparece escolhido
+      if ((await visual.getAttribute("aria-pressed")) !== "true") throw new Error("o filtro Quadro deveria aparecer escolhido");
+      await p.getByRole("button", { name: "Recibo", exact: true }).click();
+      if ((await p.getByRole("switch", { name: "PDF pesquisável" }).getAttribute("aria-checked")) !== "true") throw new Error("Recibo deveria ligar o PDF pesquisável");
+      await p.getByRole("button", { name: /^Gerar PDF · 1 página/ }).click();
+      await p.getByRole("heading", { name: "Pronto" }).waitFor({ timeout: 90000 });
+      const lista = p.getByRole("list", { name: "Digitalizações recentes" });
+      await lista.getByText(/^Recibo - /).first().waitFor({ timeout: 10000 }); // o nome saiu do título lido no papel
+      await p.getByRole("searchbox").fill("maria");
+      await lista.getByText(/Maria/i).first().waitFor({ timeout: 10000 });
+      await p.getByRole("searchbox").fill("zzzz");
+      await p.getByText(/Nada achado/).waitFor();
+    }],
+    ["scanner-idiomas", "normal", async (p, a) => {
+      await a.aba(p, "PDF"); await p.getByRole("heading", { name: "VindexScanner" }).waitFor();
+      const [escolha] = await Promise.all([p.waitForEvent("filechooser"), p.getByRole("button", { name: "Importar imagens" }).click()]);
+      await escolha.setFiles([{ name: "a.jpg", mimeType: "image/jpeg", buffer: await ex.fotoComTexto() }]);
+      await p.getByRole("img", { name: "Página 1" }).waitFor({ timeout: 20000 });
+      for (const idioma of ["Inglês", "Espanhol"]) { // os dados de cada idioma vêm dentro do app: o leitor precisa abrir com eles
+        await p.getByRole("button", { name: idioma, exact: true }).click();
+        if ((await p.getByRole("button", { name: idioma, exact: true }).getAttribute("aria-pressed")) !== "true") throw new Error(`${idioma} deveria aparecer escolhido`);
+        await p.getByRole("button", { name: "Extrair texto das páginas" }).click();
+        const caixa = p.getByRole("textbox", { name: "Texto extraído" });
+        await caixa.waitFor({ timeout: 90000 });
+        if (!/150/.test(await caixa.inputValue())) throw new Error(`${idioma}: o texto lido não bate: ${(await caixa.inputValue()).slice(0, 100)}`);
+        await p.getByRole("button", { name: "Fechar" }).first().click();
+      }
     }],
     ["scanner-previas", "normal", async (p, a) => {
       await a.aba(p, "PDF"); await p.getByRole("heading", { name: "VindexScanner" }).waitFor();
@@ -172,6 +210,18 @@ export default {
     ["pdf-marca-dagua", "normal", async (p, a) => { await ferramenta(p, a, "Marca d'água"); await escolher(p, "Escolher PDF", [["relatorio.pdf", ex.pdf(2)]]); await p.getByPlaceholder("Exemplo: CONFIDENCIAL").fill("RASCUNHO"); await p.getByRole("button", { name: /^Marca d'água$/ }).last().click(); await pronto(p); }],
     ["leitor-pdf", "normal", async (p, a) => { await abrirDoc(p, a, "relatorio.pdf", ex.pdf()); }],
     ["leitor-pdf-anotar", "normal", async (p, a) => { await abrirDoc(p, a, "relatorio.pdf", ex.pdf()); await leitor(p).getByRole("button", { name: "Anotar no PDF" }).click(); await leitor(p).getByRole("button", { name: "Caneta" }).click(); const c = await p.locator("[data-pagina='1'] svg").boundingBox(); const y0 = Math.max(c.y, 0) + 20; await p.mouse.move(c.x + c.width * 0.2, y0); await p.mouse.down(); await p.mouse.move(c.x + c.width * 0.6, y0 + 25, { steps: 6 }); await p.mouse.up(); await p.waitForTimeout(200); await leitor(p).getByText("alterado").first().waitFor(); }],
+    ["leitor-pdf-formulario", "normal", async (p, a) => {
+      await abrirDoc(p, a, "relatorio.pdf", ex.pdf()); await leitor(p).getByRole("button", { name: "Anotar no PDF" }).click();
+      for (const f of ["Visto", "X", "Data"]) await leitor(p).getByRole("button", { name: f, exact: true }).waitFor();
+      const c = await p.locator("[data-pagina='1'] svg").boundingBox(); const y0 = Math.max(c.y, 0) + 40;
+      await leitor(p).getByRole("button", { name: "Visto", exact: true }).click();
+      if ((await leitor(p).getByRole("button", { name: "Visto", exact: true }).getAttribute("aria-pressed")) !== "true") throw new Error("Visto deveria aparecer escolhido");
+      await p.mouse.click(c.x + c.width * 0.25, y0);
+      await leitor(p).getByRole("button", { name: "X", exact: true }).click(); await p.mouse.click(c.x + c.width * 0.45, y0);
+      await leitor(p).getByRole("button", { name: "Data", exact: true }).click(); await p.mouse.click(c.x + c.width * 0.6, y0);
+      await leitor(p).getByText(new RegExp(`${String(new Date().getDate()).padStart(2, "0")}/`)).first().waitFor({ timeout: 5000 });
+      await leitor(p).getByText("alterado").first().waitFor();
+    }],
     ["leitor-pdf-assinar", "normal", async (p, a) => { await abrirDoc(p, a, "relatorio.pdf", ex.pdf()); await leitor(p).getByRole("button", { name: "Anotar no PDF" }).click(); await leitor(p).getByRole("button", { name: "Assinar" }).click(); await p.getByRole("dialog", { name: "Sua assinatura" }).waitFor(); }],
     ["leitor-docx", "normal", async (p, a) => { await abrirDoc(p, a, "contrato.docx", ex.docx()); await leitor(p).getByText("Cláusula 2ª").first().waitFor(); }],
     ["leitor-docx-editar", "normal", async (p, a) => { await abrirDoc(p, a, "contrato.docx", ex.docx()); await leitor(p).getByRole("button", { name: "Editar o documento" }).click(); await leitor(p).getByText("O prazo de vigência").click(); await leitor(p).getByLabel("Texto do parágrafo").fill("O prazo é de vinte e quatro meses."); await leitor(p).getByRole("button", { name: "Pronto" }).first().click(); await leitor(p).getByText("alterado").first().waitFor(); }],

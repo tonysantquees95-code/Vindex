@@ -7,15 +7,17 @@ import { CaixaDeAssinatura, guardarAssinatura, lerAssinatura, type AssinaturaSal
 import { Perguntar } from "./Dialogo";
 import { htmlDeImagens } from "./impressao";
 import { Icone, type NomeIcone } from "../icones";
+import { dataDeHoje, marcaDeFormulario } from "./formulario.ts";
 
-type Ferramenta = "nenhuma" | "caneta" | "destaque" | "texto" | "assinatura";
+type Ferramenta = "nenhuma" | "caneta" | "destaque" | "texto" | "assinatura" | "visto" | "xis" | "data";
 const FERRAMENTAS: { id: Exclude<Ferramenta, "nenhuma">; rotulo: string; icone: NomeIcone }[] = [
   { id: "caneta", rotulo: "Caneta", icone: "caneta" }, { id: "destaque", rotulo: "Marca-texto", icone: "marcatexto" },
-  { id: "texto", rotulo: "Texto", icone: "texto" }, { id: "assinatura", rotulo: "Assinar", icone: "assinatura" }
+  { id: "texto", rotulo: "Texto", icone: "texto" }, { id: "visto", rotulo: "Visto", icone: "visto" }, { id: "xis", rotulo: "X", icone: "fechar" },
+  { id: "data", rotulo: "Data", icone: "calendario" }, { id: "assinatura", rotulo: "Assinar", icone: "assinatura" }
 ];
 const PALETA = [CORES.preto, CORES.azul, CORES.vermelho, CORES.verde];
 const PALETA_MARCA = [CORES.amarelo, CORES.verde, CORES.rosa, CORES.laranja];
-const LARGURA_CANETA = 0.004, TAMANHO_TEXTO = 0.032, LARGURA_ASSINATURA = 0.28;
+const LARGURA_MARCA = 0.005, LARGURA_CANETA = 0.004, TAMANHO_TEXTO = 0.032, LARGURA_ASSINATURA = 0.28;
 
 /** Gera uma imagem de cada página (para imprimir pelo Windows). */
 export async function paginasComoHtml(dados: Uint8Array, titulo: string): Promise<string> {
@@ -50,6 +52,17 @@ export function VerPdf(p: PropsVisualizador) {
   const [proporcoes, setProporcoes] = useState<Record<number, number>>({});
   const [larguraBase, setLarguraBase] = useState(340);
   const rolagem = useRef<HTMLDivElement>(null);
+  const barraRef = useRef<HTMLDivElement>(null);
+  const [alturaBarra, setAlturaBarra] = useState(68);
+  // o seletor de páginas fica logo acima da barra de anotação, qualquer que seja a altura dela (com a linha de cores fica maior)
+  useEffect(() => {
+    const el = barraRef.current; if (!el) return;
+    const medir = () => setAlturaBarra(el.offsetHeight);
+    medir();
+    if (typeof ResizeObserver === "undefined") return;
+    const o = new ResizeObserver(medir); o.observe(el);
+    return () => o.disconnect();
+  }, [p.editando]);
   const miolo = useRef<HTMLDivElement>(null);
   const pendente = useRef<{ razao: number; cx: number; cy: number } | null>(null);
 
@@ -135,7 +148,7 @@ export function VerPdf(p: PropsVisualizador) {
         <button aria-label="Afastar" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} className="pointer-events-auto grid size-10 place-items-center rounded-xl border border-borda bg-painel/90 text-lg">−</button>
         {zoom !== 1 && <button aria-label="Tamanho normal" onClick={() => setZoom(1)} className="pointer-events-auto grid size-10 place-items-center rounded-xl border border-borda bg-painel/90 text-[11px] num">{Math.round(zoom * 100)}%</button>}
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center" style={{ bottom: p.editando ? 76 : 8 }}>
+      <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center" style={{ bottom: p.editando ? alturaBarra + 8 : 8 }}>
         <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-borda bg-painel/90 px-2 text-sm num">
           <button aria-label="Página anterior" disabled={pagina <= 1} onClick={() => ir(pagina - 1)} className="grid size-9 place-items-center disabled:opacity-30">‹</button>
           <span aria-live="polite">{pagina} / {pdf.numPages}</span>
@@ -144,7 +157,7 @@ export function VerPdf(p: PropsVisualizador) {
       </div>
 
       {p.editando && (
-        <div className="shrink-0 space-y-1 border-t border-borda bg-painel px-2 py-1.5" role="toolbar" aria-label="Ferramentas de anotação">
+        <div ref={barraRef} className="shrink-0 space-y-1 border-t border-borda bg-painel px-2 py-1.5" role="toolbar" aria-label="Ferramentas de anotação">
           <div className="flex items-center gap-1 overflow-x-auto">
             {FERRAMENTAS.map((f) => (
               <button key={f.id} aria-pressed={ferramenta === f.id} onClick={() => usarFerramenta(f.id)}
@@ -153,7 +166,7 @@ export function VerPdf(p: PropsVisualizador) {
             <span className="mx-1 h-6 w-px shrink-0 bg-borda" />
             <button aria-label="Desfazer a última anotação" disabled={!notas.length} onClick={() => setNotas((l) => l.slice(0, -1))} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-xl text-suave disabled:opacity-30"><Icone nome="desfazer" tam={20} /></button>
           </div>
-          {(ferramenta === "caneta" || ferramenta === "destaque" || ferramenta === "texto") && (
+          {(ferramenta === "caneta" || ferramenta === "destaque" || ferramenta === "texto" || ferramenta === "visto" || ferramenta === "xis" || ferramenta === "data") && (
             <div className="flex items-center gap-2" role="radiogroup" aria-label="Cor">
               {paleta.map((c) => <button key={c} role="radio" aria-checked={cor === c} aria-label={`Cor ${c}`} onClick={() => setCor(c)} className={`size-8 rounded-full border-2 ${cor === c ? "border-neon" : "border-borda"}`} style={{ background: c }} />)}
             </div>
@@ -161,7 +174,9 @@ export function VerPdf(p: PropsVisualizador) {
           {ferramenta === "assinatura" && assinatura && (
             <div className="flex items-center gap-2 text-xs text-suave"><span>Toque na página onde vai a assinatura.</span><button onClick={() => setPad("criar")} className="min-h-9 rounded-lg border border-borda px-3 text-texto">Refazer</button><button onClick={() => { guardarAssinatura(null); setAssinatura(null); setPad("criar"); }} className="min-h-9 rounded-lg border border-borda px-3 text-texto">Apagar a minha</button></div>
           )}
-          {ferramenta === "nenhuma" && <p className="text-xs text-suave">Escolha uma ferramenta e toque ou desenhe na página.</p>}
+          {(ferramenta === "visto" || ferramenta === "xis") && <p className="text-xs text-suave">Toque na caixinha ou no lugar do formulário para marcar.</p>}
+          {ferramenta === "data" && <p className="text-xs text-suave">Toque onde vai a data de hoje.</p>}
+          {ferramenta === "nenhuma" && <p className="text-xs text-suave">Escolha uma ferramenta e toque ou desenhe na página. Para preencher formulário: Texto, Visto, X e Data.</p>}
         </div>
       )}
 
@@ -232,6 +247,9 @@ function PaginaPdf({ pdf, numero, largura, proporcaoPadrao, noite, aoMedir, ferr
     if (!desenha) return;
     const pt = ponto(e); const ini = comeco.current; comeco.current = null;
     if (ferramenta === "texto") { aoPedirTexto(pt[0], pt[1]); return; }
+    // formulário: visto, X e a data de hoje entram com um toque (visto e X viram traços da caneta, então saem no PDF como desenho)
+    if (ferramenta === "visto" || ferramenta === "xis") { for (const pontos of marcaDeFormulario(ferramenta, pt[0], pt[1], proporcao)) aoNova({ tipo: "tinta", pagina: numero - 1, cor, largura: LARGURA_MARCA, pontos }); return; }
+    if (ferramenta === "data") { aoNova({ tipo: "texto", pagina: numero - 1, cor, x: pt[0], y: pt[1], tamanho: TAMANHO_TEXTO, texto: dataDeHoje() }); return; }
     if (ferramenta === "assinatura" && assinatura) {
       const w = LARGURA_ASSINATURA, h = w * assinatura.proporcao * (largura / largura);
       aoNova({ tipo: "assinatura", pagina: numero - 1, x: Math.min(1 - w, Math.max(0, pt[0] - w / 2)), y: Math.min(1 - h / proporcao, Math.max(0, pt[1] - h / proporcao / 2)), w, proporcao: assinatura.proporcao, tracos: assinatura.tracos });

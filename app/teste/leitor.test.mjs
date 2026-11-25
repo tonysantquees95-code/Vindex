@@ -190,3 +190,19 @@ test("impressão: escapa o texto e monta tabelas, títulos e slides", () => {
   assert.ok(htmlDeTabela("Aba", [["1"], ["2"], ["3"]], 2).includes("primeiras 2 linhas"));
   assert.ok(htmlDeSlides([{ numero: 1, paragrafos: [{ texto: "T", titulo: true }], notas: "n" }]).includes("<h2>T</h2>"));
 });
+
+test("formulário: visto, X e data de hoje", async () => {
+  const { marcaDeFormulario, dataDeHoje } = await import("../src/leitor/formulario.ts");
+  const visto = marcaDeFormulario("visto", 0.5, 0.5, 1.4142);
+  assert.equal(visto.length, 1);
+  assert.equal(visto[0].length, 3);
+  const xis = marcaDeFormulario("xis", 0.5, 0.5, 1.4142);
+  assert.equal(xis.length, 2);
+  // sai centrado e dentro da página, mesmo perto da borda
+  for (const t of [...visto, ...xis, ...marcaDeFormulario("visto", 0, 1, 1.4142), ...marcaDeFormulario("xis", 1, 0, 1.4142)]) for (const [x, y] of t) assert.ok(x >= 0 && x <= 1 && y >= 0 && y <= 1);
+  // em página mais alta a marca continua quadrada: a variação em y (em largura de página) é igual à de x
+  const alta = marcaDeFormulario("xis", 0.5, 0.5, 2)[0];
+  const dx = Math.abs(alta[1][0] - alta[0][0]), dy = Math.abs(alta[1][1] - alta[0][1]) * 2;
+  assert.ok(Math.abs(dx - dy) < 1e-9);
+  assert.equal(dataDeHoje(new Date(2026, 10, 5)), "05/11/2026");
+});

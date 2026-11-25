@@ -4,18 +4,18 @@ export interface Andamento { pagina: number; total: number; etapa: string; progr
 
 const base = (): string => new URL("ocr", document.baseURI).href;
 
-import { palavrasDe, type Palavra } from "./ocr.ts";
+import { palavrasDe, type Idioma, type Palavra } from "./ocr.ts";
 export interface Lido { texto: string; palavras: Palavra[] }
 
 /** Lê o texto de cada imagem (canvas), na ordem. `aoAndamento` recebe a página atual e a etapa (carregando, lendo). */
-export async function lerTextos(imagens: HTMLCanvasElement[], aoAndamento: (a: Andamento) => void, sinal?: AbortSignal): Promise<string[]> {
-  return (await lerComPosicao(imagens.length, async (i) => imagens[i], aoAndamento, false, sinal)).map((l) => l.texto);
+export async function lerTextos(imagens: HTMLCanvasElement[], aoAndamento: (a: Andamento) => void, sinal?: AbortSignal, idioma: Idioma = "por"): Promise<string[]> {
+  return (await lerComPosicao(imagens.length, async (i) => imagens[i], aoAndamento, false, sinal, idioma)).map((l) => l.texto);
 }
 
 const ETAPAS: Record<string, string> = {
   "loading tesseract core": "Carregando o leitor de texto",
   "initializing tesseract": "Iniciando o leitor",
-  "loading language traineddata": "Carregando o idioma português",
+  "loading language traineddata": "Carregando o idioma",
   "loaded language traineddata": "Idioma carregado",
   "initializing api": "Quase pronto",
   "initialized api": "Quase pronto",
@@ -28,7 +28,7 @@ const SEM_NOTICIA_MS = 60_000;
  * Lê o texto e, se pedido, a posição de cada palavra (para o PDF pesquisável). As imagens vêm uma a uma de `obter`
  * (assim só uma página grande fica na memória por vez). `sinal` cancela; se o leitor ficar 60 s sem dar notícia, para com um erro claro.
  */
-export async function lerComPosicao(total: number, obter: (i: number) => Promise<HTMLCanvasElement>, aoAndamento: (a: Andamento) => void, comPalavras = true, sinal?: AbortSignal): Promise<Lido[]> {
+export async function lerComPosicao(total: number, obter: (i: number) => Promise<HTMLCanvasElement>, aoAndamento: (a: Andamento) => void, comPalavras = true, sinal?: AbortSignal, idioma: Idioma = "por"): Promise<Lido[]> {
   const { createWorker } = await import("tesseract.js");
   let atual = 1, ultimo = Date.now(), etapa = "iniciando";
   let abandonado = false, parar: (e: Error) => void = () => undefined;
@@ -39,7 +39,7 @@ export async function lerComPosicao(total: number, obter: (i: number) => Promise
     else if (Date.now() - ultimo > SEM_NOTICIA_MS) parar(new Error(`o leitor de texto não respondeu (parou em: ${etapa})`));
   }, 1000);
   aoAndamento({ pagina: 1, total, etapa: "Preparando o leitor de texto", progresso: 0 });
-  const criando = createWorker("por", 1, {
+  const criando = createWorker(idioma, 1, {
     workerPath: `${base()}/worker.min.js`,
     corePath: `${base()}/tesseract-core-simd-lstm.wasm.js`,
     langPath: base(),

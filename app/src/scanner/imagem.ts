@@ -1,9 +1,10 @@
 // VindexScanner: lógica pura (sem tela), testada em teste/scanner.test.mjs. Tudo roda no aparelho.
-export type Filtro = "original" | "documento" | "cinza";
+export type Filtro = "original" | "documento" | "cinza" | "quadro";
 export const FILTROS: { id: Filtro; nome: string; texto: string }[] = [
   { id: "original", nome: "Colorido", texto: "A foto como saiu." },
   { id: "documento", nome: "Documento", texto: "Fundo branco e letras escuras, como um scanner." },
-  { id: "cinza", nome: "Cinza", texto: "Preto e branco com tons de cinza." }
+  { id: "cinza", nome: "Cinza", texto: "Preto e branco com tons de cinza." },
+  { id: "quadro", nome: "Quadro", texto: "Fundo branco e cores mantidas, bom para quadro branco e desenhos." }
 ];
 
 /** Maior lado da página digitalizada: o suficiente para ler o texto sem deixar o PDF pesado. */
@@ -51,6 +52,14 @@ export function aplicarFiltro(rgba: Uint8ClampedArray | Uint8Array, w: number, h
       const media = (soma[y1 * W + x1] - soma[y0 * W + x1] - soma[y1 * W + x0] + soma[y0 * W + x0]) / ((x1 - x0) * (y1 - y0));
       // relativo ao fundo local: 1 = papel; abaixo disso = tinta
       const rel = Math.min(1.1, cinza[y * w + x] / Math.max(media, 1));
+      if (filtro === "quadro") {
+        // mantém a cor: clareia o fundo local até o branco e deixa o traço colorido
+        const i = (y * w + x) * 4;
+        if (rel > 0.93) { rgba[i] = 255; rgba[i + 1] = 255; rgba[i + 2] = 255; continue; }
+        const f = 235 / Math.max(media, 30);
+        rgba[i] = Math.min(255, rgba[i] * f); rgba[i + 1] = Math.min(255, rgba[i + 1] * f); rgba[i + 2] = Math.min(255, rgba[i + 2] * f);
+        continue;
+      }
       // curva: acima de ~92% do fundo vira branco puro; abaixo disso escurece rápido (letras nítidas)
       const t = Math.max(0, Math.min(1, (rel - 0.55) / (0.92 - 0.55)));
       const v = Math.round(255 * t * t * (3 - 2 * t));
@@ -62,7 +71,7 @@ export function aplicarFiltro(rgba: Uint8ClampedArray | Uint8Array, w: number, h
 
 const dois = (n: number): string => String(n).padStart(2, "0");
 /** Nome padrão do arquivo: "Digitalização 24-11-2026 18h41". */
-export function nomePadrao(d: Date): string { return `Digitalização ${dois(d.getDate())}-${dois(d.getMonth() + 1)}-${d.getFullYear()} ${dois(d.getHours())}h${dois(d.getMinutes())}`; }
+export function nomePadrao(d: Date, prefixo = "Digitalização"): string { return `${prefixo} ${dois(d.getDate())}-${dois(d.getMonth() + 1)}-${d.getFullYear()} ${dois(d.getHours())}h${dois(d.getMinutes())}`; }
 /** Deixa só o que vale em nome de arquivo e garante o .pdf. */
 export function nomeDoArquivo(nome: string): string {
   const limpo = nome.replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().replace(/\.pdf$/i, "").trim().slice(0, 80);
@@ -254,4 +263,20 @@ export function encaixarA4(w: number, h: number): { w: number; h: number } {
   if (Math.abs(razao - A4) / A4 > 0.12) return { w, h };
   const novoCurto = Math.round(longo / A4);
   return w >= h ? { w, h: novoCurto } : { w: novoCurto, h };
+}
+
+/** O que a pessoa escolhe escanear. Cada modo já deixa as opções do jeito que costuma servir (e ela ainda pode mudar). */
+export type ModoDoScanner = "paginas" | "recibo" | "livro" | "quadro" | "cartao";
+export const MODOS: { id: ModoDoScanner; nome: string }[] = [
+  { id: "paginas", nome: "Documento" }, { id: "recibo", nome: "Recibo" }, { id: "livro", nome: "Livro" }, { id: "quadro", nome: "Quadro" }, { id: "cartao", nome: "Cartão ID" }
+];
+export interface Predefinicao { filtro: Filtro; recortar: boolean; formato: "a4" | "imagem"; pesquisavel: boolean; prefixo: string; dica: string }
+export function predefinicao(modo: ModoDoScanner): Predefinicao {
+  switch (modo) {
+    case "recibo": return { filtro: "documento", recortar: true, formato: "imagem", pesquisavel: true, prefixo: "Recibo", dica: "Para notinhas e comprovantes: a página fica do tamanho da foto (sem sobrar papel) e o texto é lido para dar nome e permitir busca." };
+    case "livro": return { filtro: "documento", recortar: false, formato: "a4", pesquisavel: true, prefixo: "Livro", dica: "Para páginas de livro e caderno: sem recorte automático (a dobra confunde as bordas). Use Cantos se quiser recortar. A curva da página não é desentortada." };
+    case "quadro": return { filtro: "quadro", recortar: true, formato: "imagem", pesquisavel: false, prefixo: "Quadro", dica: "Para quadro branco e desenhos: fundo branco e cores mantidas." };
+    case "cartao": return { filtro: "documento", recortar: true, formato: "a4", pesquisavel: false, prefixo: "Cartão", dica: "" };
+    default: return { filtro: "documento", recortar: true, formato: "a4", pesquisavel: false, prefixo: "Digitalização", dica: "" };
+  }
 }

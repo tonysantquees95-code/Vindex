@@ -4,12 +4,12 @@ import { Icone } from "../icones";
 import { Aviso, Botao, Cartao, Interruptor } from "../ui";
 import { imagensParaPdf } from "../pdf/editar.ts";
 import type { SaidaPdf } from "../pdf/saida";
-import { apagar, guardar, lerPdf, lerRecentes } from "./armazem.ts";
+import { apagar, guardar, lerPdf, lerRecentes, lerTextosGuardados } from "./armazem.ts";
 import { desenhar, detectarPapel, jpeg } from "./canvas.ts";
 import { EditorDeCantos } from "./EditorDeCantos";
-import { contarPalavras, juntarPaginas, nomeDoTxt } from "./ocr.ts";
-import { CARTAO, FILTROS, caberNoCartao, girarMais, nomeDoArquivo, nomeDoCartao, nomePadrao, LADO_MAXIMO, type Cantos, type Filtro } from "./imagem.ts";
-import { rotuloDaData, rotuloDePaginas, type Recente } from "./recentes.ts";
+import { IDIOMAS, contarPalavras, juntarPaginas, nomeDoTxt, nomeSugerido, type Idioma } from "./ocr.ts";
+import { CARTAO, FILTROS, MODOS, caberNoCartao, girarMais, nomeDoArquivo, nomeDoCartao, nomePadrao, predefinicao, LADO_MAXIMO, type Cantos, type Filtro, type ModoDoScanner } from "./imagem.ts";
+import { buscar, rotuloDaData, rotuloDePaginas, type Recente } from "./recentes.ts";
 
 interface Pagina { id: string; origem: Blob; giro: number; previa: string; cantos?: Cantos; achou?: boolean }
 const novoId = (): string => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -52,11 +52,16 @@ const CAMPO = "min-h-11 w-full rounded-xl border border-borda bg-fundo px-3 text
 export function Scanner({ saida }: { saida: SaidaPdf }) {
   const [paginas, setPaginas] = useState<Pagina[]>([]);
   const [filtro, setFiltro] = useState<Filtro>("documento");
-  const [modo, setModo] = useState<"paginas" | "cartao">("paginas");
+  const [modo, setModo] = useState<ModoDoScanner>("paginas");
+  const [idioma, setIdioma] = useState<Idioma>("por");
+  const [nomeMexido, setNomeMexido] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [textosGuardados, setTextosGuardados] = useState<Record<string, string>>({});
   const [recortar, setRecortar] = useState(true);
   const [pesquisavel, setPesquisavel] = useState(false);
   const [formato, setFormato] = useState<"a4" | "imagem">("a4");
   const [nome, setNome] = useState(() => nomePadrao(new Date()));
+  const nomeDoModo = (m: ModoDoScanner): string => (m === "cartao" ? nomeDoCartao(new Date()) : nomePadrao(new Date(), predefinicao(m).prefixo));
   const [ocupado, setOcupado] = useState("");
   const [erro, setErro] = useState("");
   const [pronto, setPronto] = useState<{ nome: string; dados: Uint8Array } | null>(null);
@@ -73,6 +78,9 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
   const foto = useRef<HTMLInputElement>(null);
   const importar = useRef<HTMLInputElement>(null);
   const versao = useRef(0);
+
+  // o texto lido dos PDFs guardados (para a busca nos Recentes)
+  useEffect(() => { void lerTextosGuardados().then(setTextosGuardados).catch(() => undefined); }, [recentes]);
 
   // a prévia de cada página acompanha o filtro e o giro (a versão evita que uma resposta antiga sobrescreva a nova)
   useEffect(() => {
@@ -105,7 +113,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
 
   async function gerar() {
     setErro(""); setOcupado("Montando o PDF…");
-    let semTexto = "";
+    let semTexto = "", textoLido = "";
     const ctl = new AbortController();
     cancelar.current = ctl;
     try {
@@ -134,18 +142,21 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
             const { lerComPosicao } = await import("./ocrNavegador.ts");
             setPodeCancelar(true);
             const lidos = await lerComPosicao(paginas.length, async (i) => { const c = await montar(i); guardadas[i] = { dados: await jpeg(c), w: c.width, h: c.height }; return c; },
-              (a) => setOcupado(a.etapa === "Lendo" ? `Lendo a página ${a.pagina} de ${a.total}… ${Math.round(a.progresso * 100)}%` : `${a.etapa}… (página ${a.pagina} de ${a.total})`), true, ctl.signal);
+              (a) => setOcupado(a.etapa === "Lendo" ? `Lendo a página ${a.pagina} de ${a.total}… ${Math.round(a.progresso * 100)}%` : `${a.etapa}… (página ${a.pagina} de ${a.total})`), true, ctl.signal, idioma);
             guardadas.forEach((g, i) => imgs.push({ dados: g.dados, tipo: "jpg" as const, palavras: lidos[i]?.palavras, largura: g.w, altura: g.h }));
+            textoLido = lidos.map((l) => l.texto).join("\n");
             ok = true;
           } catch (e) { semTexto = e instanceof Error && e.message ? e.message : "erro desconhecido"; imgs.length = 0; }
         }
         if (!ok) { setOcupado("Montando o PDF…"); for (let i = 0; i < paginas.length; i++) imgs.push({ dados: await jpeg(await montar(i)), tipo: "jpg" as const }); }
       }
       const dados = await imagensParaPdf(imgs, { pagina: modo === "cartao" ? "a4" : formato, margem: 0 });
-      const arquivo = nomeDoArquivo(nome);
+      // sem a pessoa ter mexido no nome, o título lido no papel vira o nome do arquivo
+      const sugerido = !nomeMexido && modo !== "cartao" && textoLido ? nomeSugerido(textoLido, new Date(), predefinicao(modo).prefixo === "Digitalização" ? "" : predefinicao(modo).prefixo) : "";
+      const arquivo = nomeDoArquivo(sugerido || nome);
       const mini = (await desenhar(paginas[0].origem, filtro, paginas[0].giro, 160, recortar, paginas[0].cantos)).toDataURL("image/jpeg", 0.6);
-      const lista = await guardar({ id: novoId(), nome: arquivo, paginas: imgs.length, criado: Date.now(), bytes: dados.length, miniatura: mini }, dados);
-      setRecentes(lista); setPronto({ nome: arquivo, dados }); if (semTexto) setErro(`O PDF saiu, mas sem o texto pesquisável (${semTexto}).`); setPaginas([]); setNome(modo === "cartao" ? nomeDoCartao(new Date()) : nomePadrao(new Date()));
+      const lista = await guardar({ id: novoId(), nome: arquivo, paginas: imgs.length, criado: Date.now(), bytes: dados.length, miniatura: mini }, dados, textoLido);
+      setRecentes(lista); setPronto({ nome: arquivo, dados }); if (semTexto) setErro(`O PDF saiu, mas sem o texto pesquisável (${semTexto}).`); setPaginas([]); setNome(nomeDoModo(modo)); setNomeMexido(false);
     } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui montar o PDF."); } finally { setOcupado(""); setPodeCancelar(false); cancelar.current = null; }
   }
   async function salvar(dados: Uint8Array, arquivo: string, mime = "application/pdf") {
@@ -177,7 +188,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
       const imagens = [];
       for (const p of paginas) imagens.push(await desenhar(p.origem, "cinza", p.giro, 1800, recortar, p.cantos));
       const { lerTextos } = await import("./ocrNavegador.ts");
-      const lidos = await lerTextos(imagens, (a) => setLendo(a.etapa === "Lendo" ? `Lendo a página ${a.pagina} de ${a.total}… ${Math.round(a.progresso * 100)}%` : `${a.etapa}…`), ctl.signal);
+      const lidos = await lerTextos(imagens, (a) => setLendo(a.etapa === "Lendo" ? `Lendo a página ${a.pagina} de ${a.total}… ${Math.round(a.progresso * 100)}%` : `${a.etapa}…`), ctl.signal, idioma);
       const valor = juntarPaginas(lidos);
       if (!valor.trim()) setErro("Não consegui ler texto nestas páginas. Tente uma foto mais nítida e bem iluminada.");
       else setTexto({ valor, nome: nomeDoTxt(nome) });
@@ -189,6 +200,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
   }
 
   const agora = Date.now();
+  const resultados = buscar(recentes, textosGuardados, busca);
   const comPaginas = paginas.length > 0;
   return (
     <div className="space-y-4">
@@ -197,8 +209,9 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
           <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-neon/15 text-neon"><Icone nome="camera" tam={24} /></span>
           <div><h2 className="text-lg font-extrabold">VindexScanner</h2><p className="text-sm text-suave">Fotografe um papel e receba um PDF limpo. Nada sai do seu aparelho.</p></div>
         </div>
-        <div className="mt-4"><Opcoes valor={modo} opcoes={[{ id: "paginas", nome: "Documento" }, { id: "cartao", nome: "Cartão ID" }]} rotulo="O que escanear" aoMudar={(m) => { setModo(m); setPronto(null); setPaginas((a) => (m === "cartao" ? a.slice(0, 2) : a)); setNome(m === "cartao" ? nomeDoCartao(new Date()) : nomePadrao(new Date())); }} />
-          {modo === "cartao" && <p className="mt-2 text-xs text-suave">Fotografe a frente e depois o verso (2 fotos). As duas saem numa folha A4, no tamanho real do cartão, prontas para imprimir.</p>}</div>
+        <div className="mt-4"><Opcoes valor={modo} opcoes={MODOS} rotulo="O que escanear" aoMudar={(m) => { const p = predefinicao(m); setModo(m); setPronto(null); setPaginas((a) => (m === "cartao" ? a.slice(0, 2) : a)); setFiltro(p.filtro); setRecortar(p.recortar); setFormato(p.formato); setPesquisavel(p.pesquisavel); setNome(nomeDoModo(m)); setNomeMexido(false); }} />
+          {modo === "cartao" && <p className="mt-2 text-xs text-suave">Fotografe a frente e depois o verso (2 fotos). As duas saem numa folha A4, no tamanho real do cartão, prontas para imprimir.</p>}
+          {predefinicao(modo).dica && <p className="mt-2 text-xs text-suave">{predefinicao(modo).dica}</p>}</div>
         <input ref={foto} type="file" accept="image/*" capture="environment" hidden aria-label="Câmera" onChange={(e) => { adicionar(e.target.files); e.target.value = ""; }} />
         <input ref={importar} type="file" accept="image/*" multiple hidden aria-label="Escolher imagens" onChange={(e) => { adicionar(e.target.files); e.target.value = ""; }} />
         <div className="mt-4 flex flex-wrap gap-3">
@@ -235,9 +248,10 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
             </ul>
             <div className="flex min-h-11 items-center justify-between gap-3"><span className="text-sm font-medium">Recortar as bordas do papel</span><Interruptor ligado={recortar} aoMudar={setRecortar} rotulo="Recortar as bordas do papel" /></div>
             <div><span className="mb-2 block text-sm font-medium">Visual das páginas</span><Opcoes valor={filtro} opcoes={FILTROS} aoMudar={setFiltro} rotulo="Visual das páginas" /><p className="mt-2 text-xs text-suave">{FILTROS.find((f) => f.id === filtro)?.texto}</p></div>
-            {modo === "paginas" && <div><span className="mb-2 block text-sm font-medium">Tamanho da página do PDF</span><Opcoes valor={formato} opcoes={[{ id: "a4", nome: "A4" }, { id: "imagem", nome: "Do tamanho da foto" }]} aoMudar={setFormato} rotulo="Tamanho da página do PDF" /></div>}
-            <label className="block"><span className="mb-1.5 block text-sm font-medium">Nome do arquivo</span><input className={CAMPO} value={nome} onChange={(e) => setNome(e.target.value)} autoComplete="off" /></label>
-            {modo === "paginas" && <div className="flex min-h-11 items-center justify-between gap-3"><span className="text-sm font-medium">PDF pesquisável <span className="block text-xs font-normal text-suave">Dá para buscar palavras no PDF. Leva alguns segundos a mais.</span></span><Interruptor ligado={pesquisavel} aoMudar={setPesquisavel} rotulo="PDF pesquisável" /></div>}
+            {modo !== "cartao" && <div><span className="mb-2 block text-sm font-medium">Tamanho da página do PDF</span><Opcoes valor={formato} opcoes={[{ id: "a4", nome: "A4" }, { id: "imagem", nome: "Do tamanho da foto" }]} aoMudar={setFormato} rotulo="Tamanho da página do PDF" /></div>}
+            <label className="block"><span className="mb-1.5 block text-sm font-medium">Nome do arquivo</span><input className={CAMPO} value={nome} onChange={(e) => { setNome(e.target.value); setNomeMexido(true); }} autoComplete="off" />{pesquisavel && modo !== "cartao" && !nomeMexido && <span className="mt-1 block text-xs text-suave">Com o texto pesquisável ligado, o nome sai do título lido no papel (se você não mudar aqui).</span>}</label>
+            {modo !== "cartao" && <div><span className="mb-2 block text-sm font-medium">Idioma do texto no papel</span><Opcoes valor={idioma} opcoes={IDIOMAS} aoMudar={setIdioma} rotulo="Idioma do texto no papel" /><p className="mt-2 text-xs text-suave">Vale para o PDF pesquisável e para Extrair texto. Tudo é lido no aparelho.</p></div>}
+            {modo !== "cartao" && <div className="flex min-h-11 items-center justify-between gap-3"><span className="text-sm font-medium">PDF pesquisável <span className="block text-xs font-normal text-suave">Dá para buscar palavras no PDF. Leva alguns segundos a mais.</span></span><Interruptor ligado={pesquisavel} aoMudar={setPesquisavel} rotulo="PDF pesquisável" /></div>}
             <Botao className="w-full" disabled={!!ocupado || !!lendo} onClick={() => void extrairTexto()}>Extrair texto das páginas</Botao>
             {lendo && <EmAndamento texto={lendo} aoCancelar={podeCancelar ? () => cancelar.current?.abort() : undefined} />}
             <Botao variante="primario" className="w-full" disabled={!!ocupado || !!lendo} onClick={() => void gerar()}>{modo === "cartao" ? `Gerar PDF do cartão` : `Gerar PDF · ${rotuloDePaginas(paginas.length)}`}</Botao>
@@ -285,15 +299,17 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
         </>} />
       )}
       <Cartao titulo="Recentes">
-        {recentes.length === 0 ? <p className="text-sm text-suave">Os PDFs que você digitalizar aparecem aqui, guardados só neste aparelho.</p> : (
+        {recentes.length > 0 && <label className="mb-3 block"><span className="sr-only">Buscar nos recentes</span><input type="search" className={CAMPO} placeholder="Buscar pelo nome ou pelo texto do papel" value={busca} onChange={(e) => setBusca(e.target.value)} autoComplete="off" /></label>}
+        {recentes.length === 0 ? <p className="text-sm text-suave">Os PDFs que você digitalizar aparecem aqui, guardados só neste aparelho.</p> : resultados.length === 0 ? <p role="status" className="text-sm text-suave">Nada achado para “{busca.trim()}”. A busca pelo texto só vale para PDFs feitos com o PDF pesquisável ligado.</p> : (
           <ul aria-label="Digitalizações recentes" className="space-y-3">
-            {recentes.map((r) => (
+            {resultados.map(({ recente: r, trecho }) => (
               <li key={r.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-2.5">
                 <button type="button" aria-label={`Abrir ${r.nome}`} onClick={() => void abrirRecente(r)} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left">
                   <span className="grid h-16 w-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-black/30">{r.miniatura ? <img src={r.miniatura} alt="" className="h-full w-full object-cover" /> : <Icone nome="documentos" tam={22} />}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold">{r.nome}</span>
                     <span className="block text-xs text-suave">{rotuloDePaginas(r.paginas)} · {rotuloDaData(r.criado, agora)} · {tamanho(r.bytes)}</span>
+                    {trecho && <span className="block truncate text-xs text-texto">{trecho}</span>}
                     <span className="block text-xs text-neon">Toque para ver</span>
                   </span>
                 </button>

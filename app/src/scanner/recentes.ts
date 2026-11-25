@@ -30,3 +30,25 @@ export function rotuloDaData(criado: number, agora: number): string {
   if (dif === 1) return `ontem ${hora}`;
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
+
+/** Minúsculas e sem acento, para a busca não ligar para "é" ou "e". */
+export const paraBusca = (t: string): string => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+/** Um pedacinho do texto em volta de onde a busca bateu ("…total a pagar 45,90…"). */
+export function trechoDe(texto: string, consulta: string, raio = 36): string {
+  const i = paraBusca(texto).indexOf(paraBusca(consulta));
+  if (i < 0) return "";
+  const ini = Math.max(0, i - raio), fim = Math.min(texto.length, i + consulta.length + raio);
+  return `${ini > 0 ? "…" : ""}${texto.slice(ini, fim).replace(/\s+/g, " ").trim()}${fim < texto.length ? "…" : ""}`;
+}
+/** Filtra os recentes pelo nome ou pelo texto lido (quando o PDF foi feito com o texto pesquisável). Consulta vazia = todos. */
+export function buscar(lista: Recente[], textos: Record<string, string>, consulta: string): { recente: Recente; trecho: string }[] {
+  const q = paraBusca(consulta).trim();
+  if (!q) return lista.map((recente) => ({ recente, trecho: "" }));
+  const fora: { recente: Recente; trecho: string }[] = [];
+  for (const r of lista) {
+    if (paraBusca(r.nome).includes(q)) { fora.push({ recente: r, trecho: "" }); continue; }
+    const t = textos[r.id];
+    if (t && paraBusca(t).includes(q)) fora.push({ recente: r, trecho: trechoDe(t, consulta) });
+  }
+  return fora;
+}

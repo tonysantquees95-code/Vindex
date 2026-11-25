@@ -10,7 +10,9 @@ mkdirSync(destino, { recursive: true });
 const arquivos = [
   [join(raiz("tesseract.js"), "dist", "worker.min.js"), "worker.min.js"],
   [join(raiz("tesseract.js-core"), "tesseract-core-simd-lstm.wasm.js"), "tesseract-core-simd-lstm.wasm.js"],
-  [join(raiz("@tesseract.js-data/por"), "4.0.0_best_int", "por.traineddata.gz"), "por.traineddata.gz"]
+  [join(raiz("@tesseract.js-data/por"), "4.0.0_best_int", "por.traineddata.gz"), "por.traineddata.gz"],
+  [join(raiz("@tesseract.js-data/eng"), "4.0.0_best_int", "eng.traineddata.gz"), "eng.traineddata.gz"],
+  [join(raiz("@tesseract.js-data/spa"), "4.0.0_best_int", "spa.traineddata.gz"), "spa.traineddata.gz"]
 ];
 for (const [de, nome] of arquivos) {
   if (!existsSync(de)) throw new Error(`Falta ${de}. Rode npm install.`);

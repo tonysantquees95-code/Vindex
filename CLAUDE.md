@@ -24,6 +24,8 @@
 - O worker do pdf.js sai como `.js` (ver `vite.config.ts`) e a CSP do Tauri libera `worker-src 'self' blob:`.
 - Teste visual: cenários `leitor-*` em `teste-visual/config.mjs`, com documentos gerados por `teste-visual/exemplos.mjs`.
 
+- Preencher formulário (`leitor/formulario.ts`, puro e testado): ferramentas Visto, X e Data em `VerPdf.tsx`; visto e X viram traços de caneta (`marcaDeFormulario`, mantém a marca quadrada em qualquer proporção de página) e a data é uma anotação de texto (`dataDeHoje`). O seletor de páginas flutuante acompanha a altura da barra de anotação (`alturaBarra`). Cenário `leitor-pdf-formulario`.
+
 ## Vindex PDF (ferramentas de PDF)
 - Código em `app/src/pdf/`: `paginas.ts` (escolha de páginas por texto), `editar.ts` (juntar, dividir, extrair, apagar, organizar, girar, cortar, marca d'água, numerar, reparar, otimizar, proteger/desbloquear, imagens→PDF; usa `@cantoo/pdf-lib`, o pdf-lib com senha), `navegador.ts` (pdf.js + canvas: PDF→imagem, compressão forte, texto das páginas), `ferramentas.ts` (a lista: cada ferramenta diz o que pede e o que faz), `GradeDeFerramentas.tsx` (a grade e o painel, montados a partir da lista), `saida.ts` (salvar/compartilhar no app ou no navegador), `LogoPdf.tsx`.
 - Ferramenta nova = uma entrada em `FERRAMENTAS` + um teste em `app/teste/pdf.test.mjs` + um cenário `pdf-*` em `teste-visual/config.mjs`. Módulos de lógica não usam `DOMParser`, e os que o teste do Node importa levam `.ts` nos imports.
@@ -46,7 +48,8 @@
 - Recorte: `acharPapel` usa duas características (brilho e branco) com Otsu em 2 limiares, preenche buracos e pega a maior mancha; `encaixarA4` deixa a folha exatamente A4 quando a proporção está a 12% disso; o PDF A4 sai sem margem. Cada página guarda `achou` (aviso "Não achei as bordas" + Cantos). O warp roda em fatias com `respirar` para não travar a tela.
 - OCR: `ocrNavegador.ts` avisa a etapa, tem vigia de 60 s sem notícia e `AbortSignal` (botão Cancelar em `EmAndamento`); imagem de leitura a 1800 px.
 - Prévias (`Previas.tsx`): `PreviaDaPagina` (toque na miniatura) e `VerPdf` (botão "Ver o PDF" no Pronto e toque no item de Recentes; usa `abrirMiniaturas`). Cenário `scanner-previas`.
-- Falta (ideias): outros idiomas além do português. Cenários `scanner-*` no teste visual.
+- Modos (`predefinicao` em `imagem.ts`): Documento, Recibo, Livro, Quadro e Cartão ID já escolhem visual/recorte. Idiomas do OCR: português, inglês e espanhol (`@tesseract.js-data/eng` e `/spa`, copiados por `scripts/copiar-ocr.mjs` para `public/ocr/`, fora do git; o app fica mais ~5 MB maior, tudo offline). O texto lido de cada PDF fica no store `textos` do IndexedDB `vindex-scanner` (versão 2); a busca em Recentes é `buscar` (`recentes.ts`) e o nome automático é `nomeSugerido` (`ocr.ts`, só se a pessoa não mexeu no nome). Abra o banco SEM número de versão nos testes.
+- Falta (ideias): "Pergunte ao PDF" com IA (só como opção avisada, desligada por padrão, porque o arquivo sairia do aparelho). Cenários `scanner-*` (incluindo `scanner-modos` e `scanner-idiomas`) no teste visual.
 
 ## Feedback e relato de erro
 - Ajustes › Sobre tem "Enviar feedback" e "Reportar um erro": abrem `telas/FeedbackDoApp.tsx` (página do servidor `/feedback?app=vindex&v=<versão>&p=<plataforma>` num iframe, com o visual do app). Os relatos chegam no Painel Dev › Feedback. Windows: o CSP do `tauri.conf.json` precisa de `frame-src` do servidor. Cenário `feedback` no teste visual.
