@@ -98,55 +98,91 @@ function otsu(hist: number[], total: number): number {
 }
 
 /**
- * Acha o retângulo do papel numa foto (papel claro sobre fundo mais escuro, ou o contrário): separa claro de escuro,
- * pega a maior mancha que não é a imagem toda e devolve a caixa em frações (0-1). Sem papel claro, devolve null
- * (a página fica inteira). Não corrige perspectiva: só tira as sobras ao redor.
+ * Acha o papel numa foto: papel claro sobre fundo mais escuro (ou o contrário). Olha o brilho e também a "brancura" (o menor
+ * canal de cor, que separa papel branco de mesa de madeira), separa claro de escuro (Otsu), preenche o que está DENTRO da
+ * mancha (letras, tabelas, fotos impressas) e fica com a maior mancha compacta que não é a imagem toda. Devolve a caixa e,
+ * se der um quadrilátero de verdade, os quatro cantos (em frações 0-1). Sem papel claro, devolve null: a página fica inteira.
  */
 export function acharPapel(rgba: Uint8ClampedArray | Uint8Array, w: number, h: number): { x: number; y: number; w: number; h: number; cantos?: Cantos } | null {
   if (w < 8 || h < 8) return null;
-  const lado = 120; // grade pequena: rápido e ignora detalhes como letras
+  const lado = 120; // grade pequena: rápida e ignora detalhes como letras
   const gw = Math.max(4, Math.round(w >= h ? lado : (lado * w) / h)), gh = Math.max(4, Math.round(w >= h ? (lado * h) / w : lado));
-  const g = new Uint8Array(gw * gh), hist = new Array(256).fill(0);
+  const brilho = new Uint8Array(gw * gh), branco = new Uint8Array(gw * gh);
   for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
     const x0 = Math.floor((i * w) / gw), x1 = Math.max(x0 + 1, Math.floor(((i + 1) * w) / gw)), y0 = Math.floor((j * h) / gh), y1 = Math.max(y0 + 1, Math.floor(((j + 1) * h) / gh));
-    let s = 0, n = 0;
-    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const p = (y * w + x) * 4; s += cinzaDe(rgba[p], rgba[p + 1], rgba[p + 2]); n++; }
-    const v = Math.round(s / n); g[j * gw + i] = v; hist[v]++;
+    let s = 0, m = 0, n = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const q = (y * w + x) * 4, r = rgba[q], g = rgba[q + 1], b = rgba[q + 2]; s += cinzaDe(r, g, b); m += Math.min(r, g, b); n++; }
+    brilho[j * gw + i] = Math.round(s / n); branco[j * gw + i] = Math.round(m / n);
   }
-  const t = otsu(hist, gw * gh);
-  let melhor: { x0: number; y0: number; x1: number; y1: number; area: number; cantos: Cantos } | null = null;
-  for (const claro of [true, false]) {
-    const marca = new Uint8Array(gw * gh);
-    for (let k = 0; k < gw * gh; k++) marca[k] = (claro ? g[k] > t : g[k] <= t) ? 1 : 0;
-    const fila = new Int32Array(gw * gh);
-    for (let ini = 0; ini < gw * gh; ini++) {
-      if (marca[ini] !== 1) continue;
-      let a = 0, b = 0, area = 0, x0 = gw, y0 = gh, x1 = 0, y1 = 0;
-      let tl = [0, 0, 1e9], br = [0, 0, -1e9], tr = [0, 0, -1e9], bl = [0, 0, 1e9]; // extremos de x+y e x-y: os quatro cantos
-      fila[b++] = ini; marca[ini] = 2;
-      while (a < b) {
-        const k = fila[a++], x = k % gw, y = (k - x) / gw;
-        area++;
-        if (x + y < tl[2]) tl = [x, y, x + y]; if (x + y > br[2]) br = [x + 1, y + 1, x + y]; if (x - y > tr[2]) tr = [x + 1, y, x - y]; if (x - y < bl[2]) bl = [x, y + 1, x - y];
-        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const nx = x + dx, ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
-          const nk = ny * gw + nx;
-          if (marca[nk] === 1) { marca[nk] = 2; fila[b++] = nk; }
-        }
-      }
-      const caixa = (x1 - x0 + 1) * (y1 - y0 + 1), preenchido = area / caixa;
-      const todaAImagem = caixa > gw * gh * 0.97;
-      // vale o papel que ocupa boa parte da foto, é compacto (não uma mancha rala) e não é a imagem inteira
-      if (!todaAImagem && caixa >= gw * gh * 0.25 && preenchido > 0.6 && (!melhor || area > melhor.area)) melhor = { x0, y0, x1, y1, area, cantos: [[tl[0] / gw, tl[1] / gh], [tr[0] / gw, tr[1] / gh], [br[0] / gw, br[1] / gh], [bl[0] / gw, bl[1] / gh]] };
+  let melhor: { caixa: { x: number; y: number; w: number; h: number }; area: number; cantos: Cantos } | null = null;
+  for (const g of [brilho, branco]) {
+    const hist = new Array(256).fill(0);
+    for (let k = 0; k < gw * gh; k++) hist[g[k]]++;
+    // dois limiares: o geral e um segundo só entre os claros (papel branco sobre mesa clara, com letras escuras que puxam o primeiro limiar)
+    const t1 = otsu(hist, gw * gh);
+    const acima = hist.map((v, i) => (i > t1 ? v : 0)), nAcima = acima.reduce((a, b) => a + b, 0);
+    const limiares = nAcima > gw * gh * 0.15 ? [t1, otsu(acima, nAcima)] : [t1];
+    for (const t of limiares) for (const claro of [true, false]) {
+      const m = new Uint8Array(gw * gh);
+      for (let k = 0; k < gw * gh; k++) m[k] = (claro ? g[k] > t : g[k] <= t) ? 1 : 0;
+      encher(m, gw, gh);
+      const c = maiorMancha(m, gw, gh);
+      if (c && (!melhor || c.area > melhor.area)) melhor = c;
     }
-    if (melhor) break; // o claro tem preferência
   }
   if (!melhor) return null;
-  const caixa = { x: melhor.x0 / gw, y: melhor.y0 / gh, w: (melhor.x1 - melhor.x0 + 1) / gw, h: (melhor.y1 - melhor.y0 + 1) / gh };
   // os cantos só valem se formarem um quadrilátero de verdade (convexo e com boa parte da caixa); senão fica só a caixa
-  return quadValido(melhor.cantos, caixa.w * caixa.h) ? { ...caixa, cantos: melhor.cantos } : caixa;
+  const cantos = quadValido(melhor.cantos, melhor.caixa.w * melhor.caixa.h) ? alargar(melhor.cantos, 0.006) : undefined;
+  return cantos ? { ...melhor.caixa, cantos } : melhor.caixa;
+}
+
+/** Preenche os buracos da mancha: tudo que NÃO é alcançável da borda da imagem passando só por fora da mancha vira mancha. */
+function encher(m: Uint8Array, gw: number, gh: number): void {
+  const fora = new Uint8Array(gw * gh), fila = new Int32Array(gw * gh);
+  let a = 0, b = 0;
+  const entra = (x: number, y: number) => { const k = y * gw + x; if (!m[k] && !fora[k]) { fora[k] = 1; fila[b++] = k; } };
+  for (let x = 0; x < gw; x++) { entra(x, 0); entra(x, gh - 1); }
+  for (let y = 0; y < gh; y++) { entra(0, y); entra(gw - 1, y); }
+  while (a < b) {
+    const k = fila[a++], x = k % gw, y = (k - x) / gw;
+    if (x > 0) entra(x - 1, y); if (x < gw - 1) entra(x + 1, y); if (y > 0) entra(x, y - 1); if (y < gh - 1) entra(x, y + 1);
+  }
+  for (let k = 0; k < gw * gh; k++) if (!fora[k]) m[k] = 1;
+}
+
+/** A maior mancha compacta que ocupa boa parte da foto e não é a foto toda, com a caixa e os quatro cantos. */
+function maiorMancha(m: Uint8Array, gw: number, gh: number): { caixa: { x: number; y: number; w: number; h: number }; area: number; cantos: Cantos } | null {
+  const marca = new Uint8Array(m), fila = new Int32Array(gw * gh);
+  let melhor: { caixa: { x: number; y: number; w: number; h: number }; area: number; cantos: Cantos } | null = null;
+  for (let ini = 0; ini < gw * gh; ini++) {
+    if (marca[ini] !== 1) continue;
+    let a = 0, b = 0, area = 0, x0 = gw, y0 = gh, x1 = 0, y1 = 0;
+    let tl = [0, 0, 1e9], br = [0, 0, -1e9], tr = [0, 0, -1e9], bl = [0, 0, 1e9]; // extremos de x+y e x-y: os quatro cantos
+    fila[b++] = ini; marca[ini] = 2;
+    while (a < b) {
+      const k = fila[a++], x = k % gw, y = (k - x) / gw;
+      area++;
+      if (x + y < tl[2]) tl = [x, y, x + y]; if (x + y > br[2]) br = [x + 1, y + 1, x + y]; if (x - y > tr[2]) tr = [x + 1, y, x - y]; if (x - y < bl[2]) bl = [x, y + 1, x - y];
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+        const nk = ny * gw + nx;
+        if (marca[nk] === 1) { marca[nk] = 2; fila[b++] = nk; }
+      }
+    }
+    const caixa = (x1 - x0 + 1) * (y1 - y0 + 1);
+    // vale o papel que ocupa boa parte da foto, é compacto (não uma mancha rala) e não é a imagem inteira
+    if (caixa > gw * gh * 0.97 || caixa < gw * gh * 0.2 || area / caixa < 0.5) continue;
+    if (!melhor || area > melhor.area) melhor = { caixa: { x: x0 / gw, y: y0 / gh, w: (x1 - x0 + 1) / gw, h: (y1 - y0 + 1) / gh }, area, cantos: [[tl[0] / gw, tl[1] / gh], [tr[0] / gw, tr[1] / gh], [br[0] / gw, br[1] / gh], [bl[0] / gw, bl[1] / gh]] };
+  }
+  return melhor;
+}
+
+/** Afasta os cantos do centro por `f` (fração da imagem), para não cortar a borda do papel. */
+function alargar(q: Cantos, f: number): Cantos {
+  const cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+  return q.map(([x, y]) => { const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy) || 1; return [Math.max(0, Math.min(1, x + (dx / d) * f)), Math.max(0, Math.min(1, y + (dy / d) * f))]; }) as Cantos;
 }
 
 /** Quatro cantos em frações (0-1) da imagem: em cima à esquerda, em cima à direita, embaixo à direita, embaixo à esquerda. */
@@ -192,11 +228,12 @@ function homografia(q: number[], dw: number, dh: number): number[] | null {
 }
 
 /** Endireita a página: desenha em `dw × dh` o que está dentro do quadrilátero `cantos` da imagem de origem (RGBA, interpolação bilinear). */
-export function corrigirPerspectiva(src: Uint8ClampedArray | Uint8Array, sw: number, sh: number, cantos: Cantos, dw: number, dh: number): Uint8ClampedArray | null {
+export function corrigirPerspectiva(src: Uint8ClampedArray | Uint8Array, sw: number, sh: number, cantos: Cantos, dw: number, dh: number, faixa?: { de: number; ate: number; saida: Uint8ClampedArray }): Uint8ClampedArray | null {
   const m = homografia(cantos.flatMap(([x, y]) => [x * sw, y * sh]), dw, dh);
   if (!m) return null;
-  const out = new Uint8ClampedArray(dw * dh * 4);
-  for (let y = 0; y < dh; y++) for (let x = 0; x < dw; x++) {
+  // `faixa` permite fazer só algumas linhas por vez (a tela respira entre uma faixa e outra)
+  const out = faixa?.saida ?? new Uint8ClampedArray(dw * dh * 4);
+  for (let y = faixa?.de ?? 0; y < (faixa?.ate ?? dh); y++) for (let x = 0; x < dw; x++) {
     const px = x + 0.5, py = y + 0.5, z = m[6] * px + m[7] * py + 1; // centro do pixel de saída
     const u = (m[0] * px + m[1] * py + m[2]) / z - 0.5, v = (m[3] * px + m[4] * py + m[5]) / z - 0.5;
     const x0 = Math.max(0, Math.min(sw - 1, Math.floor(u))), y0 = Math.max(0, Math.min(sh - 1, Math.floor(v)));
@@ -209,4 +246,12 @@ export function corrigirPerspectiva(src: Uint8ClampedArray | Uint8Array, sw: num
     }
   }
   return out;
+}
+
+/** Se a folha tem cara de A4 (proporção 1:1,414, em pé ou deitada, com folga de 12%), usa a proporção exata. */
+export function encaixarA4(w: number, h: number): { w: number; h: number } {
+  const longo = Math.max(w, h), curto = Math.min(w, h), razao = longo / Math.max(curto, 1), A4 = 1.41421356;
+  if (Math.abs(razao - A4) / A4 > 0.12) return { w, h };
+  const novoCurto = Math.round(longo / A4);
+  return w >= h ? { w, h: novoCurto } : { w: novoCurto, h };
 }

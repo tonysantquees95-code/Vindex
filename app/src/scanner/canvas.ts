@@ -1,5 +1,8 @@
 // VindexScanner: desenho no navegador (canvas). A lógica dos pixels fica em imagem.ts.
-import { CANTOS_INTEIRA, acharPapel, aposGiro, aplicarFiltro, caber, corrigirPerspectiva, tamanhoDoQuad, type Cantos, type Filtro } from "./imagem.ts";
+import { CANTOS_INTEIRA, acharPapel, aposGiro, aplicarFiltro, caber, corrigirPerspectiva, encaixarA4, tamanhoDoQuad, type Cantos, type Filtro } from "./imagem.ts";
+
+/** Deixa a tela respirar entre dois passos pesados (senão ela congela e parece travada). */
+export const respirar = (): Promise<void> => new Promise((ok) => setTimeout(ok, 0));
 
 export async function carregar(b: Blob): Promise<ImageBitmap | HTMLImageElement> {
   try { return await createImageBitmap(b, { imageOrientation: "from-image" }); } catch { /* cai para a imagem comum */ }
@@ -48,9 +51,12 @@ export async function desenhar(origem: Blob, filtro: Filtro, giro: number, lado:
     fc.width = f.w; fc.height = f.h;
     const fx = fc.getContext("2d", { willReadFrequently: true })!;
     fx.drawImage(img, 0, 0, f.w, f.h);
-    const t = tamanhoDoQuad(quad, f.w, f.h, lado);
-    const o = corrigirPerspectiva(fx.getImageData(0, 0, f.w, f.h).data, f.w, f.h, quad, t.w, t.h);
-    if (o) {
+    const t = encaixarA4(tamanhoDoQuad(quad, f.w, f.h, lado).w, tamanhoDoQuad(quad, f.w, f.h, lado).h); // folha com cara de A4 sai em A4 exato
+    const fonte = fx.getImageData(0, 0, f.w, f.h).data, o = new Uint8ClampedArray(t.w * t.h * 4);
+    await respirar();
+    let ok = true;
+    for (let y = 0; y < t.h && ok; y += 64) { ok = !!corrigirPerspectiva(fonte, f.w, f.h, quad, t.w, t.h, { de: y, ate: Math.min(t.h, y + 64), saida: o }); await respirar(); }
+    if (ok) {
       const rc = document.createElement("canvas");
       rc.width = t.w; rc.height = t.h;
       const rx = rc.getContext("2d")!, id = rx.createImageData(t.w, t.h);

@@ -166,3 +166,61 @@ test("ocr: achata blocos em palavras e descarta as sem caixa ou de baixa confian
   assert.deepEqual(palavrasDe(blocos).map((p) => p.t), ["Olá", "mundo"]);
   assert.deepEqual(palavrasDe(null), []);
 });
+
+// ---- fotos "de verdade": mesa com ruído, papel torto com sombra, letras e blocos escuros ----
+function ruido(i) { const x = Math.sin(i * 12.9898) * 43758.5453; return x - Math.floor(x) - 0.5; }
+function dentroDoQuad(x, y, q) { // q em pixels, sentido horário
+  let sinal = 0;
+  for (let i = 0; i < 4; i++) { const [ax, ay] = q[i], [bx, by] = q[(i + 1) % 4]; const v = (bx - ax) * (y - ay) - (by - ay) * (x - ax); if (v !== 0) { if (!sinal) sinal = Math.sign(v); else if (Math.sign(v) !== sinal) return false; } }
+  return true;
+}
+function fotoReal({ w = 480, h = 640, mesa, papel, quad, sombra = 25, linhas = true, bloco = false }) {
+  const q = quad.map(([x, y]) => [x * w, y * h]);
+  const px = new Uint8ClampedArray(w * h * 4);
+  const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4, n = ruido(y * w + x) * 18;
+    let c = mesa;
+    if (dentroDoQuad(x + 0.5, y + 0.5, q)) {
+      const k = (x - x0) / Math.max(1, x1 - x0), l = (y - y0) / Math.max(1, y1 - y0);
+      const sh = -sombra * (1 - k) * 0.8 - sombra * 0.3 * l; // sombra mais forte de um lado
+      c = papel.map((v) => v + sh);
+      const dark = (linhas && ((y - Math.round(y0)) % 26 > 18) && l > 0.12 && l < 0.9 && k > 0.12 && k < 0.88) || (bloco && l > 0.1 && l < 0.4 && k > 0.15 && k < 0.85);
+      if (dark) c = [35, 35, 40];
+    }
+    px[i] = c[0] + n; px[i + 1] = c[1] + n; px[i + 2] = c[2] + n; px[i + 3] = 255;
+  }
+  return { px, w, h };
+}
+function erroDosCantos(a, quad) {
+  if (!a?.cantos) return 9;
+  return Math.max(...a.cantos.map(([x, y], i) => Math.hypot(x - quad[i][0], y - quad[i][1])));
+}
+const QUAD_TORTO = [[0.18, 0.1], [0.82, 0.16], [0.9, 0.88], [0.1, 0.8]];
+for (const [nome, cfg, limite] of [
+  ["mesa de madeira, papel branco, sombra e texto", { mesa: [140, 100, 62], papel: [238, 236, 226], quad: QUAD_TORTO }, 0.05],
+  ["mesa escura", { mesa: [38, 38, 44], papel: [225, 225, 218], quad: QUAD_TORTO }, 0.05],
+  ["papel com bloco escuro impresso (tabela/foto)", { mesa: [150, 110, 70], papel: [236, 236, 230], quad: QUAD_TORTO, bloco: true }, 0.05],
+  ["mesa clara de granito", { mesa: [185, 182, 180], papel: [248, 247, 242], quad: QUAD_TORTO, sombra: 10 }, 0.06],
+  ["papel quase encostando nas bordas", { mesa: [120, 90, 60], papel: [240, 238, 230], quad: [[0.03, 0.02], [0.97, 0.03], [0.98, 0.97], [0.02, 0.98]] }, 0.05]
+]) {
+  test(`papel de verdade: ${nome}`, () => {
+    const f = fotoReal(cfg), a = acharPapel(f.px, f.w, f.h);
+    const e = erroDosCantos(a, cfg.quad);
+    assert.ok(a, "deveria achar o papel");
+    assert.ok(e < limite, `cantos fora do lugar (erro ${e.toFixed(3)}): ${JSON.stringify(a)}`);
+  });
+}
+test("papel de verdade: mesa lisa e igual ao papel não inventa recorte", () => {
+  const f = fotoReal({ mesa: [200, 200, 200], papel: [200, 200, 200], quad: QUAD_TORTO, sombra: 0, linhas: false });
+  const a = acharPapel(f.px, f.w, f.h);
+  assert.ok(!a || !a.cantos || erroDosCantos(a, QUAD_TORTO) > 0.05, "sem diferença visível não há o que achar");
+});
+test("A4: folha com cara de A4 usa a proporção exata; outras ficam como estão", async () => {
+  const { encaixarA4 } = await import("../src/scanner/imagem.ts");
+  assert.deepEqual(encaixarA4(1000, 1380), { w: 976, h: 1380 });
+  assert.deepEqual(encaixarA4(1500, 1000), { w: 1500, h: 1061 });
+  assert.deepEqual(encaixarA4(1000, 1000), { w: 1000, h: 1000 }, "quadrado não é A4");
+  assert.deepEqual(encaixarA4(674, 425), { w: 674, h: 425 }, "cartão não é A4");
+});

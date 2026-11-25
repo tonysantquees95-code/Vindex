@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import { PreviaDaPagina, VerPdf } from "./Previas";
 import { Icone } from "../icones";
 import { Aviso, Botao, Cartao, Interruptor } from "../ui";
 import { imagensParaPdf } from "../pdf/editar.ts";
 import type { SaidaPdf } from "../pdf/saida";
 import { apagar, guardar, lerPdf, lerRecentes } from "./armazem.ts";
-import { desenhar, jpeg } from "./canvas.ts";
+import { desenhar, detectarPapel, jpeg } from "./canvas.ts";
 import { EditorDeCantos } from "./EditorDeCantos";
 import { contarPalavras, juntarPaginas, nomeDoTxt } from "./ocr.ts";
 import { CARTAO, FILTROS, caberNoCartao, girarMais, nomeDoArquivo, nomeDoCartao, nomePadrao, LADO_MAXIMO, type Cantos, type Filtro } from "./imagem.ts";
 import { rotuloDaData, rotuloDePaginas, type Recente } from "./recentes.ts";
 
-interface Pagina { id: string; origem: Blob; giro: number; previa: string; cantos?: Cantos }
+interface Pagina { id: string; origem: Blob; giro: number; previa: string; cantos?: Cantos; achou?: boolean }
 const novoId = (): string => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 const tamanho = (n: number): string => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 const temCamera = (): boolean => /Android|iPhone|iPad/i.test(navigator.userAgent) || (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches);
@@ -30,6 +31,18 @@ function Opcoes<T extends string>({ valor, opcoes, aoMudar, rotulo }: { valor: T
         );
       })}
     </div>
+  );
+}
+
+/** Aviso de que algo está rodando: mostra há quantos segundos e, se der, o botão Cancelar (nada fica parado sem a pessoa saber). */
+function EmAndamento({ texto, aoCancelar }: { texto: string; aoCancelar?: () => void }) {
+  const [s, setS] = useState(0);
+  useEffect(() => { const t = setInterval(() => setS((x) => x + 1), 1000); return () => clearInterval(t); }, []);
+  return (
+    <Aviso>
+      <div className="flex items-center justify-between gap-3"><span>{texto} · {s} s</span>
+        {aoCancelar && <button type="button" onClick={aoCancelar} className="min-h-10 shrink-0 rounded-xl border border-white/30 px-3 text-xs font-bold">Cancelar</button>}</div>
+    </Aviso>
   );
 }
 
@@ -53,6 +66,10 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
   const [lendo, setLendo] = useState("");
   const [texto, setTexto] = useState<{ valor: string; nome: string } | null>(null);
   const [aviso, setAviso] = useState("");
+  const [vendo, setVendo] = useState("");
+  const [verPdf, setVerPdf] = useState<{ nome: string; dados: Uint8Array } | null>(null);
+  const [podeCancelar, setPodeCancelar] = useState(false);
+  const cancelar = useRef<AbortController | null>(null);
   const foto = useRef<HTMLInputElement>(null);
   const importar = useRef<HTMLInputElement>(null);
   const versao = useRef(0);
@@ -79,13 +96,18 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
     const novas = [...(arquivos ?? [])].filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|bmp|avif|gif)$/i.test(f.name));
     if (arquivos?.length && !novas.length) setErro("Escolha fotos ou imagens (JPG, PNG, WebP).");
     if (!novas.length) return;
-    setPaginas((a) => [...a, ...novas.map((f) => ({ id: novoId(), origem: f, giro: 0, previa: "" }))].slice(0, modo === "cartao" ? 2 : 60));
+    const criadas = novas.map((f) => ({ id: novoId(), origem: f as Blob, giro: 0, previa: "" }));
+    setPaginas((a) => [...a, ...criadas].slice(0, modo === "cartao" ? 2 : 60));
+    // acha o papel em cada foto e guarda se achou (se não achar, a tela avisa e oferece ajustar os cantos)
+    for (const c of criadas) void detectarPapel(c.origem).then((r) => setPaginas((a) => a.map((x) => (x.id === c.id ? { ...x, achou: !!r } : x)))).catch(() => undefined);
   }
   const mover = (i: number, d: -1 | 1) => setPaginas((a) => { const b = [...a], j = i + d; if (j < 0 || j >= b.length) return a; [b[i], b[j]] = [b[j], b[i]]; return b; });
 
   async function gerar() {
     setErro(""); setOcupado("Montando o PDF…");
     let semTexto = "";
+    const ctl = new AbortController();
+    cancelar.current = ctl;
     try {
       const imgs = [];
       if (modo === "cartao") {
@@ -110,20 +132,21 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
           try {
             const guardadas: { dados: Uint8Array; w: number; h: number }[] = [];
             const { lerComPosicao } = await import("./ocrNavegador.ts");
+            setPodeCancelar(true);
             const lidos = await lerComPosicao(paginas.length, async (i) => { const c = await montar(i); guardadas[i] = { dados: await jpeg(c), w: c.width, h: c.height }; return c; },
-              (a) => setOcupado(a.etapa === "Lendo" ? `Lendo a página ${a.pagina} de ${a.total}… ${Math.round(a.progresso * 100)}%` : `${a.etapa}…`));
+              (a) => setOcupado(a.etapa === "Lendo" ? `Lendo a página ${a.pagina} de ${a.total}… ${Math.round(a.progresso * 100)}%` : `${a.etapa}… (página ${a.pagina} de ${a.total})`), true, ctl.signal);
             guardadas.forEach((g, i) => imgs.push({ dados: g.dados, tipo: "jpg" as const, palavras: lidos[i]?.palavras, largura: g.w, altura: g.h }));
             ok = true;
           } catch (e) { semTexto = e instanceof Error && e.message ? e.message : "erro desconhecido"; imgs.length = 0; }
         }
         if (!ok) { setOcupado("Montando o PDF…"); for (let i = 0; i < paginas.length; i++) imgs.push({ dados: await jpeg(await montar(i)), tipo: "jpg" as const }); }
       }
-      const dados = await imagensParaPdf(imgs, { pagina: modo === "cartao" ? "a4" : formato, margem: modo === "cartao" ? 0 : formato === "a4" ? 10 : 0 });
+      const dados = await imagensParaPdf(imgs, { pagina: modo === "cartao" ? "a4" : formato, margem: 0 });
       const arquivo = nomeDoArquivo(nome);
       const mini = (await desenhar(paginas[0].origem, filtro, paginas[0].giro, 160, recortar, paginas[0].cantos)).toDataURL("image/jpeg", 0.6);
       const lista = await guardar({ id: novoId(), nome: arquivo, paginas: imgs.length, criado: Date.now(), bytes: dados.length, miniatura: mini }, dados);
       setRecentes(lista); setPronto({ nome: arquivo, dados }); if (semTexto) setErro(`O PDF saiu, mas sem o texto pesquisável (${semTexto}).`); setPaginas([]); setNome(modo === "cartao" ? nomeDoCartao(new Date()) : nomePadrao(new Date()));
-    } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui montar o PDF."); } finally { setOcupado(""); }
+    } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui montar o PDF."); } finally { setOcupado(""); setPodeCancelar(false); cancelar.current = null; }
   }
   async function salvar(dados: Uint8Array, arquivo: string, mime = "application/pdf") {
     setErro(""); setAviso("");
@@ -133,6 +156,12 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
     setErro(""); setAviso("");
     try { await saida.compartilhar?.(dados, arquivo, mime); } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui compartilhar."); }
   }
+  async function abrirRecente(r: Recente) {
+    setErro("");
+    const dados = await lerPdf(r.id).catch(() => null);
+    if (!dados) { setErro("Esse arquivo não está mais guardado no aparelho."); return; }
+    setVerPdf({ nome: r.nome, dados });
+  }
   async function dosRecentes(r: Recente, acao: "salvar" | "compartilhar") {
     const dados = await lerPdf(r.id).catch(() => null);
     if (!dados) { setErro("Esse arquivo não está mais guardado no aparelho."); return; }
@@ -141,16 +170,18 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
 
   /** Extrair texto: lê as páginas com o leitor de texto que vem dentro do app (nada sai do aparelho). */
   async function extrairTexto() {
-    setErro(""); setAviso(""); setTexto(null); setLendo("Preparando o leitor de texto…");
+    setErro(""); setAviso(""); setTexto(null); setLendo("Preparando as páginas…");
+    const ctl = new AbortController();
+    cancelar.current = ctl; setPodeCancelar(true);
     try {
       const imagens = [];
-      for (const p of paginas) imagens.push(await desenhar(p.origem, "cinza", p.giro, 2000, recortar, p.cantos));
+      for (const p of paginas) imagens.push(await desenhar(p.origem, "cinza", p.giro, 1800, recortar, p.cantos));
       const { lerTextos } = await import("./ocrNavegador.ts");
-      const lidos = await lerTextos(imagens, (a) => setLendo(a.etapa === "Lendo" ? `Lendo a página ${a.pagina} de ${a.total}… ${Math.round(a.progresso * 100)}%` : `${a.etapa}…`));
+      const lidos = await lerTextos(imagens, (a) => setLendo(a.etapa === "Lendo" ? `Lendo a página ${a.pagina} de ${a.total}… ${Math.round(a.progresso * 100)}%` : `${a.etapa}…`), ctl.signal);
       const valor = juntarPaginas(lidos);
       if (!valor.trim()) setErro("Não consegui ler texto nestas páginas. Tente uma foto mais nítida e bem iluminada.");
       else setTexto({ valor, nome: nomeDoTxt(nome) });
-    } catch (e) { setErro(e instanceof Error && e.message ? `Não consegui extrair o texto: ${e.message}` : "Não consegui extrair o texto."); } finally { setLendo(""); }
+    } catch (e) { setErro(e instanceof Error && e.message === "cancelado" ? "Leitura cancelada." : e instanceof Error && e.message ? `Não consegui extrair o texto: ${e.message}` : "Não consegui extrair o texto."); } finally { setLendo(""); setPodeCancelar(false); cancelar.current = null; }
   }
   async function copiarTexto() {
     if (!texto) return;
@@ -175,7 +206,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
           <Botao variante={temCamera() ? "suave" : "primario"} onClick={() => importar.current?.click()}><Icone nome="imagens" tam={18} />Importar imagens</Botao>
         </div>
         {erro && <div className="mt-3"><Aviso tom="erro">{erro}</Aviso></div>}
-        {ocupado && <div className="mt-3"><Aviso>{ocupado}</Aviso></div>}
+        {ocupado && <div className="mt-3"><EmAndamento texto={ocupado} aoCancelar={podeCancelar ? () => cancelar.current?.abort() : undefined} /></div>}
       </Cartao>
 
       {comPaginas && (
@@ -184,10 +215,12 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
             <ul aria-label="Páginas" className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
               {paginas.map((p, i) => (
                 <li key={p.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-2">
-                  <div className="relative grid aspect-[3/4] place-items-center overflow-hidden rounded-xl bg-black/30">
+                  <button type="button" aria-label={`Abrir a página ${i + 1} em tamanho maior`} onClick={() => setVendo(p.id)} className="relative grid aspect-[3/4] w-full place-items-center overflow-hidden rounded-xl bg-black/30">
                     {p.previa ? <img src={p.previa} alt={`Página ${i + 1}`} className="max-h-full max-w-full object-contain" /> : <span className="text-xs text-suave">Preparando…</span>}
                     <span className="absolute left-1.5 top-1.5 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold">{modo === "cartao" ? (i === 0 ? "Frente" : "Verso") : i + 1}</span>
-                  </div>
+                    <span className="absolute bottom-1.5 right-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[11px]">Toque para ver</span>
+                  </button>
+                  {recortar && !p.cantos && p.achou === false && <p role="status" className="mt-1.5 text-xs text-amber-300">Não achei as bordas do papel. Toque em Cantos e ajuste.</p>}
                   <div className="mt-2 grid grid-cols-3 gap-1.5">
                     <button type="button" aria-label={`Mover a página ${i + 1} para trás`} disabled={i === 0} onClick={() => mover(i, -1)} className="grid min-h-11 place-items-center rounded-xl border border-borda text-lg disabled:opacity-30">‹</button>
                     <button type="button" aria-label={`Mover a página ${i + 1} para frente`} disabled={i === paginas.length - 1} onClick={() => mover(i, 1)} className="grid min-h-11 place-items-center rounded-xl border border-borda text-lg disabled:opacity-30">›</button>
@@ -206,7 +239,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
             <label className="block"><span className="mb-1.5 block text-sm font-medium">Nome do arquivo</span><input className={CAMPO} value={nome} onChange={(e) => setNome(e.target.value)} autoComplete="off" /></label>
             {modo === "paginas" && <div className="flex min-h-11 items-center justify-between gap-3"><span className="text-sm font-medium">PDF pesquisável <span className="block text-xs font-normal text-suave">Dá para buscar palavras no PDF. Leva alguns segundos a mais.</span></span><Interruptor ligado={pesquisavel} aoMudar={setPesquisavel} rotulo="PDF pesquisável" /></div>}
             <Botao className="w-full" disabled={!!ocupado || !!lendo} onClick={() => void extrairTexto()}>Extrair texto das páginas</Botao>
-            {lendo && <Aviso>{lendo}</Aviso>}
+            {lendo && <EmAndamento texto={lendo} aoCancelar={podeCancelar ? () => cancelar.current?.abort() : undefined} />}
             <Botao variante="primario" className="w-full" disabled={!!ocupado || !!lendo} onClick={() => void gerar()}>{modo === "cartao" ? `Gerar PDF do cartão` : `Gerar PDF · ${rotuloDePaginas(paginas.length)}`}</Botao>
           </div>
         </Cartao>
@@ -217,6 +250,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
           <h3 className="text-base font-bold">Pronto</h3>
           <p className="mt-1 text-sm text-suave">{pronto.nome} · {tamanho(pronto.dados.length)}. Também ficou guardado em Recentes.</p>
           <div className="mt-3 flex flex-wrap gap-3">
+            <Botao onClick={() => setVerPdf({ nome: pronto.nome, dados: pronto.dados })}><Icone nome="documentos" tam={18} />Ver o PDF</Botao>
             <Botao variante="primario" onClick={() => void salvar(pronto.dados, pronto.nome)}><Icone nome="salvar" tam={18} />Salvar</Botao>
             {saida.compartilhar && <Botao onClick={() => void compartilhar(pronto.dados, pronto.nome)}><Icone nome="compartilhar" tam={18} />Compartilhar</Botao>}
             <Botao onClick={() => setPronto(null)}>Nova digitalização</Botao>
@@ -240,16 +274,29 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
         <EditorDeCantos origem={paginas.find((p) => p.id === editando)!.origem} inicial={paginas.find((p) => p.id === editando)!.cantos ?? null}
           aoCancelar={() => setEditando("")} aoAplicar={(c) => { setPaginas((a) => a.map((x) => (x.id === editando ? { ...x, cantos: c } : x))); setEditando(""); }} />
       )}
+      {vendo && paginas.find((p) => p.id === vendo) && (() => {
+        const i = paginas.findIndex((p) => p.id === vendo), p = paginas[i];
+        return <PreviaDaPagina titulo={modo === "cartao" ? (i === 0 ? "Frente" : "Verso") : `Página ${i + 1} de ${paginas.length}`} origem={p.origem} filtro={filtro} giro={p.giro} recortar={recortar} cantos={p.cantos} aoFechar={() => setVendo("")} />;
+      })()}
+      {verPdf && (
+        <VerPdf titulo={verPdf.nome} dados={verPdf.dados} aoFechar={() => setVerPdf(null)} rodape={<>
+          <Botao variante="primario" onClick={() => void salvar(verPdf.dados, verPdf.nome)}><Icone nome="salvar" tam={18} />Salvar</Botao>
+          {saida.compartilhar && <Botao onClick={() => void compartilhar(verPdf.dados, verPdf.nome)}><Icone nome="compartilhar" tam={18} />Compartilhar</Botao>}
+        </>} />
+      )}
       <Cartao titulo="Recentes">
         {recentes.length === 0 ? <p className="text-sm text-suave">Os PDFs que você digitalizar aparecem aqui, guardados só neste aparelho.</p> : (
           <ul aria-label="Digitalizações recentes" className="space-y-3">
             {recentes.map((r) => (
               <li key={r.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-2.5">
-                <div className="grid h-16 w-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-black/30">{r.miniatura ? <img src={r.miniatura} alt="" className="h-full w-full object-cover" /> : <Icone nome="documentos" tam={22} />}</div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{r.nome}</p>
-                  <p className="text-xs text-suave">{rotuloDePaginas(r.paginas)} · {rotuloDaData(r.criado, agora)} · {tamanho(r.bytes)}</p>
-                </div>
+                <button type="button" aria-label={`Abrir ${r.nome}`} onClick={() => void abrirRecente(r)} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left">
+                  <span className="grid h-16 w-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-black/30">{r.miniatura ? <img src={r.miniatura} alt="" className="h-full w-full object-cover" /> : <Icone nome="documentos" tam={22} />}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">{r.nome}</span>
+                    <span className="block text-xs text-suave">{rotuloDePaginas(r.paginas)} · {rotuloDaData(r.criado, agora)} · {tamanho(r.bytes)}</span>
+                    <span className="block text-xs text-neon">Toque para ver</span>
+                  </span>
+                </button>
                 <div className="flex shrink-0 gap-1.5">
                   {saida.compartilhar && <button type="button" aria-label={`Compartilhar ${r.nome}`} onClick={() => void dosRecentes(r, "compartilhar")} className="grid size-11 place-items-center rounded-xl border border-borda"><Icone nome="compartilhar" tam={19} /></button>}
                   <button type="button" aria-label={`Salvar ${r.nome}`} onClick={() => void dosRecentes(r, "salvar")} className="grid size-11 place-items-center rounded-xl border border-borda"><Icone nome="salvar" tam={19} /></button>
