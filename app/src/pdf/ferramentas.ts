@@ -3,6 +3,7 @@
 import JSZip from "jszip";
 import type { NomeIcone } from "../icones";
 import * as ed from "./editar.ts";
+import { fatorDoTamanho, lerEdicao, type TipoDeMarca } from "./marcas.ts";
 import { blocosDe, gruposDe, lerPaginas, rotuloDe, todas } from "./paginas.ts";
 
 export interface ArquivoPdf { nome: string; dados: Uint8Array }
@@ -13,7 +14,9 @@ export type Campo =
   | { id: string; tipo: "numero"; rotulo: string; min: number; max: number; padrao: number; so?: (v: Valores) => boolean }
   | { id: string; tipo: "escolha"; rotulo: string; opcoes: { id: string; nome: string }[]; padrao: string; so?: (v: Valores) => boolean }
   | { id: string; tipo: "sim"; rotulo: string; padrao: boolean; so?: (v: Valores) => boolean }
-  | { id: string; tipo: "senha"; rotulo: string; dica?: string; so?: (v: Valores) => boolean };
+  | { id: string; tipo: "senha"; rotulo: string; dica?: string; so?: (v: Valores) => boolean }
+  /** Editor "toque na página": guarda as marcas como texto (JSON de `Edicao`). `ferramentas` = o que a pessoa pode colocar. */
+  | { id: string; tipo: "marcas"; rotulo: string; ferramentas: TipoDeMarca[]; so?: (v: Valores) => boolean };
 export type Grupo = "organizar" | "otimizar" | "converter" | "editar" | "seguranca";
 export const GRUPOS: { id: Grupo; nome: string }[] = [
   { id: "organizar", nome: "Organizar" }, { id: "otimizar", nome: "Otimizar" }, { id: "converter", nome: "Converter" }, { id: "editar", nome: "Editar" }, { id: "seguranca", nome: "Segurança" }
@@ -104,6 +107,33 @@ export const FERRAMENTAS: Ferramenta[] = [
       const total = await ed.contarPaginas(a[0].dados, senha);
       const p = lerPaginas(txt(v, "paginas"), total);
       return { saidas: [pdf(`${semExtensao(a[0].nome)} (sem páginas).pdf`, await ed.apagar(a[0].dados, p, senha))], nota: `${p.length} ${p.length === 1 ? "página apagada" : "páginas apagadas"}.` };
+    }
+  },
+  {
+    id: "remover-brancas", nome: "Remover páginas em branco", texto: "Acha e tira do PDF as páginas sem nada escrito (comum em arquivos escaneados).", icone: "pdf_apagar", grupo: "organizar", entrada: "pdf", varios: false,
+    campos: [{ id: "sensibilidade", tipo: "escolha", rotulo: "O que vale como em branco", padrao: "normal", opcoes: [{ id: "total", nome: "Só totalmente em branco" }, { id: "normal", nome: "Em branco (com pontinhos)" }, { id: "folga", nome: "Quase em branco" }] }],
+    async rodar(a, v, senha, progresso) {
+      const { acharPaginasEmBranco } = await import("./navegador.ts");
+      const brancas = await acharPaginasEmBranco(a[0].dados, String(v.sensibilidade), senha, progresso);
+      if (!brancas.length) throw new Error("Não achei páginas em branco neste PDF.");
+      const total = await ed.contarPaginas(a[0].dados, senha);
+      if (brancas.length >= total) throw new Error("Todas as páginas parecem em branco. Tente a opção \"Só totalmente em branco\".");
+      return { saidas: [pdf(`${semExtensao(a[0].nome)} (sem páginas em branco).pdf`, await ed.apagar(a[0].dados, brancas, senha))], nota: `${brancas.length} ${brancas.length === 1 ? "página em branco tirada" : "páginas em branco tiradas"}: ${rotuloDe(brancas)}.` };
+    }
+  },
+  {
+    id: "comparar", nome: "Comparar dois PDFs", texto: "Mostra o que mudou no texto entre duas versões de um documento, num relatório em PDF.", icone: "pdf_comparar", grupo: "editar", entrada: "pdf", varios: true, ordenavel: true,
+    campos: [],
+    async rodar(a, _v, senha, progresso) {
+      if (a.length !== 2) throw new Error("Escolha exatamente 2 PDFs: o primeiro é o antigo, o segundo é o novo.");
+      const { lerTextoDasPaginas } = await import("./navegador.ts");
+      const { compararLinhas, relatorioDaComparacao, resumoDaComparacao } = await import("./comparar.ts");
+      const linhas = async (x: ArquivoPdf, base: number) => (await lerTextoDasPaginas(x.dados, senha, (f, t) => progresso(base + f, t * 2))).flatMap((p) => p.linhas.map((l) => ({ pagina: p.pagina, texto: l.texto })));
+      const antes = await linhas(a[0], 0), depois = await linhas(a[1], 1);
+      if (!antes.length && !depois.length) throw new Error("Não achei texto nesses PDFs (podem ser imagens escaneadas).");
+      const d = compararLinhas(antes, depois);
+      const r = resumoDaComparacao(d);
+      return { saidas: [pdf("Comparação de PDFs.pdf", await relatorioDaComparacao(a[0].nome, a[1].nome, d))], nota: r.tirou + r.novo ? `${r.tirou} linhas só no primeiro e ${r.novo} só no segundo.` : "Os dois PDFs têm o mesmo texto." };
     }
   },
   {
@@ -232,6 +262,57 @@ export const FERRAMENTAS: Ferramenta[] = [
     }
   },
   {
+    id: "assinar", nome: "Assinar PDF", texto: "Desenhe ou digite sua assinatura e toque na página onde ela deve ficar.", icone: "assinatura", grupo: "editar", entrada: "pdf", varios: false,
+    campos: [
+      { id: "marcas", tipo: "marcas", rotulo: "Onde assinar", ferramentas: ["assinatura", "data", "texto"] },
+      { id: "tamanho", tipo: "escolha", rotulo: "Tamanho", padrao: "medio", opcoes: [{ id: "pequeno", nome: "Pequeno" }, { id: "medio", nome: "Médio" }, { id: "grande", nome: "Grande" }] }
+    ],
+    async rodar(a, v, senha) {
+      return { saidas: [pdf(`${semExtensao(a[0].nome)} (assinado).pdf`, await ed.marcarPaginas(a[0].dados, lerEdicao(v.marcas), fatorDoTamanho(v.tamanho), senha))] };
+    }
+  },
+  {
+    id: "preencher", nome: "Preencher formulário", texto: "Coloque visto, X, a data de hoje ou um texto em qualquer lugar da página.", icone: "visto", grupo: "editar", entrada: "pdf", varios: false,
+    campos: [
+      { id: "marcas", tipo: "marcas", rotulo: "O que colocar", ferramentas: ["visto", "xis", "data", "texto"] },
+      { id: "tamanho", tipo: "escolha", rotulo: "Tamanho", padrao: "medio", opcoes: [{ id: "pequeno", nome: "Pequeno" }, { id: "medio", nome: "Médio" }, { id: "grande", nome: "Grande" }] }
+    ],
+    async rodar(a, v, senha) {
+      return { saidas: [pdf(`${semExtensao(a[0].nome)} (preenchido).pdf`, await ed.marcarPaginas(a[0].dados, lerEdicao(v.marcas), fatorDoTamanho(v.tamanho), senha))] };
+    }
+  },
+  {
+    id: "ocr", nome: "Reconhecer texto (OCR)", texto: "Lê o texto de um PDF escaneado: deixa o PDF pesquisável ou tira só o texto. Roda no seu aparelho.", icone: "pdf_texto", grupo: "editar", entrada: "pdf", varios: false,
+    campos: [
+      { id: "idioma", tipo: "escolha", rotulo: "Idioma do documento", padrao: "por", opcoes: [{ id: "por", nome: "Português" }, { id: "eng", nome: "Inglês" }, { id: "spa", nome: "Espanhol" }] },
+      { id: "saida", tipo: "escolha", rotulo: "O que você quer", padrao: "pdf", opcoes: [{ id: "pdf", nome: "PDF pesquisável" }, { id: "txt", nome: "Só o texto (.txt)" }] },
+      PAGINAS("Só estas páginas (vazio = todas)")
+    ],
+    async rodar(a, v, senha, progresso) {
+      const total = await ed.contarPaginas(a[0].dados, senha);
+      const quais = paginasOuTodas(txt(v, "paginas"), total);
+      if (quais.length > 60) throw new Error("Escolha até 60 páginas por vez: a leitura de texto é demorada.");
+      const { abrirParaLeitura } = await import("./navegador.ts");
+      const { lerComPosicao } = await import("../scanner/ocrNavegador.ts");
+      const { arrumarTexto, juntarPaginas, nomeDoTxt } = await import("../scanner/ocr.ts");
+      const fonte = await abrirParaLeitura(a[0].dados, senha);
+      const larguras: { largura: number; altura: number }[] = [];
+      let lidos;
+      try {
+        lidos = await lerComPosicao(quais.length, async (i) => { const c = await fonte.obter(quais[i]); larguras[i] = { largura: c.width, altura: c.height }; return c; },
+          (an) => progresso(Math.max(0, an.pagina - 1) + (an.etapa === "Lendo" ? an.progresso : 0), an.total), true, undefined, String(v.idioma) as "por" | "eng" | "spa");
+      } finally { fonte.fechar(); }
+      const nome = semExtensao(a[0].nome);
+      if (txt(v, "saida") === "txt") {
+        const texto = juntarPaginas(lidos.map((l) => arrumarTexto(l.texto)));
+        if (!texto.trim()) throw new Error("Não achei texto. Confira se o idioma escolhido é o do documento.");
+        return { saidas: [{ nome: nomeDoTxt(a[0].nome), dados: new TextEncoder().encode(texto), mime: "text/plain" }], nota: "Texto reconhecido. Confira, porque o OCR pode errar em letras apagadas." };
+      }
+      const r = await ed.tornarPesquisavel(a[0].dados, lidos.map((l, i) => ({ pagina: quais[i], palavras: l.palavras, ...larguras[i] })), senha);
+      return { saidas: [pdf(`${nome} (pesquisável).pdf`, r.dados)], nota: `${r.paginas} ${r.paginas === 1 ? "página ficou pesquisável" : "páginas ficaram pesquisáveis"}. Agora dá para buscar e copiar o texto.` };
+    }
+  },
+  {
     id: "marca-dagua", nome: "Marca d'água", texto: "Escreve um texto (como CONFIDENCIAL) no meio das páginas.", icone: "pdf_marca", grupo: "editar", entrada: "pdf", varios: false,
     campos: [
       { id: "texto", tipo: "texto", rotulo: "Texto da marca d'água", dica: "Exemplo: CONFIDENCIAL" },
@@ -302,7 +383,7 @@ export const ferramentaPorId = (id: string): Ferramenta | undefined => FERRAMENT
 /** Valores iniciais dos campos. */
 export function valoresIniciais(f: Ferramenta): Valores {
   const v: Valores = {};
-  for (const c of f.campos) v[c.id] = c.tipo === "sim" ? c.padrao : c.tipo === "senha" ? "" : c.tipo === "texto" ? c.padrao ?? "" : c.padrao;
+  for (const c of f.campos) v[c.id] = c.tipo === "sim" ? c.padrao : c.tipo === "senha" ? "" : c.tipo === "texto" ? c.padrao ?? "" : c.tipo === "marcas" ? "" : c.padrao;
   return v;
 }
 

@@ -96,10 +96,15 @@ function Sobre() {
     <>
       <section aria-labelledby="sobre-titulo" className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
         <h2 id="sobre-titulo" className="text-2xl font-extrabold">O que é o Vindex PDF</h2>
-        <p className="mt-2 max-w-3xl text-suave">Uma caixa de ferramentas completa para documentos: juntar, dividir, comprimir, girar, numerar, proteger com senha, e converter entre PDF, Word, Excel e imagens. Feita pela Vetorial Tech e sempre gratuita.</p>
+        <p className="mt-2 max-w-3xl text-suave">Uma caixa de ferramentas completa para documentos: juntar, dividir, assinar, preencher formulários, comparar versões, comprimir, girar, numerar, proteger com senha, e converter entre PDF, Word, Excel e imagens. Feita pela Vetorial Tech e sempre gratuita.</p>
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {ponto.map(([t, d]) => <div key={t} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><h3 className="font-bold">{t}</h3><p className="mt-1 text-sm text-suave">{d}</p></div>)}
         </div>
+      </section>
+      <section aria-labelledby="app-titulo" className="rounded-3xl border border-neon/30 bg-neon/10 p-5 sm:p-7" data-testid="convite-do-app">
+        <h2 id="app-titulo" className="text-2xl font-extrabold">Gostou? No app do Vindex tem mais</h2>
+        <p className="mt-2 max-w-3xl text-suave">Todas estas ferramentas já vêm dentro do Vindex para Android e Windows, e lá você ainda tem o scanner de papéis (tira foto e vira PDF, com texto pesquisável), o leitor de PDF, Word e Excel com anotações, o limpador do aparelho e o cofre de senhas.</p>
+        <a className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-neon/90 px-5 text-sm font-semibold text-fundo hover:bg-neon" href={`${SITE}/vindex.html`}>Conhecer o Vindex</a>
       </section>
       <section aria-labelledby="suite-titulo" className="space-y-3">
         <div>

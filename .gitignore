@@ -4,3 +4,4 @@ dist/
 app/teste-visual/fotos/
 dist-pdf/
 app/public/ocr/
+app/public-pdf/ocr/

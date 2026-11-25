@@ -54,6 +54,7 @@ async function reduzirPaginas(pdf: Uint8Array, fator: number): Promise<Uint8Arra
 }
 
 import { agruparLinhas, type TextoDaPagina } from "./texto.ts";
+import { estaEmBranco, proporcaoDeTinta } from "./branco.ts";
 export type { LinhaDeTexto, TextoDaPagina } from "./texto.ts";
 
 /** Lê o texto de cada página, já agrupado em linhas (de cima para baixo) e em pedaços (colunas). */
@@ -119,5 +120,49 @@ export async function abrirMiniaturas(dados: Uint8Array, senha?: string): Promis
       return feito;
     },
     fechar() { fechado = true; urls.forEach((u) => URL.revokeObjectURL(u)); void doc.destroy(); }
+  };
+}
+
+/** Números (começando em 0) das páginas que não têm nada escrito ou desenhado. Cada página é desenhada pequena (cerca de 200 px de largura). */
+export async function acharPaginasEmBranco(dados: Uint8Array, sensibilidade: string, senha?: string, progresso?: Progresso): Promise<number[]> {
+  const doc = await abrirPdf(dados, senha);
+  try {
+    const brancas: number[] = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const pagina = await doc.getPage(n);
+      const base = pagina.getViewport({ scale: 1 });
+      const vp = pagina.getViewport({ scale: Math.min(2, Math.max(0.2, 220 / base.width)) });
+      const c = canvasPara(Math.ceil(vp.width), Math.ceil(vp.height));
+      const ctx = c.getContext("2d", { willReadFrequently: true })!;
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+      await pagina.render({ canvasContext: ctx, viewport: vp }).promise;
+      const px = ctx.getImageData(0, 0, c.width, c.height);
+      if (estaEmBranco(proporcaoDeTinta(px.data, c.width, c.height), sensibilidade)) brancas.push(n - 1);
+      pagina.cleanup();
+      progresso?.(n, doc.numPages);
+    }
+    return brancas;
+  } finally { void doc.destroy(); }
+}
+
+export interface PaginasParaLer { total: number; obter(i: number): Promise<HTMLCanvasElement>; fechar(): void }
+
+/** Abre o PDF para o OCR: cada página vira uma imagem (lado maior de até 1800 px), uma de cada vez. */
+export async function abrirParaLeitura(dados: Uint8Array, senha?: string, ladoMaior = 1800): Promise<PaginasParaLer> {
+  const doc = await abrirPdf(dados, senha);
+  return {
+    total: doc.numPages,
+    async obter(i) {
+      const pagina = await doc.getPage(i + 1);
+      const base = pagina.getViewport({ scale: 1 });
+      const vp = pagina.getViewport({ scale: Math.min(4, ladoMaior / Math.max(base.width, base.height)) });
+      const c = canvasPara(Math.ceil(vp.width), Math.ceil(vp.height));
+      const ctx = c.getContext("2d")!;
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+      await pagina.render({ canvasContext: ctx, viewport: vp }).promise;
+      pagina.cleanup();
+      return c;
+    },
+    fechar() { void doc.destroy(); }
   };
 }

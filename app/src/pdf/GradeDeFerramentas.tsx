@@ -6,6 +6,7 @@ import { compactar, lerPaginas } from "./paginas.ts";
 import type { Miniaturas } from "./navegador.ts";
 import { ENTRADAS, FERRAMENTAS, FORMATOS, GRUPOS, formatosDe, emZip, valoresIniciais, type ArquivoPdf, type Campo, type Execucao, type Ferramenta, type Formato, type Valores } from "./ferramentas.ts";
 import type { SaidaPdf } from "./saida.ts";
+import { EditorDeMarcas } from "./EditorDeMarcas.tsx";
 
 const LIMITE = 150 * 1024 * 1024;
 const tamanho = (n: number): string => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
@@ -30,6 +31,7 @@ function Escolha({ valor, opcoes, aoMudar, rotulo }: { valor: string; opcoes: { 
 const CAMPO = "min-h-11 w-full rounded-xl border border-borda bg-fundo px-3 text-base text-texto outline-none focus:border-neon";
 
 function CampoDeTela({ c, v, mudar }: { c: Campo; v: Valores; mudar: (id: string, x: string | number | boolean) => void }) {
+  if (c.tipo === "marcas") return null; // o editor da página aparece dentro do cartão do arquivo
   const rotulo = <span className="mb-1.5 block text-sm font-medium">{c.rotulo}</span>;
   if (c.tipo === "sim") return <div className="flex min-h-11 items-center justify-between gap-3"><span className="text-sm font-medium">{c.rotulo}</span><Interruptor ligado={v[c.id] === true} aoMudar={(x) => mudar(c.id, x)} rotulo={c.rotulo} /></div>;
   if (c.tipo === "escolha") return <div>{rotulo}<Escolha valor={String(v[c.id])} opcoes={c.opcoes} aoMudar={(x) => mudar(c.id, x)} rotulo={c.rotulo} /></div>;
@@ -164,6 +166,7 @@ function PainelDaFerramenta({ f, saida, aoVoltar }: { f: Ferramenta; saida: Said
 
   useEffect(() => { setAviso(""); }, [res]);
   const visiveis = f.campos.filter((c) => !c.so || c.so(v));
+  const campoMarcas = f.campos.find((c): c is Extract<Campo, { tipo: "marcas" }> => c.tipo === "marcas");
   const campoPaginas = visiveis.find((c) => c.id === "paginas" && c.tipo === "texto");
   const aceita = ENTRADAS[f.entrada].aceita;
 
@@ -193,7 +196,10 @@ function PainelDaFerramenta({ f, saida, aoVoltar }: { f: Ferramenta; saida: Said
         )}
         <Botao variante={arquivos.length ? "suave" : "primario"} onClick={() => entrada.current?.click()}>{arquivos.length ? (f.varios ? "Adicionar mais" : "Trocar o arquivo") : f.varios ? ENTRADAS[f.entrada].escolherVarios : ENTRADAS[f.entrada].escolher}</Botao>
         {!arquivos.length && <p className="mt-2 text-xs text-suave">Seus arquivos não saem do aparelho: tudo é feito aqui mesmo.</p>}
-        {arquivos.length === 1 && f.entrada === "pdf" && !f.varios && (senha === null || senha !== "") && (
+        {arquivos.length === 1 && f.entrada === "pdf" && !f.varios && campoMarcas && (senha === null || senha !== "") && (
+          <EditorDeMarcas dados={arquivos[0].dados} senha={senha || undefined} campo={campoMarcas} valor={String(v.marcas ?? "")} aoMudar={(t) => { setV((a) => ({ ...a, [campoMarcas.id]: t })); setRes(null); }} />
+        )}
+        {arquivos.length === 1 && f.entrada === "pdf" && !f.varios && !campoMarcas && (senha === null || senha !== "") && (
           <FaixaDePaginas dados={arquivos[0].dados} senha={senha || undefined} texto={campoPaginas ? String(v.paginas ?? "") : null} vazioVaiTodas={!!campoPaginas?.rotulo.includes("vazio")}
             aoTexto={(t) => { setV((a) => ({ ...a, paginas: t })); setRes(null); }} />
         )}

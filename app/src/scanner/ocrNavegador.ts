@@ -2,7 +2,7 @@
 // copiados por scripts/copiar-ocr.mjs). Nada é baixado nem enviado: roda tudo no aparelho. Carregado só quando a pessoa pede.
 export interface Andamento { pagina: number; total: number; etapa: string; progresso: number }
 
-const base = (): string => new URL("ocr", document.baseURI).href;
+const base = (): string => new URL(`${(import.meta as unknown as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "./"}ocr`, document.baseURI).href.replace(/\/$/, "");
 
 import { palavrasDe, type Idioma, type Palavra } from "./ocr.ts";
 export interface Lido { texto: string; palavras: Palavra[] }

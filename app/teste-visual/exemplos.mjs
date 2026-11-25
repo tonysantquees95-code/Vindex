@@ -38,6 +38,23 @@ export async function pdf(paginas = 3) {
   }
   return d.save();
 }
+/** PDF de 4 páginas em que a 2ª e a 4ª estão em branco (para "Remover páginas em branco"). */
+export async function pdfComBrancas() {
+  const d = await PDFDocument.create(); const f = await d.embedFont(StandardFonts.Helvetica);
+  for (let i = 1; i <= 4; i++) {
+    const pg = d.addPage([595, 842]);
+    if (i % 2 === 1) for (let k = 0; k < 12; k++) pg.drawText(`Texto da página ${i}, linha ${k + 1}, com bastante conteúdo.`, { x: 50, y: 780 - k * 24, size: 13, font: f });
+  }
+  return d.save();
+}
+/** Dois contratos quase iguais (o valor muda e entra um anexo), para "Comparar dois PDFs". */
+export async function pdfContrato(versao) {
+  const d = await PDFDocument.create(); const f = await d.embedFont(StandardFonts.Helvetica);
+  const pg = d.addPage([595, 842]);
+  const linhas = ["Contrato de aluguel", "Locador: Ana Souza", `Valor mensal: R$ ${versao === 1 ? "1.000" : "1.200"}`, "Prazo: 12 meses", ...(versao === 2 ? ["Anexo I: regras do condomínio"] : [])];
+  linhas.forEach((t, k) => pg.drawText(t, { x: 50, y: 780 - k * 26, size: 14, font: f }));
+  return d.save();
+}
 export const csv = () => new TextEncoder().encode("nome;idade;cidade\nAna;30;Porto Alegre\nBruno;41;Canoas\n");
 export const txt = () => new TextEncoder().encode("Lista de compras\n\n- arroz\n- feijão\n- café\n");
 

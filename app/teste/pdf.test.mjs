@@ -268,3 +268,121 @@ test("imagens para PDF com texto escondido: o texto fica no PDF e a posição ba
   const c = itens.find((i) => i.t === "Contrato"), j = itens.find((i) => i.t === "João");
   assert.ok(Math.abs(c.x - 20 * (595.28 / 200)) < 1 && j.x > c.x + 200 && Math.abs(c.y - j.y) < 1, `posições: ${JSON.stringify([c, j])}`);
 });
+
+import { lerEdicao, escreverEdicao, paraPagina, fatorDoTamanho, MAX_MARCAS } from "../src/pdf/marcas.ts";
+import { marcarPaginas } from "../src/pdf/editar.ts";
+
+const PNG_URL = "data:image/png;base64," + Buffer.from(PNG).toString("base64");
+
+test("marcas: lê só o que é válido e corrige o resto", () => {
+  assert.deepEqual(lerEdicao(""), { m: [] });
+  assert.deepEqual(lerEdicao("{quebrado"), { m: [] });
+  const e = lerEdicao(JSON.stringify({ m: [
+    { p: 1, x: 0.5, y: 0.5, t: "visto" },
+    { p: 0, x: 0.5, y: 0.5, t: "visto" },          // página inválida
+    { p: 2, x: 7, y: -3, t: "xis" },               // fora da página: encosta na borda
+    { p: 1, x: 0.1, y: 0.1, t: "perigoso" },       // tipo desconhecido
+    { p: 1, x: 0.2, y: 0.2, t: "texto", texto: "  Ana\nSilva  " },
+    { p: 1, x: 0.2, y: 0.2, t: "texto", texto: "   " }, // texto vazio
+    "lixo", null
+  ], a: "data:image/svg+xml;base64,AAAA" }));
+  assert.equal(e.m.length, 3);
+  assert.deepEqual(e.m[1], { p: 2, x: 1, y: 0, t: "xis" });
+  assert.equal(e.m[2].texto, "Ana Silva");
+  assert.equal(e.a, undefined); // só PNG é aceito (nunca SVG)
+  assert.equal(lerEdicao(escreverEdicao({ m: [], a: PNG_URL })).a, PNG_URL);
+  const muitas = lerEdicao(JSON.stringify({ m: Array.from({ length: 500 }, () => ({ p: 1, x: 0.5, y: 0.5, t: "xis" })) }));
+  assert.equal(muitas.m.length, MAX_MARCAS);
+});
+
+test("marcas: de onde a pessoa tocou até o ponto do PDF, em qualquer rotação", () => {
+  const w = 300, h = 400;
+  assert.deepEqual(paraPagina(0.5, 0.5, 0, w, h), [150, 200]);
+  assert.deepEqual(paraPagina(0, 0, 0, w, h), [0, 400]);      // canto de cima à esquerda
+  assert.deepEqual(paraPagina(0, 0, 90, w, h), [0, 0]);       // girada 90°: o de cima à esquerda é o de baixo à esquerda da página sem girar
+  assert.deepEqual(paraPagina(0, 0, 180, w, h), [300, 0]);
+  assert.deepEqual(paraPagina(0, 0, 270, w, h), [300, 400]);
+  assert.deepEqual(paraPagina(0.5, 0.5, -90, w, h), paraPagina(0.5, 0.5, 270, w, h));
+  assert.equal(fatorDoTamanho("grande"), 1.4);
+  assert.equal(fatorDoTamanho("sei lá"), 1);
+});
+
+test("marcar páginas: desenha visto, X, texto, data e assinatura sem mudar o número de páginas", async () => {
+  const base = await pdf(2);
+  const antes = (await PDFDocument.load(base)).getPage(0).node.Contents()?.toString();
+  const e = { m: [
+    { p: 1, x: 0.3, y: 0.3, t: "visto" }, { p: 1, x: 0.6, y: 0.3, t: "xis" },
+    { p: 1, x: 0.2, y: 0.5, t: "texto", texto: "Ana Souza" }, { p: 2, x: 0.2, y: 0.6, t: "data" },
+    { p: 2, x: 0.7, y: 0.85, t: "assinatura" }
+  ], a: PNG_URL };
+  const fora = await marcarPaginas(base, e, 1);
+  const doc = await PDFDocument.load(fora);
+  assert.equal(doc.getPageCount(), 2);
+  assert.notEqual(doc.getPage(0).node.Contents()?.toString(), antes); // a página 1 ganhou conteúdo
+  assert.ok(fora.length > base.length);
+  await assert.rejects(() => marcarPaginas(base, { m: [] }), /Toque na página/);
+  await assert.rejects(() => marcarPaginas(base, { m: [{ p: 1, x: 0.5, y: 0.5, t: "assinatura" }] }), /assinatura primeiro/);
+});
+
+test("marcar páginas: marca em página que não existe é ignorada e página girada não quebra", async () => {
+  const d = await PDFDocument.create();
+  const p = d.addPage([300, 400]); p.setRotation({ type: "degrees", angle: 90 });
+  const base = new Uint8Array(await d.save());
+  const fora = await marcarPaginas(base, { m: [{ p: 1, x: 0.5, y: 0.5, t: "visto" }, { p: 9, x: 0.5, y: 0.5, t: "xis" }, { p: 1, x: 0.1, y: 0.1, t: "texto", texto: "Olá ç ã" }] }, 1.4);
+  assert.equal((await PDFDocument.load(fora)).getPageCount(), 1);
+});
+
+import { proporcaoDeTinta, estaEmBranco } from "../src/pdf/branco.ts";
+import { compararLinhas, resumoDaComparacao, relatorioDaComparacao } from "../src/pdf/comparar.ts";
+
+test("em branco: página limpa, com pontinhos e com texto", () => {
+  const w = 100, h = 100;
+  const branca = new Uint8ClampedArray(w * h * 4).fill(255);
+  assert.equal(proporcaoDeTinta(branca, w, h), 0);
+  assert.ok(estaEmBranco(0, "total"));
+  const pontos = branca.slice();
+  for (const [x, y] of [[40, 40], [60, 55]]) { const i = (y * w + x) * 4; pontos[i] = pontos[i + 1] = pontos[i + 2] = 0; }
+  assert.ok(proporcaoDeTinta(pontos, w, h) > 0);
+  assert.ok(!estaEmBranco(proporcaoDeTinta(pontos, w, h), "total"));
+  assert.ok(estaEmBranco(proporcaoDeTinta(pontos, w, h), "normal"));
+  const escrita = branca.slice();
+  for (let y = 30; y < 50; y++) for (let x = 20; x < 80; x++) { const i = (y * w + x) * 4; escrita[i] = escrita[i + 1] = escrita[i + 2] = 0; }
+  assert.ok(!estaEmBranco(proporcaoDeTinta(escrita, w, h), "folga"));
+  // sombra na borda do scanner não conta
+  const borda = branca.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < 2; x++) { const i = (y * w + x) * 4; borda[i] = borda[i + 1] = borda[i + 2] = 0; }
+  assert.equal(proporcaoDeTinta(borda, w, h), 0);
+});
+
+test("comparar: acha o que saiu, o que entrou e ignora espaços", () => {
+  const L = (...t) => t.map((texto, i) => ({ pagina: Math.floor(i / 2), texto }));
+  const d = compararLinhas(L("Contrato de aluguel", "Valor:  R$ 1.000", "Prazo 12 meses", "Foro: Porto Alegre"), L("Contrato de aluguel", "Valor: R$ 1.200", "Prazo 12 meses", "Foro: Porto Alegre", "Anexo I"));
+  const r = resumoDaComparacao(d);
+  assert.deepEqual(r, { iguais: 3, tirou: 1, novo: 2 });
+  assert.equal(d.find((x) => x.tipo === "tirou").texto, "Valor: R$ 1.000");
+  assert.deepEqual(resumoDaComparacao(compararLinhas(L("a", "b"), L("a", "b"))), { iguais: 2, tirou: 0, novo: 0 });
+  assert.deepEqual(resumoDaComparacao(compararLinhas([], L("a"))), { iguais: 0, tirou: 0, novo: 1 });
+});
+
+test("comparar: textos enormes não travam e o relatório vira um PDF", async () => {
+  const muitas = (p) => Array.from({ length: 3000 }, (_, i) => ({ pagina: 0, texto: `${p} linha ${i}` }));
+  const d = compararLinhas(muitas("a"), muitas("b"));
+  assert.equal(resumoDaComparacao(d).iguais, 0);
+  const bytes = await relatorioDaComparacao("velho.pdf", "novo.pdf", d);
+  assert.ok((await PDFDocument.load(bytes)).getPageCount() >= 1);
+  const igual = await relatorioDaComparacao("a.pdf", "b.pdf", compararLinhas([{ pagina: 0, texto: "x" }], [{ pagina: 0, texto: "x" }]));
+  assert.equal((await PDFDocument.load(igual)).getPageCount(), 1);
+});
+
+import { tornarPesquisavel } from "../src/pdf/editar.ts";
+
+test("OCR: o texto reconhecido vira camada invisível e o resto fica igual", async () => {
+  const base = await pdf(2);
+  const lidas = [{ pagina: 0, largura: 600, altura: 800, palavras: [{ t: "Contrato", x0: 50, y0: 60, x1: 200, y1: 100 }, { t: "aluguel", x0: 220, y0: 60, x1: 360, y1: 100 }] }, { pagina: 1, largura: 600, altura: 800, palavras: [] }];
+  const r = await tornarPesquisavel(base, lidas);
+  assert.equal(r.paginas, 1);
+  const doc = await PDFDocument.load(r.dados);
+  assert.equal(doc.getPageCount(), 2);
+  assert.ok(r.dados.length > base.length);
+  await assert.rejects(() => tornarPesquisavel(base, [{ pagina: 0, largura: 10, altura: 10, palavras: [] }]), /Não consegui reconhecer/);
+});

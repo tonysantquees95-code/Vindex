@@ -2,6 +2,8 @@
 // Usa o @cantoo/pdf-lib (o pdf-lib com suporte a senha) só aqui; o leitor continua com o pdf-lib de sempre.
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from "@cantoo/pdf-lib";
 import { todas } from "./paginas.ts";
+import { bytesDaAssinatura, paraPagina, type Edicao } from "./marcas.ts";
+import { dataDeHoje, marcaDeFormulario } from "../leitor/formulario.ts";
 
 export class SenhaDoPdf extends Error { constructor(msg = "Este PDF tem senha.") { super(msg); this.name = "SenhaDoPdf"; } }
 
@@ -150,6 +152,53 @@ export async function marcaDagua(dados: Uint8Array, o: OpcoesMarca, paginas?: nu
   return doc.save(SALVAR);
 }
 
+/**
+ * Coloca as marcas (assinatura, visto, X, data e texto) nas páginas, onde a pessoa tocou. `fator` aumenta ou diminui tudo (0,75 a 1,4).
+ * As posições valem para a página como ela aparece, então funcionam também em páginas giradas.
+ */
+export async function marcarPaginas(dados: Uint8Array, e: Edicao, fator = 1, senha?: string): Promise<Uint8Array> {
+  if (!e.m.length) throw new Error("Toque na página, no lugar onde quer colocar a marca.");
+  if (e.m.some((m) => m.t === "assinatura") && !e.a) throw new Error("Crie a assinatura primeiro.");
+  const doc = await abrir(dados, senha);
+  const fonte = await doc.embedFont(StandardFonts.Helvetica);
+  const assinatura = e.a ? await doc.embedPng(bytesDaAssinatura(e.a)) : null;
+  const tinta = rgb(0.05, 0.1, 0.28);
+  const hoje = dataDeHoje();
+  for (const m of e.m) {
+    if (m.p > doc.getPageCount()) continue;
+    const pg = doc.getPage(m.p - 1);
+    const { width: w, height: h } = pg.getSize();
+    const rot = ((pg.getRotation().angle % 360) + 360) % 360;
+    const girada = rot === 90 || rot === 270;
+    const dw = girada ? h : w, dh = girada ? w : h; // tamanho da página como aparece
+    const ponto = (fx: number, fy: number) => paraPagina(fx, fy, rot, w, h);
+    if (m.t === "visto" || m.t === "xis") {
+      const tracos = marcaDeFormulario(m.t, m.x, m.y, dh / dw, 0.022 * fator);
+      for (const traco of tracos) {
+        for (let i = 1; i < traco.length; i++) {
+          const [x1, y1] = ponto(traco[i - 1][0], traco[i - 1][1]);
+          const [x2, y2] = ponto(traco[i][0], traco[i][1]);
+          pg.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: Math.max(1, dw * 0.0026 * fator), color: tinta });
+        }
+      }
+    } else if (m.t === "texto" || m.t === "data") {
+      const texto = textoSeguro(m.t === "data" ? hoje : m.texto ?? "", fonte);
+      if (!texto) continue;
+      const tam = dw * 0.018 * fator;
+      // o toque marca o começo da linha, na altura do meio das letras
+      const [x, y] = ponto(m.x, m.y + (tam * 0.32) / dh);
+      pg.drawText(texto, { x, y, size: tam, font: fonte, color: tinta, rotate: degrees(rot) });
+    } else if (assinatura) {
+      const largura = dw * 0.24 * fator;
+      const altura = largura * (assinatura.height / assinatura.width);
+      // o toque marca o centro da assinatura; o canto de baixo à esquerda dela é o ponto de partida do desenho
+      const [x, y] = ponto(m.x - largura / 2 / dw, m.y + altura / 2 / dh);
+      pg.drawImage(assinatura, { x, y, width: largura, height: altura, rotate: degrees(rot) });
+    }
+  }
+  return doc.save(SALVAR);
+}
+
 export type PosicaoNumero = "baixo-centro" | "baixo-direita" | "baixo-esquerda" | "cima-centro" | "cima-direita" | "cima-esquerda";
 export interface OpcoesNumeracao { posicao?: PosicaoNumero; formato?: string; inicio?: number; tamanho?: number; primeira?: number }
 
@@ -261,6 +310,29 @@ export async function imagensParaPdf(imagens: ImagemParaPdf[], o: OpcoesImagens 
   return doc.save(SALVAR);
 }
 
+
+/** Uma página lida por OCR: as palavras com a caixa em pixels da imagem de `largura × altura` que foi lida (a página inteira, em pé). */
+export interface PaginaLida { pagina: number; palavras: { t: string; x0: number; y0: number; x1: number; y1: number }[]; largura: number; altura: number }
+
+/**
+ * Deixa o PDF escaneado pesquisável: põe o texto reconhecido, invisível, por cima de cada página (a página em si não muda).
+ * Páginas giradas ficam como estão (o desenho delas já vem virado).
+ */
+export async function tornarPesquisavel(dados: Uint8Array, lidas: PaginaLida[], senha?: string): Promise<{ dados: Uint8Array; paginas: number }> {
+  const doc = await abrir(dados, senha);
+  const fonte = await doc.embedFont(StandardFonts.Helvetica);
+  let feitas = 0;
+  for (const l of lidas) {
+    if (!l.palavras.length || l.pagina < 0 || l.pagina >= doc.getPageCount()) continue;
+    const pg = doc.getPage(l.pagina);
+    if (pg.getRotation().angle % 360 !== 0) continue;
+    const { width, height } = pg.getSize();
+    camadaDeTexto(pg, fonte, l.palavras, l.largura, l.altura, 0, 0, width, height);
+    feitas++;
+  }
+  if (!feitas) throw new Error("Não consegui reconhecer texto nesse PDF. Confira se o idioma escolhido é o do documento.");
+  return { dados: await doc.save(SALVAR), paginas: feitas };
+}
 
 /** Texto invisível por cima da imagem, palavra por palavra, na mesma posição em que ela aparece: dá para buscar e selecionar no leitor de PDF. */
 function camadaDeTexto(pagina: PDFPage, fonte: PDFFont, palavras: NonNullable<ImagemParaPdf["palavras"]>, iw: number, ih: number, ox: number, oy: number, w: number, h: number): void {
