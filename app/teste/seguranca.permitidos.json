@@ -1,0 +1,3 @@
+[
+  { "regra": "permissao", "arquivo": "app.yml", "trecho": "QUERY_ALL_PACKAGES", "motivo": "O Vindex enxerga todos os apps da suíte e os do aparelho para abrir e atualizar; decisão de produto" }
+]
