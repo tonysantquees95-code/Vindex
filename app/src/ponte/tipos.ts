@@ -40,7 +40,7 @@ export interface Regra {
 }
 
 export interface PastaConhecida { id: string; rotulo: string; caminho: string }
-export interface ConteudoCompactado { itens: number; bytes: number; nomes: string[]; tamanhos?: number[]; formato: string }
+export interface ConteudoCompactado { itens: number; bytes: number; nomes: string[]; tamanhos?: number[]; formato: string; /** ZIP com senha: a tela pede a senha antes de extrair */ protegido?: boolean }
 export interface ProgressoAtualizacao { estado: "parada" | "baixando" | "pronta" | "erro"; feitos: number; total: number; erro: string }
 export interface ProgressoArquivo { fase: string; atual: string; feitos: number; total: number }
 export interface ResultadoExtracao { destino: string; arquivos: number; bytes: number; pulados: string[] }
@@ -125,6 +125,15 @@ export interface Recursos {
 }
 export interface Permissao { id: string; rotulo: string; motivo: string; obrigatoria: boolean; concedida: boolean }
 
+export interface DadosDoAparelho {
+  fabricante: string; modelo: string; android: string; sdk: number; patch: string; chip: string; arquitetura: string;
+  largura: number; altura: number; densidade: number; hz: number; hz_max: number;
+  /** false no Android 14 ou mais novo: o sistema não deixa um app encerrar os outros */
+  pode_encerrar_apps: boolean;
+}
+export type TipoDeTeste = "processador" | "memoria" | "armazenamento";
+/** valor: MB/s (processador com todos os núcleos e armazenamento) ou GB/s (memória) */
+export interface ResultadoTeste { tipo: TipoDeTeste; valor: number; um_nucleo?: number; nucleos?: number }
 export interface Armazenamento { rotulo: string; caminho: string; total: number; livre: number }
 export interface ItemDePasta { nome: string; caminho: string; pasta: boolean; bytes: number; modificado: number; categoria: string; itens: number }
 export interface Listagem { caminho: string; pai: string | null; itens: ItemDePasta[]; truncado: boolean }
@@ -151,6 +160,8 @@ export interface Motor {
   painel?: { estado(): Promise<{ ligado: boolean; permissao: boolean }>; alternar(): Promise<{ ligado: boolean; permissao: boolean }> };
   /** Widgets da tela inicial do Android: pede ao sistema para fixar o modelo escolhido. */
   widgets?: { fixar(tipo: string): Promise<{ mensagem: string }> };
+  /** Só no Android: dados do aparelho e testes curtos de desempenho. */
+  aparelho?: { dados(): Promise<DadosDoAparelho>; testar(tipo: TipoDeTeste): Promise<ResultadoTeste> };
   otimizarMemoria(): Promise<{ suportado: boolean; processos_ajustados: number; liberado_bytes: number; nota: string }>;
   pastasConhecidas(): Promise<PastaConhecida[]>;
   escolherArquivo(): Promise<string | null>;
@@ -159,8 +170,8 @@ export interface Motor {
   listarCompactado(origem: string, senha?: string): Promise<ConteudoCompactado>;
   pastaSugerida(origem: string): Promise<string>;
   extrair(origem: string, destino: string, senha?: string, selecionados?: string[]): Promise<ResultadoExtracao>;
-  /** Cria ZIP, 7z ou TAR.GZ; consulta o andamento de extrair/compactar; cancela. */
-  compactar?(origens: string[], destino: string, formato: "zip" | "7z" | "tgz"): Promise<{ destino: string; arquivos: number; bytes: number }>;
+  /** Cria ZIP, 7z ou TAR.GZ (ZIP e 7z aceitam senha); consulta o andamento de extrair/compactar; cancela. */
+  compactar?(origens: string[], destino: string, formato: "zip" | "7z" | "tgz", senha?: string): Promise<{ destino: string; arquivos: number; bytes: number }>;
   progressoArquivo?(): Promise<ProgressoArquivo>;
   cancelarArquivo?(): Promise<void>;
   inicioPeloMenu(): Promise<InicioPeloMenu | null>;

@@ -3,6 +3,7 @@ import { useMotor } from "../estado";
 import { bytes } from "../formato";
 import type { AnaliseDisco, EstadoRam, Inicializacao, ItemInicio, VolumeDisco } from "../ponte";
 import { Aviso, Barra, Botao, Cartao, Interruptor } from "../ui";
+import { DesempenhoAndroid } from "./DesempenhoAndroid";
 
 const segundos = (ms: number) => `${(ms / 1000).toFixed(ms >= 10000 ? 0 : 1).replace(".", ",")} s`;
 const MSG = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -23,6 +24,7 @@ const IMPACTO: Record<ItemInicio["impacto"], { texto: string; cor: string }> = {
 /** Inicialização do Windows, disco (desfragmentação inteligente) e memória: o que deixa o computador mais rápido, em uma tela só. */
 export function Desempenho() {
   const motor = useMotor();
+  if (motor.aparelho) return <DesempenhoAndroid />;
   return (
     <div className="space-y-4">
       <Inicio />
@@ -185,7 +187,7 @@ function Memoria() {
         </>
       )}
       <div className="mt-4"><Botao variante="primario" disabled={ocupado} onClick={() => void liberar()}>{ocupado ? "Liberando…" : "Liberar RAM"}</Botao></div>
-      <p className="mt-2 text-xs text-suave">Pede aos programas abertos que devolvam a memória que não estão usando. Nenhum programa é fechado e nada é perdido.</p>
+      <p className="mt-2 text-xs text-suave">Pede aos programas abertos que devolvam a memória que não estão usando. Nenhum programa é fechado e nada é perdido. É um alívio temporário: os programas pegam a memória de volta quando precisam, e o computador pode não ficar mais rápido.</p>
       {aviso && <div className="mt-3"><Aviso tom="ok">{aviso}</Aviso></div>}
       {erro && <div className="mt-3"><Aviso tom="erro">{erro}</Aviso></div>}
     </Cartao>

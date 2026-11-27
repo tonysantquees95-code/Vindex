@@ -58,7 +58,7 @@ export async function motorTauri(): Promise<Motor> {
     listarCompactado: (origem, senha) => c("listar_arquivo", { origem, senha: senha ?? "" }),
     pastaSugerida: (origem) => c("pasta_sugerida", { origem }),
     extrair: (origem, destino, senha, selecionados) => c("extrair", { origem, destino, senha: senha ?? "", ...(selecionados ? { selecionados } : {}) }),
-    compactar: (origens, destino, formato) => c("compactar", { origens, destino, formato }),
+    compactar: (origens, destino, formato, senha) => c("compactar", { origens, destino, formato, senha: senha ?? "" }),
     progressoArquivo: () => c("progresso_arquivo"),
     cancelarArquivo: async () => { await c("cancelar_arquivo"); },
     inicioPeloMenu: () => invoke("argumento_inicial"),

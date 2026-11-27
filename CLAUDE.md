@@ -8,7 +8,7 @@
 
 ## Apresentação da primeira abertura
 - Tour → permissões explicadas → termos a aceitar, em `app/src/telas/Apresentacao.tsx`; conteúdo em `app/src/apresentacao.ts`.
-- Função nova: acrescente (ou ajuste) um passo em `TOUR`. Permissão nova: explique o porquê na tela de permissões ANTES de pedir. Mudou o texto dos termos: suba `VERSAO_DOS_TERMOS`.
+- Função nova: acrescente (ou ajuste) um passo em `TOUR`. Permissão nova: explique o porquê na tela de permissões ANTES de pedir. Mudou o texto dos termos: suba `VERSAO_DOS_TERMOS` (quem já usava vê só o aceite e depois as novidades). Os termos e o tour só podem citar o que o código faz.
 - A apresentação e os termos também ficam em Ajustes › Sobre o Vindex.
 
 ## Teste visual das telas
@@ -58,6 +58,12 @@
 - Prévias (`Previas.tsx`): `PreviaDaPagina` (toque na miniatura) e `VerPdf` (botão "Ver o PDF" no Pronto e toque no item de Recentes; usa `abrirMiniaturas`). Cenário `scanner-previas`.
 - Modos (`predefinicao` em `imagem.ts`): Documento, Recibo, Livro, Quadro e Cartão ID já escolhem visual/recorte. Idiomas do OCR: português, inglês e espanhol (`@tesseract.js-data/eng` e `/spa`, copiados por `scripts/copiar-ocr.mjs` para `public/ocr/`, fora do git; o app fica mais ~5 MB maior, tudo offline). O texto lido de cada PDF fica no store `textos` do IndexedDB `vindex-scanner` (versão 2); a busca em Recentes é `buscar` (`recentes.ts`) e o nome automático é `nomeSugerido` (`ocr.ts`, só se a pessoa não mexeu no nome). Abra o banco SEM número de versão nos testes.
 - Falta (ideias): "Pergunte ao PDF" com IA (só como opção avisada, desligada por padrão, porque o arquivo sairia do aparelho). Cenários `scanner-*` (incluindo `scanner-modos` e `scanner-idiomas`) no teste visual.
+
+## Compactados, Cofre, Desempenho e Verificar tudo
+- Senha em compactados: Android usa zip4j (ZIP AES-256) e commons-compress (7z); Windows em `core/src/arquivos.rs`. RAR só é aberto, nunca criado. Sempre conferir o espaço livre antes de escrever. Teste no computador: `android/teste/CompactadorTeste.java` (com os stubs de `android/teste/stubs/`).
+- Importar do Chrome (`cofre/importar.ts`, puro e testado): nunca sobrescreve item; confere o limite de 1 MB do servidor ANTES de gravar.
+- Desempenho no Android (`telas/DesempenhoAndroid.tsx`, `android/src/Testes.java`): os testes só comparam o aparelho com ele mesmo. No Android 14+ `killBackgroundProcesses` não alcança outros apps (`Desempenho.podeEncerrar`): não volte a prometer liberar RAM.
+- Verificar tudo (`verificarTudo.ts`, puro e testado): nunca diz "tudo certo" com parte não conferida e não é chamado de antivírus. Conferência nova = uma `parte...` + uma etapa em `telas/VerificarTudo.tsx`.
 
 ## Feedback e relato de erro
 - Ajustes › Sobre tem "Enviar feedback" e "Reportar um erro": abrem `telas/FeedbackDoApp.tsx` (página do servidor `/feedback?app=vindex&v=<versão>&p=<plataforma>` num iframe, com o visual do app). Os relatos chegam no Painel Dev › Feedback. Windows: o CSP do `tauri.conf.json` precisa de `frame-src` do servidor. Cenário `feedback` no teste visual.

@@ -7,13 +7,15 @@ import {
 } from "../cofre/cripto";
 import { Icone } from "../icones";
 import { registrarVoltar } from "../voltar";
+import { ImportarDoChrome } from "../cofre/ImportarDoChrome";
+import { cabeNoCofre } from "../cofre/importar.ts";
 import { Aviso, Botao, Cartao } from "../ui";
 
 const campo = "min-h-11 w-full rounded-xl border border-borda bg-black/20 px-3 text-sm outline-none focus:border-neon";
 const ROTULO: Record<TipoDeItem, string> = { senha: "Senha de site ou app", cartao: "Cartão ou banco", nota: "Nota segura", chave: "Chave ou token" };
 const FORCA = ["Muito curta", "Fraca", "Razoável", "Boa", "Forte"] as const;
 const COR_FORCA = ["bg-erro", "bg-erro", "bg-aviso", "bg-ok", "bg-ok"] as const;
-const INATIVO_MS = 3 * 60_000, SEGUNDO_PLANO_MS = 30_000, LIMPAR_COPIA_MS = 30_000;
+const INATIVO_MS = 3 * 60_000, SEGUNDO_PLANO_MS = 30_000, ESCOLHENDO_MS = 3 * 60_000, LIMPAR_COPIA_MS = 30_000;
 
 type Etapa = "carregando" | "criar" | "codigo" | "trancado" | "recuperar" | "aberto";
 interface Guardado { pacote: string; versao: number; pendente: boolean }
@@ -49,6 +51,7 @@ export function Cofre({ sessao }: { sessao: Sessao | null }) {
   const pendenteLocal = useRef<Pacote | null>(null); // mudanças feitas sem internet, quando a nuvem já andou
   const ultimoToque = useRef(Date.now());
   const foraDesde = useRef<number | null>(null);
+  const escolhendo = useRef(false); // o seletor de arquivos está aberto: o prazo fora do app é maior
 
   const aviso = (t: string, tom: "ok" | "erro" | "aviso" = "erro") => setMsg({ tom, t });
 
@@ -137,8 +140,8 @@ export function Cofre({ sessao }: { sessao: Sessao | null }) {
     const toque = () => { ultimoToque.current = Date.now(); };
     const visib = () => {
       if (document.hidden) foraDesde.current = Date.now();
-      else if (foraDesde.current && Date.now() - foraDesde.current > SEGUNDO_PLANO_MS) trancar("Cofre trancado porque você saiu do app.");
-      if (!document.hidden) foraDesde.current = null;
+      else if (foraDesde.current && Date.now() - foraDesde.current > (escolhendo.current ? ESCOLHENDO_MS : SEGUNDO_PLANO_MS)) trancar("Cofre trancado porque você saiu do app.");
+      if (!document.hidden) { if (foraDesde.current) { escolhendo.current = false; ultimoToque.current = Date.now(); } foraDesde.current = null; }
     };
     const relogio = setInterval(() => { if (Date.now() - ultimoToque.current > INATIVO_MS) trancar("Cofre trancado por falta de uso."); }, 10_000);
     ultimoToque.current = Date.now();
@@ -212,6 +215,17 @@ export function Cofre({ sessao }: { sessao: Sessao | null }) {
   return (
     <Aberto itens={itens} aviso={aviso_} pendente={pendente} ocupado={ocupado} bio={bio} email={email}
       aoTrancar={() => trancar()}
+      aoEscolherArquivo={() => { escolhendo.current = true; ultimoToque.current = Date.now(); }}
+      aoImportar={async (novos) => {
+        if (!pacote.current || !dek.current) return "O cofre trancou. Abra de novo e escolha o arquivo outra vez.";
+        setOcupado(true); setMsg(null);
+        try {
+          const lista = [...itens, ...novos];
+          if (!(await cabeNoCofre(pacote.current, dek.current, lista))) return "Não cabe: o cofre tem um limite de 1 MB. Nada foi importado. Apague do arquivo as senhas que não usa mais e tente de novo.";
+          await sincronizar(lista);
+          return "";
+        } catch (e) { return mensagem(e); } finally { setOcupado(false); }
+      }}
       aoSalvarItem={(it) => salvar([...itens.filter((x) => x.id !== it.id), { ...it, atualizado: Date.now() }])}
       aoApagarItem={(id) => salvar(itens.map((x) => (x.id === id ? { ...x, apagado: true, titulo: "", usuario: "", segredo: "", url: "", notas: "", atualizado: Date.now() } : x)))}
       aoTentarDeNovo={() => salvar(itens)}
@@ -318,18 +332,21 @@ function Aberto(p: {
   itens: Item[]; aviso: React.ReactNode; pendente: boolean; ocupado: boolean; bio: EstadoBio; email: string;
   aoTrancar: () => void; aoSalvarItem: (i: Item) => void; aoApagarItem: (id: string) => void; aoTentarDeNovo: () => void;
   aoAtivarBio: () => void; aoDesativarBio: () => void; aoTrocarSenha: (nova: string) => void; aoNovoCodigo: () => void; aoApagarCofre: () => void;
+  aoImportar: (novos: Item[]) => Promise<string>; aoEscolherArquivo: () => void;
 }) {
   const [busca, setBusca] = useState("");
   const [editando, setEditando] = useState<Item | null>(null);
   const [ver, setVer] = useState<Item | null>(null);
   const [ajustes, setAjustes] = useState(false);
+  const [importando, setImportando] = useState(false);
   const lista = visiveis(p.itens).filter((i) => (i.titulo + " " + i.usuario + " " + i.url).toLowerCase().includes(busca.toLowerCase())).sort((a, b) => a.titulo.localeCompare(b.titulo, "pt-BR"));
 
   // o botão voltar do celular fecha o item/ajustes antes de sair da tela
-  useEffect(() => registrarVoltar(3, () => { if (editando) { setEditando(null); return true; } if (ver) { setVer(null); return true; } if (ajustes) { setAjustes(false); return true; } return false; }), [editando, ver, ajustes]);
+  useEffect(() => registrarVoltar(3, () => { if (editando) { setEditando(null); return true; } if (ver) { setVer(null); return true; } if (ajustes) { setAjustes(false); return true; } if (importando) { setImportando(false); return true; } return false; }), [editando, ver, ajustes, importando]);
 
   if (editando) return <Editor item={editando} ocupado={p.ocupado} aoCancelar={() => setEditando(null)} aoSalvar={(i) => { p.aoSalvarItem(i); setEditando(null); setVer(null); }} />;
   if (ver) return <Detalhe item={ver} aoVoltar={() => setVer(null)} aoEditar={() => { setEditando(ver); }} aoApagar={() => { p.aoApagarItem(ver.id); setVer(null); }} />;
+  if (importando) return <ImportarDoChrome itens={p.itens} ocupado={p.ocupado} aoImportar={p.aoImportar} aoEscolherArquivo={p.aoEscolherArquivo} aoVoltar={() => setImportando(false)} />;
   if (ajustes) return <AjustesDoCofre {...p} aoVoltar={() => setAjustes(false)} />;
 
   return (
@@ -344,6 +361,7 @@ function Aberto(p: {
         <Botao variante="primario" className="flex-1" onClick={() => setEditando(novoItem("senha"))}>+ Novo item</Botao>
         <Botao onClick={() => setAjustes(true)}>Segurança do cofre</Botao>
       </div>
+      <Botao className="w-full" onClick={() => setImportando(true)}>Importar senhas do Chrome</Botao>
       {lista.length === 0 ? (
         <Cartao><p className="py-6 text-center text-sm text-suave">{p.itens.some((i) => !i.apagado) ? "Nada encontrado." : "O cofre está vazio. Toque em “Novo item” para guardar a primeira senha."}</p></Cartao>
       ) : (

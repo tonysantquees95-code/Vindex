@@ -21,7 +21,7 @@ import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-/** Painel flutuante por cima de qualquer app: RAM, temperatura e bateria ao vivo. Toque = Liberar RAM, arraste = mover, toque longo = fechar. */
+/** Painel flutuante por cima de qualquer app: RAM, temperatura e bateria ao vivo. Toque = Liberar RAM (até o Android 13) ou abrir o Vindex, arraste = mover, toque longo = fechar. */
 public class SobreposicaoService extends Service {
     static volatile boolean ativo = false;
     private WindowManager wm;
@@ -99,11 +99,16 @@ public class SobreposicaoService extends Service {
     private void atualizar() {
         if (ocupado) return;
         linha1.setText(Desempenho.linhaRam(this));
-        linha2.setText(Desempenho.linhaBateria(this) + "  ·  toque: liberar RAM");
+        linha2.setText(Desempenho.linhaBateria(this) + (Desempenho.podeEncerrar() ? "  ·  toque: liberar RAM" : "  ·  toque: abrir"));
     }
 
     private void liberar() {
         if (ocupado) return;
+        if (!Desempenho.podeEncerrar()) {
+            Intent abrir = getPackageManager().getLaunchIntentForPackage(getPackageName());
+            if (abrir != null) try { startActivity(abrir.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception ignora) { }
+            return;
+        }
         ocupado = true;
         linha1.setText("Liberando RAM…");
         new Thread(new Runnable() { @Override public void run() {

@@ -259,7 +259,7 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessao?.token, liberado, motor]);
 
-  if (apresentar) return <Apresentacao aoConcluir={() => { setNovidades([]); setApresentar(false); }} />;
+  if (apresentar) return <Apresentacao aoConcluir={(soTermos) => { if (!soTermos) setNovidades([]); setApresentar(false); }} />;
   if (!demo && !sessao) return <Conta aparelho={aparelho} aoEntrar={definir} />;
   // ler um documento não depende de internet: mesmo com a licença pedindo para confirmar online (ex.: sem rede há muitos dias), o leitor abre
   if (docAberto && sessao && estadoTrava?.tipo === "validar_online") return <Suspense fallback={null}><Leitor doc={docAberto} aoFechar={() => setDocAberto(null)} /></Suspense>;
@@ -287,7 +287,7 @@ export function App() {
     ajustes: <AjustesTela aoAtualizar={async (v) => { setNova(v); setBaixarAgora(v.numero); }} nova={nova} />,
     conta: sessao ? <MinhaConta sessao={sessao} aoAtualizar={definir} aoSair={() => { void sair(sessao.token); definir(null); }} /> : <Aviso>Modo demonstração: entre no app para ver sua conta.</Aviso>
   };
-  const abas = ABAS.filter((a) => (a.id !== "descompactar" || motor.recursos.extrair) && (a.id !== "apps" || motor.recursos.desinstalar) && (a.id !== "desempenho" || motor.recursos.desempenho) && (a.id !== "widgets" || !!motor.widgets || !!motor.painel));
+  const abas = ABAS.filter((a) => (a.id !== "descompactar" || motor.recursos.extrair) && (a.id !== "apps" || motor.recursos.desinstalar) && (a.id !== "desempenho" || motor.recursos.desempenho || !!motor.aparelho) && (a.id !== "widgets" || !!motor.widgets || !!motor.painel));
   const ir2 = (id: string) => { setAba(id as IdAba); setMenu(false); };
   const aoTocar = (e: TouchEvent) => { const t = e.touches[0]; inicioToque.current = t && t.clientX < 24 ? t.clientX : null; };
   const aoSoltar = (e: TouchEvent) => { const t = e.changedTouches[0]; const i = inicioToque.current; inicioToque.current = null; if (t && i != null && t.clientX - i > 60) setMenu(true); };

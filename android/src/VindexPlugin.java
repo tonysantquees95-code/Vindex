@@ -69,7 +69,7 @@ public class VindexPlugin extends Plugin {
             }
         };
         // descompactar e compactar levam minutos: têm fio próprio, para a tela poder perguntar o progresso enquanto isso
-        if (comando.equals("arquivo_extrair") || comando.equals("arquivo_compactar")) new Thread(trabalho, "vindex-" + comando).start();
+        if (comando.equals("arquivo_extrair") || comando.equals("arquivo_compactar") || comando.equals("teste_desempenho")) new Thread(trabalho, "vindex-" + comando).start();
         else getBridge().execute(trabalho);
     }
 
@@ -169,6 +169,7 @@ public class VindexPlugin extends Plugin {
         else if ("acessibilidade".equals(id)) abrirTela(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), geral);
         else if ("desenvolvedor".equals(id)) abrirTela(new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS), geral);
         else if ("atualizacao".equals(id)) abrirTela(new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS), geral);
+        else if ("apps".equals(id)) abrirTela(new Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS), new Intent(Settings.ACTION_APPLICATION_SETTINGS), geral);
         else if (id.startsWith("app:") && id.substring(4).matches("[A-Za-z0-9._]{1,200}")) abrirTela(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + id.substring(4))), geral);
         else { call.reject("Configuração desconhecida."); return; }
         call.resolve();
@@ -551,6 +552,10 @@ public class VindexPlugin extends Plugin {
             }
             case "otimizar_memoria":
                 return liberarMemoria();
+            case "aparelho":
+                return dadosDoAparelho();
+            case "teste_desempenho":
+                return testarDesempenho(a.optString("tipo", ""));
             case "painel_estado":
                 return new JSONObject().put("ligado", SobreposicaoService.ativo).put("permissao", SobreposicaoService.podeDesenhar(getContext()));
             case "painel_alternar": {
@@ -645,7 +650,7 @@ public class VindexPlugin extends Plugin {
                 JSONArray o = a.getJSONArray("origens");
                 java.util.List<File> fs = new java.util.ArrayList<File>();
                 for (int i = 0; i < o.length(); i++) fs.add(new File(o.getString(i)));
-                return Compactador.compactar(fs, new File(a.getString("destino")), a.optString("formato", "zip"));
+                return Compactador.compactar(fs, new File(a.getString("destino")), a.optString("formato", "zip"), a.optString("senha", ""));
             }
             case "explorar_listar":
                 semAcesso();
@@ -984,11 +989,51 @@ public class VindexPlugin extends Plugin {
         return new JSONObject().put("limpeza", limp).put("memoria", mem).put("ram_antes", antes).put("ram_depois", diagnostico().getJSONObject("memoria").getDouble("percentual"));
     }
 
+    /** Dados que não mudam enquanto o app está aberto, para a tela Desempenho. */
+    private JSONObject dadosDoAparelho() throws JSONException {
+        android.view.WindowManager wm = (android.view.WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+        android.view.Display tela = wm.getDefaultDisplay();
+        android.util.DisplayMetrics m = new android.util.DisplayMetrics();
+        tela.getRealMetrics(m);
+        float hz = tela.getRefreshRate(), maxHz = hz;
+        for (android.view.Display.Mode modo : tela.getSupportedModes()) maxHz = Math.max(maxHz, modo.getRefreshRate());
+        String chip = Build.VERSION.SDK_INT >= 31 ? (Build.SOC_MANUFACTURER + " " + Build.SOC_MODEL).trim() : Build.HARDWARE;
+        return new JSONObject().put("fabricante", Build.MANUFACTURER).put("modelo", Build.MODEL).put("android", Build.VERSION.RELEASE).put("sdk", Build.VERSION.SDK_INT)
+                .put("patch", Build.VERSION.SECURITY_PATCH).put("chip", chip).put("arquitetura", Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : "")
+                .put("largura", Math.min(m.widthPixels, m.heightPixels)).put("altura", Math.max(m.widthPixels, m.heightPixels)).put("densidade", m.densityDpi)
+                .put("hz", Math.round(hz)).put("hz_max", Math.round(maxHz)).put("pode_encerrar_apps", Desempenho.podeEncerrar());
+    }
+
+    private static final java.util.concurrent.atomic.AtomicBoolean TESTANDO = new java.util.concurrent.atomic.AtomicBoolean();
+
+    private JSONObject testarDesempenho(String tipo) throws Exception {
+        if (!TESTANDO.compareAndSet(false, true)) throw new Exception("Já existe um teste rodando. Espere terminar.");
+        try {
+            JSONObject r = new JSONObject().put("tipo", tipo);
+            if (tipo.equals("processador")) {
+                int fios = Math.max(1, Math.min(16, Runtime.getRuntime().availableProcessors()));
+                return r.put("valor", Testes.processador(fios, 3000)).put("um_nucleo", Testes.processador(1, 2000)).put("nucleos", fios);
+            }
+            if (tipo.equals("memoria")) return r.put("valor", Testes.memoria(2000));
+            if (tipo.equals("armazenamento")) {
+                File pasta = getContext().getCacheDir();
+                int megas = 128;
+                Compactador.conferirEspaco((long) megas << 20, pasta.getUsableSpace());
+                return r.put("valor", Testes.gravacao(pasta, megas));
+            }
+            throw new Exception("Teste desconhecido.");
+        } finally {
+            TESTANDO.set(false);
+        }
+    }
+
     /**
-     * RAM de verdade: pede ao Android para encerrar os apps instalados que estão em segundo plano
-     * (killBackgroundProcesses). Não mexe no app que está na tela, no sistema nem no Vindex.
+     * RAM: até o Android 13, pede para encerrar os apps instalados que estão em segundo plano (killBackgroundProcesses).
+     * Do 14 em diante o sistema não permite, então o Vindex diz isso em vez de fingir que fez. Não mexe no app aberto, no sistema nem no Vindex.
      */
     private JSONObject liberarMemoria() throws JSONException {
+        if (!Desempenho.podeEncerrar()) return new JSONObject().put("suportado", false).put("processos_ajustados", 0).put("liberado_bytes", 0)
+                .put("nota", "RAM: no Android 14 ou mais novo, o sistema não deixa um app fechar os outros. Ele mesmo libera memória quando precisa.");
         Context c = getContext();
         ActivityManager am = (ActivityManager) c.getSystemService(Context.ACTIVITY_SERVICE);
         PackageManager pm = c.getPackageManager();
@@ -1009,7 +1054,7 @@ public class VindexPlugin extends Plugin {
         }
         long liberado = Math.max(0, memoriaDisponivel() - antes);
         return new JSONObject().put("suportado", true).put("processos_ajustados", n).put("liberado_bytes", liberado)
-                .put("nota", "Pedi para " + n + " apps em segundo plano devolverem memória. O Android pode reabrir alguns sozinhos.");
+                .put("nota", "Pedi ao Android para encerrar os apps parados em segundo plano. Alguns voltam sozinhos, então o efeito costuma durar pouco.");
     }
 
     private long memoriaDisponivel() {

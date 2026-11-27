@@ -34,18 +34,25 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 const pronto = (p) => p.getByRole("heading", { name: "Pronto" }).waitFor({ timeout: 20000 });
 const editor = (p) => p.getByRole("region", { name: "Editor de foto" });
 const aba = (p, nome) => editor(p).getByRole("navigation", { name: "Ferramentas do editor" }).getByRole("button", { name: nome }).click();
+/** Liga os dados de exemplo (como no Android) no modo demonstração. */
+const comoAndroid = async (p) => { await p.evaluate(() => localStorage.setItem("vindex.demo.android", "1")); await p.reload(); await p.waitForTimeout(1200); };
 const leitor = (p) => p.getByRole("region", { name: /^Leitor:/ });
 
 export default {
   porta: 4182,
   espera: 1500,
   guardado: (modo) => modo === "primeira" ? {} : {
-    "vindex.tour": "1", "vindex.termos": TERMOS, "vindex.sessao": sessao, "vindex.permissoes.vistas2": "1",
-    "vindex.novidades.vistas": modo === "atualizou" ? "0" : "9999",
+    "vindex.tour": "1", "vindex.termos": modo === "termos-novos" ? "1" : TERMOS, "vindex.sessao": sessao, "vindex.permissoes.vistas2": "1",
+    "vindex.novidades.vistas": modo === "atualizou" || modo === "termos-novos" ? "0" : "9999",
   },
   respostas: { "/id/verificar": { licenca } },
   cenarios: [
     ["primeira-abertura", "primeira", async () => {}],
+    ["termos-atualizados", "termos-novos", async (p) => {
+      await p.getByText("Atualizamos os termos de uso").waitFor();
+      await p.getByRole("checkbox").check(); await p.getByRole("button", { name: "Aceitar e continuar" }).click();
+      await p.getByText("O que há de novo").first().waitFor();
+    }],
     ["o-que-ha-de-novo", "atualizou", async (p) => { await p.getByText("O que há de novo").first().waitFor(); }],
     ["gerenciador-principal", "normal", async (p) => {
       await p.evaluate(() => localStorage.setItem("vindex.demo.caixas", "1")); await p.reload();
@@ -253,6 +260,32 @@ export default {
     ["leitor-renomear", "normal", async (p, a) => { await abrirDoc(p, a, "contrato.docx", ex.docx()); await leitor(p).getByRole("button", { name: "Mais opções" }).click(); await p.getByRole("menuitem", { name: /outro nome|Renomear/ }).click(); await p.getByRole("dialog").waitFor(); }],
     ["leitor-formato-antigo", "normal", async (p, a) => { await abrirDoc(p, a, "velho.doc", new Uint8Array([1, 2, 3])); await leitor(p).getByRole("alert").waitFor(); }],
     ["leitor-pdf-invalido", "normal", async (p, a) => { await abrirDoc(p, a, "quebrado.pdf", new Uint8Array([1, 2, 3, 4])); await leitor(p).getByRole("alert").waitFor({ timeout: 8000 }); }],
+    ["compactar-com-senha", "normal", async (p, a) => {
+      await comoAndroid(p); await a.aba(p, "Descompactar");
+      await p.getByRole("button", { name: "Escolher arquivos…" }).click();
+      await p.getByRole("radio", { name: /^7z/ }).click();
+      if ((await p.getByRole("radio", { name: /^7z/ }).getAttribute("aria-checked")) !== "true") throw new Error("7z deveria aparecer escolhido");
+      await p.getByRole("switch", { name: "Proteger com senha" }).click();
+      await p.getByLabel("Senha do novo arquivo").fill("segredo1"); await p.getByLabel("Repita a senha").fill("segredo2");
+      await p.getByText("As duas senhas não são iguais.").waitFor();
+      if (!(await p.getByRole("button", { name: "Compactar", exact: true }).last().isDisabled())) throw new Error("não pode compactar com senhas diferentes");
+      await p.getByLabel("Repita a senha").fill("segredo1");
+      await p.getByRole("button", { name: "Compactar", exact: true }).last().scrollIntoViewIfNeeded();
+    }],
+    ["cofre-importar", "normal", async (p, a) => {
+      await a.aba(p, "Cofre");
+      await p.getByPlaceholder("Senha do cofre").fill("minha senha do cofre"); await p.getByPlaceholder("Repita a senha").fill("minha senha do cofre");
+      await p.getByRole("button", { name: "Criar cofre" }).click();
+      await p.getByRole("checkbox").check({ timeout: 20000 }); await p.getByRole("button", { name: "Continuar" }).click();
+      await p.getByRole("button", { name: "Importar senhas do Chrome" }).click();
+      const csv = "name,url,username,password,note\n" + Array.from({ length: 12 }, (_, i) => `Um site com um nome bem comprido ${i},https://site${i}.com.br,pessoa.com.email.grande${i}@exemplo.com,segredo${i},\n`).join("") + "Sem senha,https://x.com,u,,\n";
+      await escolher(p, "Escolher o arquivo CSV…", [["senhas.csv", Buffer.from(csv), "text/csv"]]);
+      await p.getByRole("list", { name: "Senhas que vão entrar" }).waitFor();
+      if (await p.getByText("segredo1").count()) throw new Error("a prévia não pode mostrar senhas");
+      await p.getByRole("button", { name: "Importar 12 senhas" }).scrollIntoViewIfNeeded();
+    }],
+    ["desempenho-android", "normal", async (p, a) => { await comoAndroid(p); await a.aba(p, "Desempenho"); await p.getByRole("heading", { name: "Seu aparelho" }).waitFor(); await p.getByRole("button", { name: "Testar processador" }).click(); await p.getByText(/um núcleo sozinho/).waitFor(); }],
+    ["verificar-tudo", "normal", async (p, a) => { await comoAndroid(p); await a.aba(p, "Segurança"); await p.getByRole("button", { name: "Verificar tudo" }).click(); await p.getByTestId("resultado-geral").getByText("2 pontos para conferir").waitFor(); }],
     ["feedback", "normal", async (p, ajuda) => { await ajuda.aba(p, "Ajustes"); await p.getByRole("button", { name: "Enviar feedback" }).click(); await p.getByText(/^FEEDBACK/).waitFor(); await p.waitForTimeout(300); }],
     ...ABAS.map((a) => [`aba-${a.toLowerCase().normalize("NFD").replace(/[^a-z]/g, "")}`, "normal", async (p, ajuda) => { await ajuda.aba(p, a); }]),
   ],

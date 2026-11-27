@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { aceitarTermos, marcarTourVisto, TERMOS, TOUR } from "../apresentacao";
+import { aceitarTermos, marcarTourVisto, TERMOS, tourVisto, TOUR } from "../apresentacao";
 import { marcarVisto, ultimoId } from "../novidades";
 import { useMotor } from "../estado";
 import { LogoVivo } from "../logo";
@@ -8,14 +8,17 @@ import { ListaDePermissoes, usePermissoes } from "./Permissoes";
 type Fase = "tour" | "permissoes" | "termos";
 
 /** Primeira abertura: conhecer as funções, entender as permissões e aceitar os termos. */
-export function Apresentacao({ aoConcluir }: { aoConcluir: () => void }) {
-  const [fase, setFase] = useState<Fase>("tour");
+export function Apresentacao({ aoConcluir }: { aoConcluir: (soTermos: boolean) => void }) {
+  // quem já usava o Vindex e só precisa aceitar termos novos não passa pela apresentação de novo
+  const [soTermos] = useState(() => tourVisto());
+  const [fase, setFase] = useState<Fase>(soTermos ? "termos" : "tour");
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-fundo">
       <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col px-5 pb-4 pt-6">
         {fase === "tour" && <Tour aoTerminar={() => setFase("permissoes")} />}
         {fase === "permissoes" && <Permissoes aoVoltar={() => setFase("tour")} aoContinuar={() => setFase("termos")} />}
-        {fase === "termos" && <Termos aoVoltar={() => setFase("permissoes")} aoAceitar={() => { aceitarTermos(); marcarTourVisto(); marcarVisto(ultimoId()); aoConcluir(); }} />}
+        {soTermos && <p className="mb-3 rounded-xl border border-neon/40 bg-neon/10 px-3 py-2 text-sm">Atualizamos os termos de uso: corrigimos a parte de privacidade e do Cofre. Leia e aceite para continuar.</p>}
+        {fase === "termos" && <Termos aoVoltar={soTermos ? undefined : () => setFase("permissoes")} aoAceitar={() => { aceitarTermos(); marcarTourVisto(); if (!soTermos) marcarVisto(ultimoId()); aoConcluir(soTermos); }} />}
       </div>
     </div>
   );
@@ -59,7 +62,7 @@ function Permissoes({ aoVoltar, aoContinuar }: { aoVoltar: () => void; aoContinu
           <>
             <div className="rounded-2xl border border-borda bg-painel p-4"><b>📁 Seus arquivos</b><p className="mt-1 text-sm text-suave">No Windows o Vindex lê e organiza as pastas que você usa (Downloads, Documentos…). Ele só move ou apaga o que você confirma ou o que uma regra sua mandar.</p></div>
             <div className="rounded-2xl border border-borda bg-painel p-4"><b>🛠️ Administrador <span className="ml-1 rounded-full bg-neon/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-neon">opcional</span></b><p className="mt-1 text-sm text-suave">Algumas otimizações de disco (como o TRIM) só funcionam se o Vindex for aberto como administrador. Sem isso o resto funciona normalmente.</p></div>
-            <div className="rounded-2xl border border-borda bg-painel p-4"><b>🌐 Internet</b><p className="mt-1 text-sm text-suave">Para entrar na sua conta, procurar atualizações e fazer a varredura com IA. Seus arquivos não são enviados.</p></div>
+            <div className="rounded-2xl border border-borda bg-painel p-4"><b>🌐 Internet</b><p className="mt-1 text-sm text-suave">Para entrar na sua conta, procurar atualizações e guardar o Cofre cifrado na nuvem. Seus arquivos não são enviados.</p></div>
           </>
         )}
       </div>

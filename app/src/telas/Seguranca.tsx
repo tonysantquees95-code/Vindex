@@ -8,6 +8,8 @@ import { Aviso, AnelDeSaude, Botao, Cartao } from "../ui";
 import { Pastas } from "./Pastas";
 import { SuiteApps } from "./SuiteApps";
 import { RelatorioSeguranca } from "./RelatorioSeguranca";
+import { VerificarTudo, type Verificacao } from "./VerificarTudo";
+import { itensDeProtecao } from "../verificarTudo";
 
 const campo = "min-h-11 w-full rounded-xl border border-borda bg-black/20 px-3 text-sm";
 const COR_NIVEL = { alto: "border-erro/40 bg-erro/10 text-erro", medio: "border-aviso/40 bg-aviso/10 text-aviso", baixo: "border-borda text-suave" } as const;
@@ -39,16 +41,10 @@ export function Seguranca() {
   }
 
   const [aberto, setAberto] = useState<string | null>(null);
+  const [geral, setGeral] = useState<Verificacao | null>(null);
 
   // nota de proteção: quantos dos itens verificados do aparelho estão em ordem
-  const lista: { rotulo: string; ok: boolean | null; detalhe: string; config: string | null }[] = estado?.suportado
-    ? estado.itens ?? [
-        { rotulo: "Antivírus (Microsoft Defender)", ok: estado.antivirus_ligado, detalhe: "", config: null },
-        { rotulo: "Proteção em tempo real", ok: estado.tempo_real_ligado, detalhe: "", config: null },
-        ...estado.firewall.map(([n, l]) => ({ rotulo: `Firewall · perfil ${n}`, ok: l, detalhe: "", config: null })),
-        ...(estado.assinaturas_dias != null ? [{ rotulo: "Definições de vírus", ok: estado.assinaturas_dias <= 7, detalhe: estado.assinaturas_dias === 0 ? "atualizadas hoje" : `${estado.assinaturas_dias} dia(s) de atraso`, config: null }] : [])
-      ]
-    : [];
+  const lista = itensDeProtecao(estado);
   const lidos = lista.filter((i) => i.ok != null);
   const ajustar = lista.filter((i) => i.ok === false);
   const nota = lidos.length ? Math.round((lidos.filter((i) => i.ok).length / lidos.length) * 100) : 100;
@@ -164,6 +160,17 @@ export function Seguranca() {
         </>
       ) : (
         <>
+          <VerificarTudo pastas={pastas} resultado={geral} bloqueado={!!ocupado} aoOcupar={(o) => setOcupado(o ? "tudo" : "")}
+            aoTerminar={(v) => {
+              setGeral(v); setErro(""); setMsg("");
+              // os detalhes já ficam prontos em cada ferramenta
+              if (v.detalhes.apps) setApps(v.detalhes.apps);
+              if (v.detalhes.apks) setApks(v.detalhes.apks);
+              if (v.detalhes.arquivos) setVerif(v.detalhes.arquivos);
+              if (v.detalhes.hosts) setHosts(v.detalhes.hosts);
+              void motor.estadoProtecao().then(setEstado).catch(() => undefined);
+            }}
+            aoVerDetalhes={setAberto} />
           {estado?.suportado ? (
             <Cartao className="text-center">
               <p className="text-sm text-suave">{estado.itens ? "Proteção do aparelho" : "Proteção do Windows"}</p>

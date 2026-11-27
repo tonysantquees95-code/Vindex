@@ -155,6 +155,8 @@ pub struct Conteudo {
     /// tamanho de cada nome da lista (mesma ordem)
     pub tamanhos: Vec<u64>,
     pub formato: String,
+    /// ZIP com senha: a tela pede a senha antes de extrair
+    pub protegido: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -261,6 +263,36 @@ fn livre(alvo: PathBuf) -> PathBuf {
     (1..10_000).map(|n| pasta.join(format!("{nome} ({n}){ext}"))).find(|p| !p.exists()).unwrap_or(alvo)
 }
 
+/// Folga que precisa sobrar no disco além do tamanho dos arquivos.
+const FOLGA: u64 = 20 << 20;
+
+fn tamanho_legivel(b: u64) -> String {
+    if b >= 1 << 30 {
+        format!("{:.1} GB", b as f64 / (1u64 << 30) as f64).replace('.', ",")
+    } else {
+        format!("{} MB", ((b + (1 << 19)) >> 20).max(1))
+    }
+}
+
+/// Falha ANTES de gravar quando o que vai ser criado não cabe. `precisa == 0` quer dizer "tamanho desconhecido".
+fn conferir_espaco(precisa: u64, livres: u64) -> Result<(), String> {
+    if precisa > 0 && precisa > livres.saturating_sub(FOLGA) {
+        return Err(format!("Falta espaço no disco: precisa de {} e há {} livres. Libere espaço ou escolha outro destino.", tamanho_legivel(precisa), tamanho_legivel(livres)));
+    }
+    Ok(())
+}
+
+/// Espaço livre no disco onde `caminho` vai ficar. `None` quando não dá para saber (pasta de rede, por exemplo): aí não bloqueia.
+fn espaco_livre(caminho: &Path) -> Option<u64> {
+    let alvo = std::path::absolute(caminho).ok()?;
+    sysinfo::Disks::new_with_refreshed_list()
+        .list()
+        .iter()
+        .filter(|d| alvo.starts_with(d.mount_point()))
+        .max_by_key(|d| d.mount_point().as_os_str().len())
+        .map(|d| d.available_space())
+}
+
 /// Mensagem amigável quando o problema é senha (faltando ou errada).
 fn trata_senha(m: String, senha: &str) -> String {
     let b = m.to_lowercase();
@@ -347,7 +379,17 @@ fn itens(origem: &Path, f: Formato, senha: &str) -> Result<Vec<(String, u64, boo
 pub fn listar(origem: &Path, senha: &str) -> Result<Conteudo, String> {
     let f = formato_de(origem).ok_or(MSG_FORMATOS)?;
     let mut c = Conteudo { formato: f.nome().into(), ..Default::default() };
-    for (nome, tam, pasta) in itens(origem, f, senha)? {
+    if matches!(f, Formato::Zip) {
+        let mut z = zip::ZipArchive::new(File::open(origem).map_err(|e| e.to_string())?).map_err(|e| explicar(e, senha))?;
+        for i in 0..z.len() {
+            if z.by_index_raw(i).map_err(|e| explicar(e, senha))?.encrypted() {
+                c.protegido = true;
+                break;
+            }
+        }
+    }
+    let lidos = itens(origem, f, senha).map_err(|m| if matches!(f, Formato::SevenZ) && !senha.is_empty() { "Não consegui abrir: confira a senha (ou o arquivo está estragado).".into() } else { m })?;
+    for (nome, tam, pasta) in lidos {
         if pasta {
             continue;
         }
@@ -439,11 +481,21 @@ pub fn extrair(origem: &Path, destino: &Path, senha: &str, so: Option<&HashSet<S
     } else {
         fs::metadata(origem).map(|m| m.len()).unwrap_or(0)
     };
+    if let Some(l) = espaco_livre(destino) {
+        conferir_espaco(total, l)?;
+    }
     fs::create_dir_all(destino).map_err(|e| format!("Não consegui criar a pasta de destino: {e}"))?;
     iniciar("extraindo", &origem.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(), total);
     let r = extrair_dentro(origem, destino, senha, f, &quer);
     encerrar();
-    r.map_err(|m| trata_senha(m, senha))
+    r.map_err(|m| {
+        // no 7z não há como distinguir senha errada de arquivo estragado: o erro aparece como dado corrompido
+        if matches!(f, Formato::SevenZ) && !senha.is_empty() && m != "Cancelado." {
+            "Não consegui abrir: confira a senha (ou o arquivo está estragado).".into()
+        } else {
+            trata_senha(m, senha)
+        }
+    })
 }
 
 fn extrair_dentro(origem: &Path, destino: &Path, senha: &str, f: Formato, quer: &dyn Fn(&str) -> bool) -> Result<ResultadoExtracao, String> {
@@ -631,16 +683,23 @@ fn copiar(leitor: &mut dyn Read, saida: &mut dyn Write) -> Result<(), String> {
     }
 }
 
-/// `formato`: "zip", "7z" ou "tgz". O arquivo criado nunca sobrescreve outro (ganha " (1)").
-pub fn compactar(origens: &[PathBuf], destino: &Path, formato: &str) -> Result<ResultadoCompactacao, String> {
+/// `formato`: "zip", "7z" ou "tgz". `senha` vazia = sem senha (só ZIP e 7z têm). O arquivo criado nunca sobrescreve outro (ganha " (1)").
+pub fn compactar(origens: &[PathBuf], destino: &Path, formato: &str, senha: &str) -> Result<ResultadoCompactacao, String> {
+    if !senha.is_empty() && formato != "zip" && formato != "7z" {
+        return Err("TAR.GZ não tem senha. Escolha ZIP ou 7z.".into());
+    }
     let lista = juntar(origens)?;
     let total: u64 = lista.iter().map(|e| e.tamanho).sum();
     let alvo = livre(destino.to_path_buf());
+    // conta o pior caso (foto, vídeo e instalador quase não diminuem)
+    if let Some(l) = espaco_livre(&alvo) {
+        conferir_espaco(total, l)?;
+    }
     if let Some(pai) = alvo.parent() {
         fs::create_dir_all(pai).map_err(|e| e.to_string())?;
     }
     iniciar("compactando", &alvo.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(), total);
-    let feito = compactar_dentro(&lista, &alvo, formato);
+    let feito = compactar_dentro(&lista, &alvo, formato, senha);
     encerrar();
     if let Err(e) = feito {
         let _ = fs::remove_file(&alvo);
@@ -650,7 +709,7 @@ pub fn compactar(origens: &[PathBuf], destino: &Path, formato: &str) -> Result<R
     Ok(ResultadoCompactacao { destino: alvo, arquivos, bytes: total })
 }
 
-fn compactar_dentro(lista: &[Entrada], alvo: &Path, formato: &str) -> Result<(), String> {
+fn compactar_dentro(lista: &[Entrada], alvo: &Path, formato: &str, senha: &str) -> Result<(), String> {
     match formato {
         "zip" => {
             let mut w = zip::ZipWriter::new(File::create(alvo).map_err(|e| e.to_string())?);
@@ -663,7 +722,11 @@ fn compactar_dentro(lista: &[Entrada], alvo: &Path, formato: &str) -> Result<(),
                     w.add_directory(e.nome.clone(), opc).map_err(|x| x.to_string())?;
                 } else {
                     marcar_atual(&e.nome);
-                    w.start_file(e.nome.clone(), opc).map_err(|x| x.to_string())?;
+                    if senha.is_empty() {
+                        w.start_file(e.nome.clone(), opc).map_err(|x| x.to_string())?;
+                    } else {
+                        w.start_file(e.nome.clone(), opc.with_aes_encryption(zip::AesMode::Aes256, senha)).map_err(|x| x.to_string())?;
+                    }
                     let mut arq = File::open(&e.caminho).map_err(|x| format!("{}: {x}", e.caminho.display()))?;
                     copiar(&mut arq, &mut w)?;
                 }
@@ -689,6 +752,9 @@ fn compactar_dentro(lista: &[Entrada], alvo: &Path, formato: &str) -> Result<(),
         }
         "7z" => {
             let mut sz = sevenz_rust::SevenZWriter::create(alvo).map_err(|e| e.to_string())?;
+            if !senha.is_empty() {
+                sz.set_content_methods(vec![sevenz_rust::AesEncoderOptions::new(senha.into()).into(), sevenz_rust::SevenZMethod::LZMA2.into()]);
+            }
             for e in lista {
                 if cancelado() {
                     return Err("Cancelado.".into());
@@ -841,7 +907,7 @@ mod testes {
         fs::write(orig.join("sub/b.txt"), b"beta").unwrap();
         for (fmt, ext) in [("zip", "zip"), ("7z", "7z"), ("tgz", "tar.gz")] {
             let dest = t.path().join(format!("pacote.{ext}"));
-            let r = compactar(&[orig.clone()], &dest, fmt).unwrap();
+            let r = compactar(&[orig.clone()], &dest, fmt, "").unwrap();
             assert_eq!(r.arquivos, 2, "{fmt}");
             let c = listar(&dest, "").unwrap();
             assert_eq!(c.itens, 2, "{fmt}");
@@ -850,9 +916,9 @@ mod testes {
             assert_eq!(fs::read(saida.join("dados/sub/b.txt")).unwrap(), b"beta", "{fmt}");
         }
         // não sobrescreve um pacote que já existe
-        let de_novo = compactar(&[orig.clone()], &t.path().join("pacote.zip"), "zip").unwrap();
+        let de_novo = compactar(&[orig.clone()], &t.path().join("pacote.zip"), "zip", "").unwrap();
         assert!(de_novo.destino.to_string_lossy().contains("(1)"));
-        assert!(compactar(&[orig], &t.path().join("x.rar"), "rar").is_err());
+        assert!(compactar(&[orig], &t.path().join("x.rar"), "rar", "").is_err());
     }
 
     #[test]
@@ -872,5 +938,45 @@ mod testes {
         assert!(e.to_lowercase().contains("senha"), "{e}");
         extrair(&z, &t.path().join("o"), "segredo", None).unwrap();
         assert_eq!(fs::read(t.path().join("o/a.txt")).unwrap(), b"oi");
+    }
+
+    #[test]
+    fn cria_com_senha_e_so_abre_com_ela() {
+        let t = tempfile::tempdir().unwrap();
+        let orig = t.path().join("Fotos da loja");
+        fs::create_dir_all(orig.join("sub")).unwrap();
+        fs::write(orig.join("anotação.txt"), "conteúdo secreto").unwrap();
+        fs::write(orig.join("sub/dados.bin"), (0..200_000u32).map(|i| (i % 251) as u8).collect::<Vec<_>>()).unwrap();
+        let senha = "Segredo 123 ção";
+        for fmt in ["zip", "7z"] {
+            let r = compactar(&[orig.clone()], &t.path().join(format!("com-senha.{fmt}")), fmt, senha).unwrap();
+            // para conferir de fora (7-Zip e Android): VINDEX_AMOSTRAS=pasta
+            if let Ok(d) = std::env::var("VINDEX_AMOSTRAS") {
+                fs::copy(&r.destino, Path::new(&d).join(format!("windows.{fmt}"))).unwrap();
+            }
+            let certo = t.path().join(format!("certo-{fmt}"));
+            extrair(&r.destino, &certo, senha, None).unwrap();
+            assert_eq!(fs::read_to_string(certo.join("Fotos da loja/anotação.txt")).unwrap(), "conteúdo secreto");
+            assert_eq!(fs::metadata(certo.join("Fotos da loja/sub/dados.bin")).unwrap().len(), 200_000);
+            for errada in ["", "outra"] {
+                let d = t.path().join(format!("errada-{fmt}-{}", errada.len()));
+                let e = extrair(&r.destino, &d, errada, None).unwrap_err();
+                assert!(e.to_lowercase().contains("senha"), "{fmt}: {e}");
+                assert!(!d.join("Fotos da loja/anotação.txt").exists(), "{fmt}: sobrou arquivo");
+            }
+        }
+        assert!(listar(&t.path().join("com-senha.zip"), "").unwrap().protegido);
+        assert!(compactar(&[orig.clone()], &t.path().join("x.tar.gz"), "tgz", "abc").unwrap_err().contains("não tem senha"));
+    }
+
+    #[test]
+    fn confere_o_espaco_livre() {
+        let gb = 1u64 << 30;
+        assert!(conferir_espaco(5 * gb, gb).unwrap_err().contains("5,0 GB"));
+        assert!(conferir_espaco(100, gb).is_ok());
+        assert!(conferir_espaco(gb, gb + 1000).is_err(), "guarda uma folga");
+        assert!(conferir_espaco(0, 0).is_ok(), "tamanho desconhecido não bloqueia");
+        let t = tempfile::tempdir().unwrap();
+        assert!(espaco_livre(&t.path().join("ainda/nao/existe")).map_or(true, |l| l > 0));
     }
 }

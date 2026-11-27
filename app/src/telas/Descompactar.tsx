@@ -85,7 +85,7 @@ function DescompactarWindows({ inicio, aoUsarInicio }: { inicio: InicioPeloMenu 
       </Cartao>
       {motor.compactar && (
         <Cartao titulo="Compactar">
-          <p className="mb-2 text-xs text-suave">Escolha arquivos ou uma pasta para criar um ZIP, 7z ou TAR.GZ.</p>
+          <p className="mb-2 text-xs text-suave">Escolha arquivos ou uma pasta para criar um ZIP, 7z ou TAR.GZ. No ZIP e no 7z dá para pôr senha.</p>
           <div className="flex flex-wrap gap-2">
             <Botao onClick={() => void escolherParaCompactar(false)}>Escolher arquivos…</Botao>
             <Botao onClick={() => void escolherParaCompactar(true)}>Escolher uma pasta…</Botao>

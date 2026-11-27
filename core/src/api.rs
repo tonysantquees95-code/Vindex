@@ -138,7 +138,7 @@ pub fn executar(comando: &str, args: &Value) -> Result<Value, String> {
         "compactar" => {
             let origens: Vec<PathBuf> = texto_lista(args, "origens").into_iter().map(PathBuf::from).collect();
             let destino = caminho_de(args, "destino")?;
-            para(arquivos::compactar(&origens, &destino, args.get("formato").and_then(|x| x.as_str()).unwrap_or("zip"))?)
+            para(arquivos::compactar(&origens, &destino, args.get("formato").and_then(|x| x.as_str()).unwrap_or("zip"), args.get("senha").and_then(|x| x.as_str()).unwrap_or(""))?)
         }
         "progresso_arquivo" => para(arquivos::progresso()),
         "cancelar_arquivo" => {

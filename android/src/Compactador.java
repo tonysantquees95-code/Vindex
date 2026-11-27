@@ -3,6 +3,12 @@ package tech.vetorial.vindex;
 import com.github.junrar.Archive;
 import com.github.junrar.rarfile.FileHeader;
 
+import net.lingala.zip4j.io.outputstream.ZipOutputStream;
+import net.lingala.zip4j.model.ZipParameters;
+import net.lingala.zip4j.model.enums.AesKeyStrength;
+import net.lingala.zip4j.model.enums.CompressionMethod;
+import net.lingala.zip4j.model.enums.EncryptionMethod;
+
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
 import org.apache.commons.compress.archivers.sevenz.SevenZOutputFile;
@@ -41,6 +47,25 @@ public final class Compactador {
     public static volatile String atual = "";
     public static volatile long feitos = 0, total = 0;
     public static volatile boolean cancelar = false;
+
+    /** Folga que precisa sobrar no aparelho além do tamanho dos arquivos. */
+    static final long FOLGA = 20L << 20;
+
+    static final class SemEspaco extends IOException {
+        SemEspaco(long precisa, long livre) {
+            super("Falta espaço no aparelho: precisa de " + tamanho(precisa) + " e há " + tamanho(livre) + " livres. Libere espaço ou escolha outro destino.");
+        }
+    }
+
+    static String tamanho(long b) {
+        if (b >= 1L << 30) return String.format(Locale.US, "%.1f GB", b / 1073741824.0).replace('.', ',');
+        return Math.max(1, (b + (1 << 19)) >> 20) + " MB";
+    }
+
+    /** Falha ANTES de gravar quando o que vai ser criado não cabe. precisa = 0 quer dizer "tamanho desconhecido". */
+    static void conferirEspaco(long precisa, long livre) throws SemEspaco {
+        if (precisa > 0 && precisa > livre - FOLGA) throw new SemEspaco(precisa, Math.max(0, livre));
+    }
 
     public static JSONObject progresso() throws Exception {
         return new JSONObject().put("fase", fase).put("atual", atual).put("feitos", feitos).put("total", total);
@@ -89,6 +114,9 @@ public final class Compactador {
     private static String msgDe(Throwable e) {
         String m = e.getMessage();
         String t = e.getClass().getSimpleName();
+        if (e instanceof SemEspaco) return m;
+        if (m != null && (m.contains("ENOSPC") || m.contains("No space left"))) return "O armazenamento encheu no meio do trabalho. Nada ficou pela metade: libere espaço e tente de novo.";
+        if (e instanceof net.lingala.zip4j.exception.ZipException && ((net.lingala.zip4j.exception.ZipException) e).getType() == net.lingala.zip4j.exception.ZipException.Type.WRONG_PASSWORD) return "Senha incorreta. Confira a senha e tente de novo.";
         if (t.contains("V5")) return "Este RAR é da versão 5, que ainda não consigo abrir.";
         if (t.contains("Password") || (m != null && m.toLowerCase(Locale.ROOT).contains("password"))) return "O arquivo tem senha. Informe a senha e tente de novo.";
         if (t.contains("UnsupportedZipFeature") || t.contains("Encrypted")) return "Este ZIP é protegido por senha de um tipo que ainda não consigo abrir.";
@@ -106,12 +134,13 @@ public final class Compactador {
         List<String> nomes = new ArrayList<String>();
         final List<Long> tams = new ArrayList<Long>();
         long[] soma = new long[2]; // itens, bytes
+        boolean protegido = false;
         try {
             switch (fmt) {
                 case "zip": {
                     try (ZipFile z = new ZipFile(f)) {
                         Enumeration<ZipArchiveEntry> en = z.getEntries();
-                        while (en.hasMoreElements()) { ZipArchiveEntry e = en.nextElement(); if (!e.isDirectory()) { soma[0]++; soma[1] += Math.max(0, e.getSize()); if (nomes.size() < 5000) { nomes.add(e.getName()); tams.add(Math.max(0, e.getSize())); } } }
+                        while (en.hasMoreElements()) { ZipArchiveEntry e = en.nextElement(); if (e.getGeneralPurposeBit().usesEncryption()) protegido = true; if (!e.isDirectory()) { soma[0]++; soma[1] += Math.max(0, e.getSize()); if (nomes.size() < 5000) { nomes.add(e.getName()); tams.add(Math.max(0, e.getSize())); } } }
                     }
                     break;
                 }
@@ -152,12 +181,15 @@ public final class Compactador {
                     }
                 }
             }
-        } catch (Throwable e) { throw new Exception(msgDe(e)); }
+        } catch (Throwable e) {
+            if (fmt.equals("7z") && senha != null && !senha.isEmpty()) throw new Exception("Não consegui abrir: confira a senha (ou o arquivo está estragado).");
+            throw new Exception(msgDe(e));
+        }
         JSONArray n = new JSONArray();
         for (String s : nomes) n.put(s);
         JSONArray tm = new JSONArray();
         for (Long t : tams) tm.put(t.longValue());
-        return new JSONObject().put("itens", soma[0]).put("bytes", soma[1]).put("nomes", n).put("tamanhos", tm).put("formato", fmt);
+        return new JSONObject().put("itens", soma[0]).put("bytes", soma[1]).put("nomes", n).put("tamanhos", tm).put("formato", fmt).put("protegido", protegido);
     }
 
     private static InputStream abrirTar(File f, String fmt, boolean contar) throws IOException {
@@ -228,13 +260,20 @@ public final class Compactador {
                     try (ZipFile z = new ZipFile(f)) {
                         Enumeration<ZipArchiveEntry> en = z.getEntries();
                         List<ZipArchiveEntry> lista = new ArrayList<ZipArchiveEntry>();
-                        while (en.hasMoreElements()) { ZipArchiveEntry e = en.nextElement(); lista.add(e); if (!e.isDirectory()) total += Math.max(0, e.getSize()); }
+                        boolean temSenha = false;
+                        while (en.hasMoreElements()) { ZipArchiveEntry e = en.nextElement(); lista.add(e); if (e.getGeneralPurposeBit().usesEncryption()) temSenha = true; if (!e.isDirectory() && quer(e.getName())) total += Math.max(0, e.getSize()); }
+                        conferirEspaco(total, destino.getUsableSpace());
+                        if (temSenha) {
+                            if (senha == null || senha.isEmpty()) throw new Exception("O arquivo tem senha. Informe a senha e tente de novo.");
+                            extrairZipComSenha(f, destino, senha, criados, pulados, cont);
+                            break;
+                        }
                         for (ZipArchiveEntry e : lista) {
                             File alvo = alvoSeguro(destino, e.getName());
                             if (!quer(e.getName())) continue;
                             if (alvo == null) { pulados.add(e.getName()); continue; }
                             if (e.isDirectory()) { alvo.mkdirs(); continue; }
-                            if (!z.canReadEntryData(e)) throw new Exception("Este ZIP é protegido por senha ou usa um recurso que ainda não consigo abrir.");
+                            if (!z.canReadEntryData(e)) throw new Exception("Este ZIP usa um tipo de compactação que ainda não consigo abrir.");
                             alvo = unico(alvo); criados.add(alvo); atual = e.getName();
                             try (InputStream in = z.getInputStream(e)) { gravar(new Contador(in), alvo); }
                             cont[0]++; cont[1] += alvo.length();
@@ -244,7 +283,8 @@ public final class Compactador {
                 }
                 case "7z": {
                     try (SevenZFile s = senha == null || senha.isEmpty() ? new SevenZFile(f) : new SevenZFile(f, senha.toCharArray())) {
-                        for (SevenZArchiveEntry e : s.getEntries()) if (!e.isDirectory()) total += Math.max(0, e.getSize());
+                        for (SevenZArchiveEntry e : s.getEntries()) if (!e.isDirectory() && quer(e.getName())) total += Math.max(0, e.getSize());
+                        conferirEspaco(total, destino.getUsableSpace());
                         SevenZArchiveEntry e;
                         byte[] b = new byte[BUF];
                         while ((e = s.getNextEntry()) != null) {
@@ -270,7 +310,8 @@ public final class Compactador {
                     long feitosAntes = feitos; int criadosAntes = criados.size();
                     try (Archive a = senha == null || senha.isEmpty() ? new Archive(f) : new Archive(f, senha)) {
                         List<FileHeader> hs = a.getFileHeaders();
-                        for (FileHeader h : hs) if (!h.isDirectory()) total += Math.max(0, h.getFullUnpackSize());
+                        for (FileHeader h : hs) if (!h.isDirectory() && quer(h.getFileName())) total += Math.max(0, h.getFullUnpackSize());
+                        conferirEspaco(total, destino.getUsableSpace());
                         for (FileHeader h : hs) {
                             String nome = h.getFileName().replace('\\', '/');
                             File alvo = alvoSeguro(destino, nome);
@@ -287,7 +328,7 @@ public final class Compactador {
                         }
                         feito = true;
                     } catch (Throwable t) {
-                        if (t instanceof IOException && "Cancelado.".equals(t.getMessage())) throw t;
+                        if (t instanceof SemEspaco || (t instanceof IOException && "Cancelado.".equals(t.getMessage()))) throw t;
                         erroAntigo = t;
                     }
                     if (!feito) { // RAR 5 e outros: refaz com o motor do 7-Zip
@@ -296,9 +337,10 @@ public final class Compactador {
                         final long[] tot = new long[1];
                         try {
                             Rar7z.percorrer(f, senha, new Rar7z.Item() {
-                                public void item(String nome, boolean pasta, long tam, net.sf.sevenzipjbinding.simple.ISimpleInArchiveItem it) { if (!pasta) tot[0] += Math.max(0, tam); }
+                                public void item(String nome, boolean pasta, long tam, net.sf.sevenzipjbinding.simple.ISimpleInArchiveItem it) { if (!pasta && quer(nome)) tot[0] += Math.max(0, tam); }
                             });
                             total = tot[0];
+                            conferirEspaco(total, destino.getUsableSpace());
                             final File dest = destino; final String sn = senha;
                             Rar7z.percorrer(f, senha, new Rar7z.Item() {
                                 public void item(String nomeBruto, boolean pasta, long tam, net.sf.sevenzipjbinding.simple.ISimpleInArchiveItem it) throws Exception {
@@ -320,6 +362,7 @@ public final class Compactador {
                 }
                 case "gz": case "bz2": case "xz": {
                     total = f.length();
+                    conferirEspaco(total, destino.getUsableSpace()); // o tamanho aberto não é conhecido: confere o mínimo
                     InputStream base = new BufferedInputStream(new Contador(new FileInputStream(f)), BUF);
                     InputStream in = fmt.equals("gz") ? new GzipCompressorInputStream(base) : fmt.equals("bz2") ? new BZip2CompressorInputStream(base) : new XZCompressorInputStream(base);
                     try {
@@ -332,6 +375,7 @@ public final class Compactador {
                 }
                 default: { // tar e tar.*
                     total = f.length();
+                    conferirEspaco(total, destino.getUsableSpace());
                     try (TarArchiveInputStream t = new TarArchiveInputStream(abrirTar(f, fmt, true))) {
                         TarArchiveEntry e;
                         while ((e = t.getNextEntry()) != null) {
@@ -350,12 +394,38 @@ public final class Compactador {
         } catch (Throwable e) {
             for (File c : criados) c.delete(); // não deixa arquivo pela metade
             fase = "";
+            // no 7z não há como distinguir senha errada de arquivo estragado: o erro aparece como dado corrompido
+            if (fmt.equals("7z") && senha != null && !senha.isEmpty() && !(e instanceof SemEspaco) && !"Cancelado.".equals(e.getMessage())) throw new Exception("Não consegui abrir: confira a senha (ou o arquivo está estragado).");
             throw new Exception(msgDe(e));
         }
         fase = "";
         JSONArray p = new JSONArray();
         for (String s : pulados) p.put(s);
         return new JSONObject().put("destino", destino.getPath()).put("arquivos", cont[0]).put("bytes", cont[1]).put("pulados", p);
+    }
+
+    /** ZIP com senha (AES ou o tipo antigo, ZipCrypto). O zip4j confere cada arquivo ao chegar no fim dele. */
+    private static void extrairZipComSenha(File f, File destino, String senha, List<File> criados, List<String> pulados, long[] cont) throws Exception {
+        try (net.lingala.zip4j.ZipFile z = new net.lingala.zip4j.ZipFile(f, senha.toCharArray())) {
+            try {
+                for (net.lingala.zip4j.model.FileHeader h : z.getFileHeaders()) {
+                    String nome = h.getFileName();
+                    if (!quer(nome)) continue;
+                    File alvo = alvoSeguro(destino, nome);
+                    if (alvo == null) { pulados.add(nome); continue; }
+                    if (h.isDirectory()) { alvo.mkdirs(); continue; }
+                    alvo = unico(alvo); criados.add(alvo); atual = nome;
+                    try (InputStream in = z.getInputStream(h)) { gravar(new Contador(in), alvo); }
+                    cont[0]++; cont[1] += alvo.length();
+                }
+            } catch (net.lingala.zip4j.exception.ZipException e) {
+                throw e;
+            } catch (IOException e) {
+                String m = String.valueOf(e.getMessage());
+                if (m.equals("Cancelado.") || m.contains("ENOSPC") || m.contains("No space left")) throw e;
+                throw new Exception("Não consegui abrir: confira a senha (ou o arquivo está estragado).");
+            }
+        }
     }
 
     // ---- compactar ----
@@ -368,8 +438,10 @@ public final class Compactador {
         } else { arqs.add(f); nomes.add(nome); }
     }
 
-    /** formato: "zip", "7z" ou "tgz". destino: arquivo a criar (ganha "(1)" se já existir). */
-    public static JSONObject compactar(List<File> origens, File destino, String fmt) throws Exception {
+    /** formato: "zip", "7z" ou "tgz". destino: arquivo a criar (ganha "(1)" se já existir). senha vazia = sem senha (só ZIP e 7z têm). */
+    public static JSONObject compactar(List<File> origens, File destino, String fmt, String senha) throws Exception {
+        boolean comSenha = senha != null && !senha.isEmpty();
+        if (comSenha && !fmt.equals("zip") && !fmt.equals("7z")) throw new Exception("TAR.GZ não tem senha. Escolha ZIP ou 7z.");
         cancelar = false; fase = "compactando"; feitos = 0; total = 0; atual = destino.getName();
         List<File> arqs = new ArrayList<File>();
         List<String> nomes = new ArrayList<String>();
@@ -381,7 +453,29 @@ public final class Compactador {
         byte[] b = new byte[BUF];
         int n = 0;
         try {
-            if (fmt.equals("zip")) {
+            // conta o pior caso (foto, vídeo e APK quase não diminuem)
+            conferirEspaco(total, (pai != null ? pai : new File(".")).getUsableSpace());
+        } catch (SemEspaco e) { fase = ""; throw new Exception(e.getMessage()); }
+        try {
+            if (fmt.equals("zip") && comSenha) {
+                try (ZipOutputStream z = new ZipOutputStream(new java.io.BufferedOutputStream(new FileOutputStream(alvo), BUF), senha.toCharArray())) {
+                    for (int i = 0; i < arqs.size(); i++) {
+                        File a = arqs.get(i);
+                        ZipParameters pz = new ZipParameters();
+                        pz.setFileNameInZip(nomes.get(i));
+                        pz.setLastModifiedFileTime(a.lastModified());
+                        if (a.isFile()) {
+                            pz.setCompressionMethod(CompressionMethod.DEFLATE);
+                            pz.setEncryptFiles(true);
+                            pz.setEncryptionMethod(EncryptionMethod.AES);
+                            pz.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256);
+                        } else pz.setCompressionMethod(CompressionMethod.STORE);
+                        z.putNextEntry(pz);
+                        if (a.isFile()) { try (InputStream in = new FileInputStream(a)) { int r; while ((r = in.read(b)) > 0) { if (cancelar) throw new IOException("Cancelado."); z.write(b, 0, r); feitos += r; } } n++; }
+                        z.closeEntry();
+                    }
+                }
+            } else if (fmt.equals("zip")) {
                 try (ZipArchiveOutputStream z = new ZipArchiveOutputStream(alvo)) {
                     z.setLevel(6);
                     for (int i = 0; i < arqs.size(); i++) {
@@ -393,7 +487,7 @@ public final class Compactador {
                     z.finish();
                 }
             } else if (fmt.equals("7z")) {
-                try (SevenZOutputFile s = new SevenZOutputFile(alvo)) {
+                try (SevenZOutputFile s = comSenha ? new SevenZOutputFile(alvo, senha.toCharArray()) : new SevenZOutputFile(alvo)) {
                     for (int i = 0; i < arqs.size(); i++) {
                         File a = arqs.get(i);
                         s.putArchiveEntry(s.createArchiveEntry(a, nomes.get(i)));

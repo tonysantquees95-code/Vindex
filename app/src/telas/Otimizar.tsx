@@ -12,6 +12,9 @@ export function Otimizar() {
   const [linhas, setLinhas] = useState<Linha[] | null>(null);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [memoria, setMemoria] = useState(true);
+  // no Android 14 ou mais novo o sistema não deixa um app fechar os outros: a opção nem aparece
+  const [semRam, setSemRam] = useState(false);
+  useEffect(() => { void motor.aparelho?.dados().then((d) => { if (!d.pode_encerrar_apps) { setSemRam(true); setMemoria(false); } }).catch(() => undefined); }, [motor]);
   const [ocupado, setOcupado] = useState(false);
   const [resultado, setResultado] = useState("");
   const [erro, setErro] = useState("");
@@ -70,10 +73,10 @@ export function Otimizar() {
     <div className="space-y-4">
       {painel && (
         <Cartao titulo="Widget de desempenho">
-          <p className="mb-3 text-sm text-suave">{motor.plataforma === "windows" ? "Uma janelinha sempre visível na área de trabalho com CPU, RAM, temperatura e o botão Liberar RAM." : "RAM, temperatura e bateria ao vivo por cima de qualquer app, com toque para liberar RAM."}</p>
+          <p className="mb-3 text-sm text-suave">{motor.plataforma === "windows" ? "Uma janelinha sempre visível na área de trabalho com CPU, RAM, temperatura e o botão Liberar RAM." : semRam ? "RAM, temperatura e bateria ao vivo por cima de qualquer app, com toque para abrir o Vindex." : "RAM, temperatura e bateria ao vivo por cima de qualquer app, com toque para liberar RAM."}</p>
           <div className="flex flex-wrap items-center gap-3">
             <Botao onClick={() => void alternarPainel()}>{painelLigado ? (motor.plataforma === "windows" ? "Fechar widget" : "Desligar painel na tela") : (motor.plataforma === "windows" ? "Mostrar widget na área de trabalho" : "Mostrar painel na tela")}</Botao>
-            {motor.plataforma === "android" && <p className="text-xs text-suave">Toque no painel para liberar RAM, arraste para mover e segure para fechar. Para o widget da tela inicial: segure um espaço vazio da tela inicial › Widgets › Vindex.</p>}
+            {motor.plataforma === "android" && <p className="text-xs text-suave">Toque no painel para {semRam ? "abrir o Vindex" : "liberar RAM"}, arraste para mover e segure para fechar. Para o widget da tela inicial: segure um espaço vazio da tela inicial › Widgets › Vindex.</p>}
           </div>
           {dicaPainel && <p className="mt-2 text-xs text-amber-300">{dicaPainel}</p>}
         </Cartao>
@@ -90,10 +93,10 @@ export function Otimizar() {
             </li>
           ))}</ul>
         )}
-        <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl border border-borda p-3 hover:bg-white/5">
+        {!semRam && <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl border border-borda p-3 hover:bg-white/5">
           <input type="checkbox" className="size-5" checked={memoria} onChange={(e) => setMemoria(e.target.checked)} />
           <span className="min-w-0 flex-1"><span className="block text-sm">Liberar memória RAM</span><span className="block text-xs text-suave">{motor.plataforma === "android" ? "Pede ao Android para encerrar os apps que estão parados em segundo plano (não mexe no app aberto nem no sistema)." : "Pede aos programas abertos que devolvam memória que não estão usando."}</span></span>
-        </label>
+        </label>}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Botao variante="primario" className="brilho !min-h-12 px-6" disabled={ocupado || (!marcados.size && !memoria)} onClick={otimizar}>{ocupado ? "Otimizando…" : "Otimizar selecionados"}</Botao>
           <span className="text-sm text-suave">{marcados.size ? `Vão voltar cerca de ${bytes(total)}.` : "Marque pelo menos um item."}</span>

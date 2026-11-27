@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMotor } from "../estado";
 import { bytes, nomeDoArquivo, pastaDeExtracao, pastaDoArquivo } from "../formato";
 import type { ConteudoCompactado, ProgressoArquivo, ResultadoExtracao } from "../ponte";
-import { Aviso, Botao, Cartao } from "../ui";
+import { Aviso, Botao, Cartao, Interruptor } from "../ui";
 
 const campo = "min-h-11 w-full rounded-xl border border-borda bg-black/20 px-3 text-sm";
 const texto = (e: unknown) => (e instanceof Error ? e.message : typeof e === "string" ? e : "Não deu certo.");
@@ -48,7 +48,7 @@ export function PainelCompactado({ caminho, aoFechar, aoExtrair, direto = false 
 
   const ler = useCallback(async (s = senha) => {
     setErro(""); setPedeSenha(false);
-    try { const c = await motor.listarCompactado(caminho, s); setConteudo(c); setMarcados(new Set(c.nomes)); } catch (e) { const m = texto(e); setErro(m); if (/senha/i.test(m)) setPedeSenha(true); }
+    try { const c = await motor.listarCompactado(caminho, s); setConteudo(c); setMarcados(new Set(c.nomes)); } catch (e) { const m = texto(e); setErro(m); if (s || /senha/i.test(m)) setPedeSenha(true); }
   }, [motor, caminho, senha]);
 
   const extrair = useCallback(async (dest: string, s = senha, escolhidos?: string[]) => {
@@ -93,10 +93,13 @@ export function PainelCompactado({ caminho, aoFechar, aoExtrair, direto = false 
             </ul>
           </div>
         )}
-        {pedeSenha && (
-          <div className="flex gap-2">
-            <input className={campo} type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Senha do arquivo" aria-label="Senha do arquivo" />
-            <Botao variante="primario" onClick={() => { if (direto) void extrair(pastaDeExtracao(caminho), senha); else void ler(senha); }}>{direto ? "Extrair" : "Abrir"}</Botao>
+        {(pedeSenha || conteudo?.protegido) && !resultado && !ocupado && (
+          <div className="space-y-1.5">
+            {conteudo && <p className="text-sm">Este arquivo tem senha. Digite a senha e toque em extrair.</p>}
+            <div className="flex gap-2">
+              <input className={campo} type="password" autoComplete="off" value={senha} onChange={(e) => { setSenha(e.target.value); setErro(""); }} placeholder="Senha do arquivo" aria-label="Senha do arquivo" />
+              {!conteudo && <Botao variante="primario" disabled={!senha} onClick={() => { if (direto) void extrair(pastaDeExtracao(caminho), senha); else void ler(senha); }}>{direto ? "Extrair" : "Abrir"}</Botao>}
+            </div>
           </div>
         )}
         {!ocupado && !resultado && conteudo && (
@@ -110,7 +113,7 @@ export function PainelCompactado({ caminho, aoFechar, aoExtrair, direto = false 
               <button className="rounded-full border border-borda px-3 py-1.5 text-suave" onClick={() => setDestino(pastaDoArquivo(caminho))}>Mesma pasta do arquivo</button>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Botao variante="primario" disabled={!destino.trim() || marcados.size === 0} onClick={() => void extrair(destino, senha, marcados.size === conteudo.nomes.length ? undefined : Array.from(marcados))}>
+              <Botao variante="primario" disabled={!destino.trim() || marcados.size === 0 || (!!conteudo.protegido && !senha)} onClick={() => void extrair(destino, senha, marcados.size === conteudo.nomes.length ? undefined : Array.from(marcados))}>
                 {marcados.size === conteudo.nomes.length ? "Extrair tudo" : `Extrair marcados (${marcados.size})`}
               </Botao>
               {motor.recursos.abrirArquivos && <Botao onClick={() => void motor.abrirArquivo(caminho).catch((e) => setErro(texto(e)))}>Abrir com outro app</Botao>}
@@ -149,11 +152,17 @@ export function PainelCompactar({ caminhos, aoFechar, aoCriar }: { caminhos: str
   const [feito, setFeito] = useState<{ destino: string; arquivos: number; bytes: number } | null>(null);
   const andamento = useAndamento(ocupado);
   const ext = formato === "tgz" ? "tar.gz" : formato;
+  const [proteger, setProteger] = useState(false);
+  const [senha, setSenha] = useState("");
+  const [repetida, setRepetida] = useState("");
+  const [verSenha, setVerSenha] = useState(false);
+  const usaSenha = proteger && formato !== "tgz";
+  const falta = !usaSenha ? "" : senha.length < 4 ? "A senha precisa de pelo menos 4 caracteres." : senha !== repetida ? "As duas senhas não são iguais." : "";
 
   async function criar() {
-    if (!motor.compactar) return;
+    if (!motor.compactar || falta) return;
     setOcupado(true); setErro("");
-    try { const r = await motor.compactar(caminhos, `${pasta}${sep}${nome.trim() || "Arquivos"}.${ext}`, formato); setFeito(r); aoCriar?.(); }
+    try { const r = await motor.compactar(caminhos, `${pasta}${sep}${nome.trim() || "Arquivos"}.${ext}`, formato, usaSenha ? senha : ""); setSenha(""); setRepetida(""); setFeito(r); aoCriar?.(); }
     catch (e) { setErro(texto(e)); }
     setOcupado(false);
   }
@@ -163,13 +172,30 @@ export function PainelCompactar({ caminhos, aoFechar, aoCriar }: { caminhos: str
       <div className="space-y-3">
         {!ocupado && !feito && (
           <>
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Formato">
-              {([["zip", "ZIP (abre em qualquer lugar)"], ["7z", "7z (menor)"], ["tgz", "TAR.GZ"]] as const).map(([id, r]) => (
-                <button key={id} role="radio" aria-checked={formato === id} onClick={() => setFormato(id)} className={`min-h-10 rounded-xl px-4 text-sm ${formato === id ? "bg-neon/15 text-neon" : "border border-borda text-suave"}`}>{r}</button>
+            <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Formato">
+              {([["zip", "ZIP", "O mais comum"], ["7z", "7z", "Costuma ficar menor"], ["tgz", "TAR.GZ", "Linux, sem senha"]] as const).map(([id, r, d]) => (
+                <button key={id} role="radio" aria-checked={formato === id} onClick={() => setFormato(id)} className={`flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2 text-left ${formato === id ? "border-neon bg-neon/15" : "border-borda"}`}>
+                  <span aria-hidden className={`grid size-5 flex-none place-items-center rounded-full border-2 ${formato === id ? "border-neon" : "border-suave/50"}`}>{formato === id && <span className="size-2.5 rounded-full bg-neon" />}</span>
+                  <span><span className={`block text-sm font-semibold ${formato === id ? "text-neon" : ""}`}>{r}</span><span className="block text-xs text-suave">{d}</span></span>
+                </button>
               ))}
             </div>
+            {formato !== "tgz" && (
+              <div className="space-y-2 rounded-xl border border-borda p-3">
+                <div className="flex items-center justify-between gap-3"><span className="text-sm">Proteger com senha</span><Interruptor ligado={proteger} aoMudar={setProteger} rotulo="Proteger com senha" /></div>
+                {proteger && (
+                  <>
+                    <input className={campo} type={verSenha ? "text" : "password"} autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Senha" aria-label="Senha do novo arquivo" />
+                    <input className={campo} type={verSenha ? "text" : "password"} autoComplete="new-password" value={repetida} onChange={(e) => setRepetida(e.target.value)} placeholder="Repita a senha" aria-label="Repita a senha" />
+                    <label className="flex min-h-9 items-center gap-2 text-xs text-suave"><input type="checkbox" className="size-4" checked={verSenha} onChange={(e) => setVerSenha(e.target.checked)} />Mostrar a senha</label>
+                    {falta && senha && <p className="text-xs text-aviso">{falta}</p>}
+                    <p className="text-xs text-suave">Guarde a senha: se esquecer, não dá para recuperar. {formato === "zip" ? "O ZIP com senha abre no Vindex, no 7-Zip e no WinRAR; o abridor do próprio Windows não abre. Os nomes dos arquivos continuam visíveis." : "No 7z criado no celular, os nomes dos arquivos continuam visíveis."} Os arquivos originais continuam no lugar, sem senha.</p>
+                  </>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-2"><input className={campo} value={nome} onChange={(e) => setNome(e.target.value)} aria-label="Nome do arquivo" /><span className="text-sm text-suave">.{ext}</span></div>
-            <div className="flex gap-2"><Botao variante="primario" onClick={() => void criar()}>Compactar</Botao><Botao onClick={aoFechar}>Cancelar</Botao></div>
+            <div className="flex gap-2"><Botao variante="primario" disabled={!!falta} onClick={() => void criar()}>Compactar</Botao><Botao onClick={aoFechar}>Cancelar</Botao></div>
           </>
         )}
         {ocupado && (

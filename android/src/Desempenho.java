@@ -58,8 +58,12 @@ final class Desempenho {
         return "Temp. " + t + (b[1] >= 0 ? " · Bateria " + Math.round(b[1]) + "%" + (b[2] > 0 ? " ⚡" : "") : "");
     }
 
-    /** Pede ao Android para encerrar apps instalados que estão em segundo plano. Devolve quanto de RAM voltou, em bytes. Não toca no sistema nem no Vindex. */
+    /** Do Android 14 em diante, um app só consegue encerrar os próprios processos: o pedido sobre outros apps não faz nada. */
+    static boolean podeEncerrar() { return android.os.Build.VERSION.SDK_INT < 34; }
+
+    /** Pede ao Android para encerrar apps instalados que estão em segundo plano. Devolve quanto de RAM voltou, em bytes (-1 se este Android não permite). Não toca no sistema nem no Vindex. */
     static long liberar(Context c) {
+        if (!podeEncerrar()) return -1;
         ActivityManager am = (ActivityManager) c.getSystemService(Context.ACTIVITY_SERVICE);
         PackageManager pm = c.getPackageManager();
         long antes = ram(c)[1];

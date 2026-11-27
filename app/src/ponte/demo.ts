@@ -20,7 +20,24 @@ export function motorDemo(): Motor {
     };
   };
   const vazio = { movidos: [], falhas: ["Modo demonstração: abra o app do Windows ou do Android para mexer nos arquivos."], simulacao: true };
-  return {
+  // teste visual e prévia: "vindex.demo.android" liga a tela Desempenho do Android com dados de exemplo
+  const comoAndroid = (() => { try { return localStorage.getItem("vindex.demo.android") === "1"; } catch { return false; } })();
+  const exemploDeSeguranca = {
+    estadoProtecao: async () => ({ suportado: true, antivirus_ligado: true, tempo_real_ligado: null, assinaturas_dias: 20, firewall: [], nota: "Exemplo.", itens: [
+      { rotulo: "Tela bloqueada com senha, PIN ou biometria", ok: true, detalhe: "Protegida", config: "bloqueio" },
+      { rotulo: "Depuração USB desligada", ok: false, detalhe: "Ligada: desligue se você não é desenvolvedor.", config: "desenvolvedor" }
+    ] }),
+    verificarApps: async () => ({ analisados: 87, achados: [{ caminho: "App de exemplo com um nome bem comprido para testar a quebra (com.exemplo.nomemuitocomprido)", nivel: "medio" as const, motivo: "pode desenhar por cima de outros apps" }, { caminho: "Outro app (com.exemplo.outro)", nivel: "baixo" as const, motivo: "Instalado fora da loja oficial (APK)." }] }),
+    verificarArquivos: async () => ({ analisados: 1240, achados: [] }),
+    escolherItens: async () => ["C:\\Exemplo\\Relatorio anual da empresa com nome comprido.pdf"],
+    compactar: async (_o: string[], destino: string) => ({ destino, arquivos: 1, bytes: 1_200_000 }),
+    pastasConhecidas: async () => [{ id: "downloads", rotulo: "Downloads", caminho: "/storage/emulated/0/Download" }]
+  };
+  const motor: Motor = {
+    aparelho: comoAndroid ? {
+      dados: async () => ({ fabricante: "samsung", modelo: "Aparelho de exemplo", android: "14", sdk: 34, patch: "2026-10-01", chip: "QTI SM8550", arquitetura: "arm64-v8a", largura: 1080, altura: 2340, densidade: 450, hz: 60, hz_max: 120, pode_encerrar_apps: false }),
+      testar: async (tipo) => { await new Promise((ok) => setTimeout(ok, 700)); return tipo === "processador" ? { tipo, valor: 4210, um_nucleo: 780, nucleos: 8 } : tipo === "memoria" ? { tipo, valor: 9.4 } : { tipo, valor: 612 }; }
+    } : undefined,
     plataforma: "demonstracao",
     recursos: { extrair: false, defender: false, inicializacao: false, desempenho: false, abrirPasta: false, leitor: true, compartilhar: false, abrirArquivos: false, arquivosSuspeitos: false, verificarApps: false, suite: false, permissoes: false, atualizaSozinho: false, desinstalar: false, restosDeProgramas: false, desinstalarSilencioso: false },
     diagnostico: async () => diag(),
@@ -73,4 +90,9 @@ inicializacao: async () => ({ suportado: false, boot_ms: null, boot_quando: null
     progressoAtualizacao: async () => ({ estado: "parada", feitos: 0, total: 0, erro: "" }),
     instalarBaixada: async () => { throw new Error("Modo demonstração."); }
   };
+  if (comoAndroid) {
+    Object.assign(motor, exemploDeSeguranca);
+    motor.recursos = { ...motor.recursos, verificarApps: true, arquivosSuspeitos: true, extrair: true };
+  }
+  return motor;
 }
