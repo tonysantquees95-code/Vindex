@@ -4,7 +4,8 @@ import { bytes, ehCompactado, nomeDoArquivo } from "../formato";
 import { useAjustes } from "../usarAjustes";
 import { PainelCompactado, PainelCompactar } from "./Compactados";
 import type { Armazenamento, DocumentoAberto, ItemDePasta, Movimento, PastaConhecida } from "../ponte";
-import { leitorAbre } from "../leitor/formatos";
+import { ehImagem, leitorAbre } from "../leitor/formatos";
+import { Miniatura } from "../leitor/Miniatura";
 import { Aviso, Botao, Cartao } from "../ui";
 import { Icone, type NomeIcone } from "../icones";
 import { registrarVoltar } from "../voltar";
@@ -78,7 +79,7 @@ export function Explorar({ abrirEm = null, aoAbrirDocumento }: { abrirEm?: strin
     if (i.pasta) { setBusca(""); setVista({ tipo: "pasta", caminho: i.caminho }); return; }
     if (motor.recursos.extrair && ehCompactado(i.nome)) { setPainel({ tipo: "abrir", caminho: i.caminho, direto: ajustes.autoExtrair }); return; }
     // PDF, Word, Excel, PowerPoint, CSV e texto abrem no leitor do próprio Vindex
-    if (aoAbrirDocumento && motor.documentos && leitorAbre(i.nome)) { aoAbrirDocumento({ caminho: i.caminho, nome: i.nome, externo: false }); return; }
+    if (aoAbrirDocumento && motor.documentos && leitorAbre(i.nome)) { aoAbrirDocumento({ caminho: i.caminho, nome: i.nome, externo: false, galeria: ehImagem(i.nome) ? itens.filter((x) => !x.pasta && ehImagem(x.nome)).slice(0, 200).map((x) => ({ caminho: x.caminho, nome: x.nome, bytes: x.bytes })) : undefined }); return; }
     if (motor.recursos.abrirArquivos) void motor.abrirArquivo(i.caminho).catch((e) => setErro(texto(e)));
     else setMsg("Esta versão não abre arquivos.");
   };
@@ -260,7 +261,7 @@ export function Explorar({ abrirEm = null, aoAbrirDocumento }: { abrirEm?: strin
           <li key={i.caminho} className="flex items-center gap-2 px-2 py-1.5 hover:bg-white/5">
             <input type="checkbox" aria-label={`Marcar ${i.nome}`} className="h-5 w-5 flex-none accent-[#2ee6ff]" checked={marcados.has(i.caminho)} onChange={() => alternar(i.caminho)} />
             <button className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left" onClick={() => abrir(i)}>
-              <span className="text-neon" aria-hidden="true"><Icone nome={i.pasta ? "pasta" : TIPO_ICONE(i.categoria)} tam={22} /></span>
+              {!i.pasta && ehImagem(i.nome) && motor.documentos ? <Miniatura caminho={i.caminho} nome={i.nome} bytes={i.bytes} lado={44} /> : <span className="text-neon" aria-hidden="true"><Icone nome={i.pasta ? "pasta" : TIPO_ICONE(i.categoria)} tam={22} /></span>}
               <span className="min-w-0"><span className="block truncate text-sm">{i.nome}</span>
                 <span className="num block text-xs text-suave">{i.pasta ? `${i.itens} ${i.itens === 1 ? "item" : "itens"}` : bytes(i.bytes)}{i.modificado ? ` · ${quando(i.modificado)}` : ""}</span></span>
             </button>

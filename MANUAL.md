@@ -31,4 +31,5 @@ Uma linha por mudança que valha lembrar (a mais nova em cima). O Painel Dev tam
 
 | Data | O que mudou | Onde |
 | --- | --- | --- |
+| 2026-11-27 | Leitor de imagens (PNG, JPG, WebP, GIF, BMP): zoom, giro, galeria da pasta, miniaturas na lista, Converter em PDF; Android e Windows abrem esses tipos | `app/src/leitor/VerImagem.tsx`, `imagem.ts`, `imagemDom.ts`, `Miniatura.tsx`; `Documentos.java`; `main.rs`; filtros em `app.yml` |
 | 2026-11-27 | Manual criado | `MANUAL.md` |

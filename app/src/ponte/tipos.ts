@@ -70,7 +70,13 @@ export interface PlanoDeLimpeza { total_bytes: number; arquivos: number; por_alv
 export interface InicioPeloMenu { modo: "escolher" | "aqui" | "abrir"; arquivo: string }
 
 /** Documento que o leitor vai abrir. `caminho` é um arquivo que o app consegue ler (no Android, de fora vem como cópia temporária). */
-export interface DocumentoAberto { caminho: string; nome: string; /** veio de outro app: é uma cópia temporária, o original não é alterado */ externo: boolean }
+export interface DocumentoAberto {
+  caminho: string; nome: string;
+  /** veio de outro app: é uma cópia temporária, o original não é alterado */
+  externo: boolean;
+  /** outras imagens da mesma pasta, para passar de uma para outra (só quando aberto pela lista de arquivos) */
+  galeria?: { caminho: string; nome: string; bytes?: number }[];
+}
 /** Leitor de documentos: o mesmo contrato no Windows (Tauri) e no Android. */
 export interface MotorDocumentos {
   /** arquivo que outro app mandou abrir com o Vindex (Android); entrega uma vez */

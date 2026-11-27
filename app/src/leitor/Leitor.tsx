@@ -5,7 +5,9 @@ import type { DocumentoAberto } from "../ponte";
 import { Icone } from "../icones";
 import { registrarVoltar } from "../voltar";
 import { Dialogo, Perguntar } from "./Dialogo";
-import { ehFormatoAntigo, LIMITE_BYTES, MIME, nomeEditado, nomeValido, ROTULO, tipoDoc, type TipoDoc } from "./formatos";
+import { ehFormatoAntigo, LIMITE_BYTES, mimeDoArquivo, nomeEditado, nomeValido, ROTULO, tipoDoc, type TipoDoc } from "./formatos";
+import { nomeDoPdf } from "./imagem";
+import { Miniatura } from "./Miniatura";
 import type { AcoesDoc, PropsVisualizador } from "./tipos";
 
 // cada formato só é baixado quando alguém abre um arquivo dele (o app inicial continua leve)
@@ -13,10 +15,11 @@ const VerPdf = lazy(() => import("./VerPdf").then((m) => ({ default: m.VerPdf })
 const VerDocx = lazy(() => import("./VerDocx").then((m) => ({ default: m.VerDocx })));
 const VerXlsx = lazy(() => import("./VerPlanilha").then((m) => ({ default: m.VerXlsx })));
 const VerPptx = lazy(() => import("./VerPptx").then((m) => ({ default: m.VerPptx })));
+const VerImagem = lazy(() => import("./VerImagem").then((m) => ({ default: m.VerImagem })));
 const VerTexto = lazy(() => import("./VerTexto").then((m) => ({ default: m.VerTexto })));
 const VerCsv = lazy(() => import("./VerTexto").then((m) => ({ default: m.VerCsv })));
 
-const VISUALIZADOR: Record<TipoDoc, ComponentType<PropsVisualizador>> = { pdf: VerPdf, docx: VerDocx, xlsx: VerXlsx, csv: VerCsv, pptx: VerPptx, texto: VerTexto };
+const VISUALIZADOR: Record<TipoDoc, ComponentType<PropsVisualizador>> = { pdf: VerPdf, docx: VerDocx, xlsx: VerXlsx, csv: VerCsv, pptx: VerPptx, texto: VerTexto, imagem: VerImagem };
 const NOITE = "vindex.leitor.noite";
 const mensagem = (e: unknown, padrao = "Não deu certo.") => (e instanceof Error ? e.message : typeof e === "string" ? e : padrao);
 
@@ -71,12 +74,23 @@ export default function Leitor({ doc: inicial, aoFechar }: { doc: DocumentoAbert
     const onde = await docs!.salvarCopia(await atuais(), nomeFinal);
     if (onde) avisar(`Cópia guardada em ${onde}.`);
   });
-  const compartilhar = () => com("Preparando…", async () => { await docs!.compartilhar!(await atuais(), nomeFinal, MIME[tipo!]); });
+  const compartilhar = () => com("Preparando…", async () => { await docs!.compartilhar!(await atuais(), nomeFinal, mimeDoArquivo(nomeFinal)); });
   const imprimir = () => com("Preparando a impressão…", async () => {
     const b = await atuais();
     if (tipo === "pdf" && docs!.imprimirPdf) await docs!.imprimirPdf(b, nomeFinal);
     else await docs!.imprimirHtml(await acoes.current!.html(), nomeFinal);
   });
+  const converterEmPdf = () => com("Criando o PDF…", async () => {
+    const { imagemParaPdf } = await import("./imagemDom");
+    const pdf = await imagemParaPdf(await atuais(), doc.nome);
+    const onde = await docs!.salvarCopia(pdf, nomeDoPdf(doc.nome));
+    if (onde) avisar(`PDF guardado em ${onde}.`);
+  });
+  const trocarFoto = (g: { caminho: string; nome: string }) => {
+    if (g.caminho === doc.caminho) return;
+    if (alterado) { avisar("Guarde a cópia da foto girada antes de trocar de foto."); return; }
+    setEditando(false); setDoc({ ...doc, caminho: g.caminho, nome: g.nome });
+  };
   const salvarNoOriginal = () => com("Salvando…", async () => {
     const b = await atuais();
     await docs!.gravar(doc.caminho, b);
@@ -120,7 +134,7 @@ export default function Leitor({ doc: inicial, aoFechar }: { doc: DocumentoAbert
           <p className="truncate text-sm font-bold">{doc.nome}</p>
           <p className="truncate text-[11px] text-suave">{tipo ? ROTULO[tipo] : ""}{dados ? ` · ${formatarBytes(dados.length)}` : ""}{alterado ? " · " : ""}{alterado && <span className="text-aviso">alterado</span>}</p>
         </div>
-        {podeEditar && (
+        {podeEditar && tipo !== "imagem" && (
           <button onClick={() => setEditando((v) => !v)} aria-pressed={editando} aria-label={tipo === "pdf" ? "Anotar no PDF" : "Editar o documento"}
             className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-3 text-sm font-medium ${editando ? "bg-neon/15 text-neon" : "text-texto hover:bg-white/5"}`}>
             <Icone nome={tipo === "pdf" ? "caneta" : "editar"} tam={20} /><span className="hidden min-[400px]:inline">{editando ? "Pronto" : tipo === "pdf" ? "Anotar" : "Editar"}</span>
@@ -138,6 +152,7 @@ export default function Leitor({ doc: inicial, aoFechar }: { doc: DocumentoAbert
             <button role="menuitem" disabled={!podeEditar} onClick={salvarCopia} className={item}><Icone nome="salvar" tam={20} />Salvar uma cópia</button>
             {alterado && !doc.externo && <button role="menuitem" onClick={salvarNoOriginal} className={item}><Icone nome="salvar" tam={20} />Salvar no arquivo original</button>}
             {motor.recursos.compartilhar && <button role="menuitem" disabled={!podeEditar} onClick={compartilhar} className={item}><Icone nome="compartilhar" tam={20} />Compartilhar</button>}
+            {tipo === "imagem" && <button role="menuitem" disabled={!podeEditar} onClick={converterEmPdf} className={item}><Icone nome="pdf_de_imagem" tam={20} />Converter em PDF</button>}
             <button role="menuitem" disabled={!podeEditar} onClick={imprimir} className={item}><Icone nome="imprimir" tam={20} />Imprimir</button>
             <button role="menuitem" disabled={!podeEditar} onClick={() => { setMenu(false); setJanela("renomear"); }} className={item}><Icone nome="renomear" tam={20} />{doc.externo ? "Salvar com outro nome" : "Renomear"}</button>
             {!doc.externo && motor.recursos.abrirPasta && <button role="menuitem" onClick={() => { setMenu(false); void motor.abrirPasta(pastaDoArquivo(doc.caminho)).catch((e) => avisar(mensagem(e))); }} className={item}><Icone nome="pasta" tam={20} />Mostrar na pasta</button>}
@@ -159,6 +174,17 @@ export default function Leitor({ doc: inicial, aoFechar }: { doc: DocumentoAbert
           </Suspense>
         )}
       </main>
+
+      {tipo === "imagem" && !erro && doc.galeria && doc.galeria.length > 1 && (
+        <nav aria-label="Outras fotos da pasta" className="flex shrink-0 gap-2 overflow-x-auto border-t border-borda bg-painel px-2 py-2">
+          {doc.galeria.map((g) => (
+            <button key={g.caminho} onClick={() => trocarFoto(g)} aria-label={`Abrir ${g.nome}`} aria-current={g.caminho === doc.caminho ? "true" : undefined}
+              className={`shrink-0 rounded-xl p-0.5 ${g.caminho === doc.caminho ? "ring-2 ring-neon" : "opacity-80 hover:opacity-100"}`}>
+              <Miniatura caminho={g.caminho} nome={g.nome} bytes={g.bytes} lado={52} />
+            </button>
+          ))}
+        </nav>
+      )}
 
       {alterado && !erro && (
         <div className="flex shrink-0 items-center gap-2 border-t border-borda bg-painel px-3 py-2">

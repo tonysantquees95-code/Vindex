@@ -14,7 +14,8 @@ test("formatos: reconhece o que o leitor abre e avisa dos antigos", () => {
   assert.equal(tipoDoc("a.csv"), "csv");
   assert.equal(tipoDoc("a.txt"), "texto");
   assert.equal(tipoDoc("a.exe"), null);
-  assert.equal(leitorAbre("foto.jpg"), false);
+  assert.equal(leitorAbre("foto.jpg"), true);
+  assert.equal(leitorAbre("video.mp4"), false);
   assert.ok(ehFormatoAntigo("velho.doc") && ehFormatoAntigo("velha.xls") && ehFormatoAntigo("velho.ppt"));
   assert.ok(!ehFormatoAntigo("novo.docx"));
 });
@@ -205,4 +206,27 @@ test("formulário: visto, X e data de hoje", async () => {
   const dx = Math.abs(alta[1][0] - alta[0][0]), dy = Math.abs(alta[1][1] - alta[0][1]) * 2;
   assert.ok(Math.abs(dx - dy) < 1e-9);
   assert.equal(dataDeHoje(new Date(2026, 10, 5)), "05/11/2026");
+});
+
+import { tipoDoc as tipoDoc2, ehImagem, mimeDoArquivo, leitorAbre as leitorAbre2, IMAGEM_GIRA_E_SALVA } from "../src/leitor/formatos.ts";
+import { limitarZoom, girar, tamanhoGirado, escalaParaCaber, limiteDeArraste, prender, zoomDaPinca, nomeDoPdf } from "../src/leitor/imagem.ts";
+
+test("imagens: formatos, tipos e o que dá para guardar girado", () => {
+  for (const n of ["a.png", "B.JPG", "c.jpeg", "d.webp", "e.gif", "f.bmp"]) { assert.equal(tipoDoc2(n), "imagem"); assert.ok(ehImagem(n)); assert.ok(leitorAbre2(n)); }
+  assert.equal(ehImagem("a.pdf"), false);
+  assert.equal(mimeDoArquivo("x.JPG"), "image/jpeg");
+  assert.equal(mimeDoArquivo("x.png"), "image/png");
+  assert.ok(IMAGEM_GIRA_E_SALVA.includes("png") && !IMAGEM_GIRA_E_SALVA.includes("gif") && !IMAGEM_GIRA_E_SALVA.includes("bmp"));
+});
+
+test("imagens: zoom, giro e arraste ficam dentro dos limites", () => {
+  assert.equal(limitarZoom(0.2), 1); assert.equal(limitarZoom(50), 8); assert.equal(limitarZoom(NaN), 1);
+  assert.equal(girar(270, 90), 0); assert.equal(girar(0, -90), 270);
+  assert.deepEqual(tamanhoGirado(400, 200, 90), { w: 200, h: 400 }); assert.deepEqual(tamanhoGirado(400, 200, 180), { w: 400, h: 200 });
+  assert.equal(escalaParaCaber(4000, 2000, 400, 400), 0.1); assert.equal(escalaParaCaber(100, 100, 400, 400), 1);
+  assert.deepEqual(limiteDeArraste(400, 400, 1, 1, 400, 400), { x: 0, y: 0 });
+  assert.deepEqual(limiteDeArraste(400, 400, 1, 2, 400, 400), { x: 200, y: 200 });
+  assert.equal(prender(500, 200), 200); assert.equal(prender(-500, 200), -200);
+  assert.equal(zoomDaPinca(1, 100, 200), 2);
+  assert.equal(nomeDoPdf("foto.final.png"), "foto.final.pdf");
 });

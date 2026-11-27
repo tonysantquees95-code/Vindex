@@ -42,7 +42,7 @@ fn argumento_inicial() -> Option<Inicial> {
 }
 
 /// Tipos que o leitor do Vindex abre e grava. Qualquer outro (programas, scripts…) é recusado de propósito.
-const DOCUMENTOS: [&str; 16] = ["pdf", "docx", "xlsx", "xlsm", "pptx", "csv", "tsv", "txt", "md", "log", "json", "xml", "ini", "rtf", "xltx", "dotx"];
+const DOCUMENTOS: [&str; 22] = ["pdf", "docx", "xlsx", "xlsm", "pptx", "csv", "tsv", "txt", "md", "log", "json", "xml", "ini", "rtf", "xltx", "dotx", "png", "jpg", "jpeg", "webp", "gif", "bmp"];
 const LIMITE_DOCUMENTO: u64 = 120 * 1024 * 1024;
 
 fn extensao_do_leitor(p: &Path) -> Option<String> {

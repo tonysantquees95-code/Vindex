@@ -37,7 +37,7 @@ final class Documentos {
     private Documentos() {}
 
     static final long LIMITE = 120L * 1024 * 1024;
-    private static final String[] TIPOS = {"pdf", "docx", "xlsx", "xlsm", "pptx", "csv", "tsv", "txt", "md", "log", "json", "xml", "ini", "rtf", "xltx", "dotx"};
+    private static final String[] TIPOS = {"pdf", "docx", "xlsx", "xlsm", "pptx", "csv", "tsv", "txt", "md", "log", "json", "xml", "ini", "rtf", "xltx", "dotx", "png", "jpg", "jpeg", "webp", "gif", "bmp"};
     /** WebView da impressão fica guardado até o serviço de impressão terminar de usá-lo. */
     private static WebView paraImprimir;
 

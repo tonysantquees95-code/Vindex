@@ -1,9 +1,10 @@
 // Quais arquivos o leitor do Vindex abre e como. Lógica pura (testada em app/teste).
-export type TipoDoc = "pdf" | "docx" | "xlsx" | "csv" | "pptx" | "texto";
+export type TipoDoc = "pdf" | "docx" | "xlsx" | "csv" | "pptx" | "texto" | "imagem";
 
 const POR_EXTENSAO: Record<string, TipoDoc> = {
   pdf: "pdf", docx: "docx", xlsx: "xlsx", xlsm: "xlsx", csv: "csv", tsv: "csv", pptx: "pptx",
-  txt: "texto", md: "texto", log: "texto", json: "texto", xml: "texto", ini: "texto"
+  txt: "texto", md: "texto", log: "texto", json: "texto", xml: "texto", ini: "texto",
+  png: "imagem", jpg: "imagem", jpeg: "imagem", webp: "imagem", gif: "imagem", bmp: "imagem"
 };
 /** Formatos antigos do Office (.doc/.xls/.ppt) não são abertos aqui: avisamos com clareza em vez de mostrar lixo. */
 const ANTIGOS = ["doc", "xls", "ppt", "rtf"];
@@ -17,15 +18,26 @@ export function ehFormatoAntigo(nome: string): boolean { return ANTIGOS.includes
 export function leitorAbre(nome: string): boolean { return tipoDoc(nome) !== null; }
 export const EXTENSOES_DO_LEITOR = Object.keys(POR_EXTENSAO);
 
-export const ROTULO: Record<TipoDoc, string> = { pdf: "PDF", docx: "Word", xlsx: "Excel", csv: "Tabela", pptx: "PowerPoint", texto: "Texto" };
+export const ROTULO: Record<TipoDoc, string> = { pdf: "PDF", docx: "Word", xlsx: "Excel", csv: "Tabela", pptx: "PowerPoint", texto: "Texto", imagem: "Imagem" };
 export const MIME: Record<TipoDoc, string> = {
   pdf: "application/pdf",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   csv: "text/csv",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  texto: "text/plain"
+  texto: "text/plain",
+  imagem: "image/png"
 };
+
+/** Tipo (MIME) de cada formato de imagem; o resto cai no do tipo do leitor. */
+const MIME_IMAGEM: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", bmp: "image/bmp" };
+export function mimeDoArquivo(nome: string): string {
+  const t = tipoDoc(nome);
+  return t === "imagem" ? (MIME_IMAGEM[extensaoDe(nome)] ?? "image/png") : t ? MIME[t] : "application/octet-stream";
+}
+export const ehImagem = (nome: string): boolean => tipoDoc(nome) === "imagem";
+/** Imagens que a tela consegue girar e guardar de novo sem perder nada (GIF perderia a animação; BMP mudaria de formato). */
+export const IMAGEM_GIRA_E_SALVA = ["png", "jpg", "jpeg", "webp"];
 /** Acima disso o telefone costuma travar: avisamos antes de abrir. */
 export const LIMITE_BYTES = 80 * 1024 * 1024;
 
