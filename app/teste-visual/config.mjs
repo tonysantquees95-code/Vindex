@@ -32,6 +32,8 @@ async function escolher(p, botao, arquivos) {
 }
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 const pronto = (p) => p.getByRole("heading", { name: "Pronto" }).waitFor({ timeout: 20000 });
+const editor = (p) => p.getByRole("region", { name: "Editor de foto" });
+const aba = (p, nome) => editor(p).getByRole("navigation", { name: "Ferramentas do editor" }).getByRole("button", { name: nome }).click();
 const leitor = (p) => p.getByRole("region", { name: /^Leitor:/ });
 
 export default {
@@ -45,6 +47,10 @@ export default {
   cenarios: [
     ["primeira-abertura", "primeira", async () => {}],
     ["o-que-ha-de-novo", "atualizou", async (p) => { await p.getByText("O que há de novo").first().waitFor(); }],
+    ["gerenciador-principal", "normal", async (p) => {
+      await p.evaluate(() => localStorage.setItem("vindex.demo.caixas", "1")); await p.reload();
+      const d = p.getByRole("dialog", { name: "Usar o Vindex como gerenciador principal?" }); await d.getByRole("button", { name: "Sim, usar" }).waitFor();
+    }],
     ["scanner-vazio", "normal", async (p, a) => { await a.aba(p, "PDF"); await p.getByRole("heading", { name: "VindexScanner" }).waitFor(); await p.getByRole("button", { name: "Importar imagens" }).waitFor(); await p.getByText("Os PDFs que você digitalizar aparecem aqui").waitFor(); }],
     ["scanner-fluxo", "normal", async (p, a) => {
       await a.aba(p, "PDF"); await p.getByRole("heading", { name: "VindexScanner" }).waitFor();
@@ -236,6 +242,11 @@ export default {
     ["leitor-csv", "normal", async (p, a) => { await abrirDoc(p, a, "clientes.csv", ex.csv()); await leitor(p).getByRole("button", { name: /^A2: Ana/ }).waitFor(); }],
     ["leitor-imagem", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Girar para a direita" }).click(); }],
     ["leitor-imagem-zoom", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Aumentar o zoom" }).click(); await leitor(p).getByRole("button", { name: "Aumentar o zoom" }).click(); }],
+    ["leitor-editor-recortar", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await editor(p).getByRole("button", { name: "1:1" }).click(); }],
+    ["leitor-editor-girar", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await aba(p, "Girar"); await editor(p).getByRole("button", { name: "Girar para a direita" }).click(); await editor(p).getByRole("slider", { name: "Endireitar" }).fill("7"); }],
+    ["leitor-editor-ajustes", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await aba(p, "Ajustes"); await editor(p).getByRole("slider", { name: "Brilho" }).fill("20"); }],
+    ["leitor-editor-filtros", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await aba(p, "Filtros"); await editor(p).getByRole("button", { name: "Sépia" }).click(); }],
+    ["leitor-editor-sair", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await editor(p).getByRole("button", { name: "1:1" }).click(); await editor(p).getByRole("button", { name: "Fechar o editor" }).click(); await p.getByRole("dialog", { name: "Sair sem salvar?" }).waitFor(); }],
     ["leitor-imagem-menu", "normal", async (p, a) => { await abrirDoc(p, a, "foto.png", ex.foto()); await leitor(p).getByRole("button", { name: "Mais opções" }).click(); await p.getByRole("menuitem", { name: /Converter em PDF/ }).waitFor(); }],
     ["leitor-texto", "normal", async (p, a) => { await abrirDoc(p, a, "compras.txt", ex.txt()); await leitor(p).getByLabel("Texto do arquivo").waitFor(); }],
     ["leitor-menu", "normal", async (p, a) => { await abrirDoc(p, a, "contrato.docx", ex.docx()); await leitor(p).getByRole("button", { name: "Mais opções" }).click(); await p.getByRole("menu").waitFor(); }],

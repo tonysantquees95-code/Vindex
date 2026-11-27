@@ -56,6 +56,7 @@ export function VerImagem(p: PropsVisualizador) {
     p.registrar({
       salvar: bytesAtuais,
       alterado: () => mudou.current,
+      giro: () => giroAtual.current,
       html: async () => {
         const b = await bytesAtuais();
         return paginaHtml(p.nome, `<img alt="" src="data:${mime};base64,${base64(b)}" style="max-height:250mm">`);

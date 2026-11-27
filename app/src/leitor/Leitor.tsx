@@ -16,6 +16,7 @@ const VerDocx = lazy(() => import("./VerDocx").then((m) => ({ default: m.VerDocx
 const VerXlsx = lazy(() => import("./VerPlanilha").then((m) => ({ default: m.VerXlsx })));
 const VerPptx = lazy(() => import("./VerPptx").then((m) => ({ default: m.VerPptx })));
 const VerImagem = lazy(() => import("./VerImagem").then((m) => ({ default: m.VerImagem })));
+const EditorDeFoto = lazy(() => import("./EditorDeFoto").then((m) => ({ default: m.EditorDeFoto })));
 const VerTexto = lazy(() => import("./VerTexto").then((m) => ({ default: m.VerTexto })));
 const VerCsv = lazy(() => import("./VerTexto").then((m) => ({ default: m.VerCsv })));
 
@@ -39,6 +40,7 @@ export default function Leitor({ doc: inicial, aoFechar }: { doc: DocumentoAbert
   const [aviso, setAviso] = useState("");
   const [ocupado, setOcupado] = useState("");
   const acoes = useRef<AcoesDoc | null>(null);
+  const [fotoNoEditor, setFotoNoEditor] = useState<null | { giro: number }>(null);
   const tipo = tipoDoc(doc.nome);
 
   // abre: confere o tipo, lê os bytes e entrega ao visualizador do formato
@@ -134,6 +136,11 @@ export default function Leitor({ doc: inicial, aoFechar }: { doc: DocumentoAbert
           <p className="truncate text-sm font-bold">{doc.nome}</p>
           <p className="truncate text-[11px] text-suave">{tipo ? ROTULO[tipo] : ""}{dados ? ` · ${formatarBytes(dados.length)}` : ""}{alterado ? " · " : ""}{alterado && <span className="text-aviso">alterado</span>}</p>
         </div>
+        {podeEditar && tipo === "imagem" && (
+          <button onClick={() => setFotoNoEditor({ giro: acoes.current?.giro?.() ?? 0 })} aria-label="Editar a foto" className="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-2.5 text-sm font-medium text-texto hover:bg-white/5">
+            <Icone nome="editar" tam={20} /><span className="hidden min-[400px]:inline">Editar</span>
+          </button>
+        )}
         {podeEditar && tipo !== "imagem" && (
           <button onClick={() => setEditando((v) => !v)} aria-pressed={editando} aria-label={tipo === "pdf" ? "Anotar no PDF" : "Editar o documento"}
             className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-3 text-sm font-medium ${editando ? "bg-neon/15 text-neon" : "text-texto hover:bg-white/5"}`}>
@@ -193,6 +200,13 @@ export default function Leitor({ doc: inicial, aoFechar }: { doc: DocumentoAbert
         </div>
       )}
       {(aviso || ocupado) && <div role="status" className="pointer-events-none absolute inset-x-3 bottom-20 z-50 mx-auto max-w-md rounded-2xl border border-borda bg-painel px-4 py-3 text-center text-sm shadow-2xl">{ocupado || aviso}</div>}
+
+      {fotoNoEditor && dados && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 grid place-items-center bg-fundo text-suave">Abrindo o editor…</div>}>
+          <EditorDeFoto dados={dados} nome={doc.nome} giro={fotoNoEditor.giro} salvarCopia={(d, n) => docs!.salvarCopia(d, n)}
+            compartilhar={motor.recursos.compartilhar ? (d, n, m) => docs!.compartilhar!(d, n, m) : undefined} aoFechar={() => setFotoNoEditor(null)} />
+        </Suspense>
+      )}
 
       {janela === "renomear" && <Perguntar titulo={doc.externo ? "Salvar com outro nome" : "Renomear"} rotulo={doc.externo ? "Esse arquivo veio de outro app. Vou guardar uma cópia com o nome novo." : "Novo nome"} inicial={nomeFinal} confirmar={doc.externo ? "Salvar cópia" : "Renomear"} aoConfirmar={renomear} aoFechar={() => setJanela(null)} />}
       {janela === "info" && (

@@ -31,6 +31,8 @@ Uma linha por mudança que valha lembrar (a mais nova em cima). O Painel Dev tam
 
 | Data | O que mudou | Onde |
 | --- | --- | --- |
+| 2026-11-27 | Pergunta de gerenciador principal e escolha de pasta deixaram de usar a caixa do Android: agora são desenhadas pelo app (o Android só guarda a resposta e lista as pastas). Dá para reabrir a pergunta em Ajustes › Geral | `telas/Principal.tsx`, `EscolhaNaLista.tsx`, `VindexPlugin.java` (`principalEstado`, `principalResponder`, `pastasParaEscolher`) |
+| 2026-11-27 | Editor de foto: recortar (livre, 1:1, 4:5, 9:16, 16:9), girar, espelhar, endireitar, brilho/contraste/saturação, filtros, desfazer/refazer e ver original. Salva SEMPRE cópia (redesenhada: sai sem EXIF/GPS); fotos acima de 24 MP são reduzidas | `app/src/leitor/EditorDeFoto.tsx`, `edicao.ts` (contas, testadas em `teste/edicao.test.mjs`), `edicaoDom.ts` |
 | 2026-11-27 | Novo nome "Vindex Universal Tools" e novo logo (V + anel de Saturno + lua dourada animada). O `productName`/pasta de instalação `Vindex` NÃO mudou (o Velox acha o app por ela); o nome curto do ícone segue "Vindex". Ícones estáticos gerados por `app/scripts/icone-vindex.mjs` | `app/src/logo.tsx`, `app/scripts/icone-vindex.mjs`, `app/assets/*`, `desktop/app-icon.png` |
 | 2026-11-27 | Leitor de imagens (PNG, JPG, WebP, GIF, BMP): zoom, giro, galeria da pasta, miniaturas na lista, Converter em PDF; Android e Windows abrem esses tipos | `app/src/leitor/VerImagem.tsx`, `imagem.ts`, `imagemDom.ts`, `Miniatura.tsx`; `Documentos.java`; `main.rs`; filtros em `app.yml` |
 | 2026-11-27 | Manual criado | `MANUAL.md` |

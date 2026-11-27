@@ -3,6 +3,8 @@ export interface AcoesDoc {
   /** bytes do documento com as edições feitas */
   salvar(): Promise<Uint8Array>;
   alterado(): boolean;
+  /** só no visualizador de imagens: o giro atual, para o editor de foto começar igual */
+  giro?(): number;
   /** página HTML para imprimir (Word, Excel, PowerPoint, texto e PDF no Windows) */
   html(): Promise<string>;
 }

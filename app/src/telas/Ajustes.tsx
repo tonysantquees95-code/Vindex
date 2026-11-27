@@ -9,6 +9,7 @@ import { Aviso, Botao, Cartao, Interruptor } from "../ui";
 import { Tour, Termos } from "./Apresentacao";
 import { Novidades } from "./Novidades";
 import { FeedbackDoApp } from "./FeedbackDoApp";
+import { PerguntaPrincipal } from "./Principal";
 import { NOVIDADES, novasDesde } from "../novidades";
 import { ListaDePermissoes, usePermissoes } from "./Permissoes";
 
@@ -28,6 +29,7 @@ export function AjustesTela({ aoAtualizar, nova }: { aoAtualizar: (v: InfoVersao
   const [msg, setMsg] = useState("");
   const [erro, setErro] = useState("");
   const [ocupado, setOcupado] = useState(false);
+  const [principal, setPrincipal] = useState(false);
   const app = motor.plataforma === "android" ? "vindex-android" : "vindex-windows";
   const [parte, setParte] = useState<"geral" | "personalizar">(() => { try { return sessionStorage.getItem("vindex.ajustes.parte") === "personalizar" ? "personalizar" : "geral"; } catch { return "geral"; } });
   const trocar = (p: "geral" | "personalizar") => { setParte(p); try { sessionStorage.setItem("vindex.ajustes.parte", p); } catch { /* ok */ } };
@@ -128,6 +130,12 @@ export function AjustesTela({ aoAtualizar, nova }: { aoAtualizar: (v: InfoVersao
         {erro && <div className="mt-3"><Aviso tom="erro">{erro}</Aviso></div>}
         {nova?.notas && <p className="mt-2 whitespace-pre-line text-xs text-suave">{nova.notas}</p>}
       </Cartao>
+
+      {motor.principal && <Cartao titulo="Gerenciador principal">
+        <p className="mb-3 text-sm text-suave">Escolha se o Vindex abre os downloads e as pastas que outros apps pedirem.</p>
+        <Botao onClick={() => setPrincipal(true)}>Usar o Vindex como principal</Botao>
+        {principal && <PerguntaPrincipal aoFechar={() => setPrincipal(false)} />}
+      </Cartao>}
 
       <Cartao titulo="Organização">
         <Chave ligado={a.autoOrganizar} aoMudar={(v) => definir({ autoOrganizar: v })} rotulo="Organizar pastas sozinho" detalhe="Arruma por categoria as pastas escolhidas (Downloads e Documentos de início) a cada 6 horas. Você pode desfazer na hora." />

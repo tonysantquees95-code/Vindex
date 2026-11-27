@@ -164,6 +164,8 @@ export interface Motor {
   progressoArquivo?(): Promise<ProgressoArquivo>;
   cancelarArquivo?(): Promise<void>;
   inicioPeloMenu(): Promise<InicioPeloMenu | null>;
+  /** Só no Android: pergunta se o Vindex deve ser o gerenciador principal de arquivos. */
+  principal?: { perguntar(): Promise<boolean>; responder(usar: boolean): Promise<void> };
   /** Leitor e editor de documentos. */
   documentos?: MotorDocumentos;
   /** Só no Android: pasta que outro app (o Vortex) pediu para abrir; entrega uma vez. */

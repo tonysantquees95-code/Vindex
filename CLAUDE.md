@@ -25,6 +25,7 @@
 - Teste visual: cenários `leitor-*` em `teste-visual/config.mjs`, com documentos gerados por `teste-visual/exemplos.mjs`.
 
 - Preencher formulário (`leitor/formulario.ts`, puro e testado): ferramentas Visto, X e Data em `VerPdf.tsx`; visto e X viram traços de caneta (`marcaDeFormulario`, mantém a marca quadrada em qualquer proporção de página) e a data é uma anotação de texto (`dataDeHoje`). O seletor de páginas flutuante acompanha a altura da barra de anotação (`alturaBarra`). Cenário `leitor-pdf-formulario`.
+- Editor de foto: `leitor/edicao.ts` (puro: recorte em fração da foto como aparece, giro/espelho, cores, histórico), `edicaoDom.ts` (canvas; prévia e cópia usam as mesmas contas) e `EditorDeFoto.tsx`. Só gera cópia, nunca grava no original. Cenários `leitor-editor-*`.
 
 ## Vindex PDF (ferramentas de PDF)
 - Código em `app/src/pdf/`: `paginas.ts` (escolha de páginas por texto), `editar.ts` (juntar, dividir, extrair, apagar, organizar, girar, cortar, marca d'água, numerar, reparar, otimizar, proteger/desbloquear, imagens→PDF; usa `@cantoo/pdf-lib`, o pdf-lib com senha), `navegador.ts` (pdf.js + canvas: PDF→imagem, compressão forte, texto das páginas), `ferramentas.ts` (a lista: cada ferramenta diz o que pede e o que faz), `GradeDeFerramentas.tsx` (a grade e o painel, montados a partir da lista), `saida.ts` (salvar/compartilhar no app ou no navegador), `LogoPdf.tsx`.

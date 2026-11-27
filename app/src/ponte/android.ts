@@ -1,6 +1,7 @@
 import { registerPlugin } from "@capacitor/core";
 import type { AppInstalado, AppSuite, Motor, Permissao, ProgramaInstalado } from "./tipos";
 import { pastaDeExtracao } from "../formato";
+import { escolherNaLista } from "../EscolhaNaLista";
 import { Capacitor } from "@capacitor/core";
 
 /** Bytes ⇄ texto base64 em pedaços (btoa de uma vez só estoura a pilha em arquivos grandes). */
@@ -18,7 +19,9 @@ export function deBase64(t: string): Uint8Array {
 /** Mesmo contrato do Rust, implementado em Kotlin (plugin "Vindex"). */
 interface PluginVindex {
   motor(opcoes: { comando: string; args: string }): Promise<{ resultado: string }>;
-  escolherPasta(): Promise<{ pasta: string | null }>;
+  pastasParaEscolher(): Promise<{ pastas: { nome: string; caminho: string }[] }>;
+  principalEstado(): Promise<{ perguntar: boolean }>;
+  principalResponder(o: { usar: boolean }): Promise<void>;
   permissoes(): Promise<{ lista: Permissao[] }>;
   pedirPermissao(o: { id: string }): Promise<void>;
   abrirConfiguracao(o: { id: string }): Promise<void>;
@@ -57,7 +60,15 @@ export function motorAndroid(): Motor {
     recursos: { extrair: true, defender: false, inicializacao: false, desempenho: false, abrirPasta: false, leitor: true, compartilhar: true, abrirArquivos: true, arquivosSuspeitos: true, verificarApps: true, suite: true, permissoes: true, atualizaSozinho: true, desinstalar: true, restosDeProgramas: false, desinstalarSilencioso: false },
     diagnostico: (processos = 8) => c("diagnostico", { processos }),
     otimizarTudo: (simulacao = false) => c("otimizar_tudo", { simulacao }),
-    escolherPasta: async () => (await Vindex.escolherPasta()).pasta,
+    escolherPasta: async () => {
+      const { pastas } = await Vindex.pastasParaEscolher();
+      const i = await escolherNaLista("Escolher pasta", pastas.map((p) => p.nome));
+      return i === null ? null : pastas[i]!.caminho;
+    },
+    principal: {
+      perguntar: async () => (await Vindex.principalEstado()).perguntar,
+      responder: (usar) => Vindex.principalResponder({ usar })
+    },
     varrer: (raizes) => c("varrer", { raizes }),
     duplicados: (raizes, min_bytes = 1024) => c("duplicados", { raizes, min_bytes }),
     gigantes: (raizes, min_bytes = 200 * 1024 * 1024, parado_dias = 90) => c("gigantes", { raizes, min_bytes, parado_dias }),

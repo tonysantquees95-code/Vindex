@@ -1,7 +1,6 @@
 package tech.vetorial.vindex;
 
 import android.app.ActivityManager;
-import android.app.AlertDialog;
 import android.app.AppOpsManager;
 import android.app.KeyguardManager;
 import android.app.usage.UsageStats;
@@ -74,8 +73,9 @@ public class VindexPlugin extends Plugin {
         else getBridge().execute(trabalho);
     }
 
+    /** As pastas que a pessoa pode escolher; a caixinha de escolha é desenhada pelo próprio app. */
     @PluginMethod
-    public void escolherPasta(final PluginCall call) {
+    public void pastasParaEscolher(final PluginCall call) {
         if (!temAcessoATudo()) {
             pedirAcessoATudo();
             call.reject("Libere “Acesso a todos os arquivos” para o Vindex nas configurações que abriram e tente de novo.");
@@ -83,20 +83,35 @@ public class VindexPlugin extends Plugin {
         }
         final String[] nomes = {"Downloads", "Documentos", "Fotos (DCIM)", "Imagens", "Vídeos", "Músicas"};
         final String[] tipos = {Environment.DIRECTORY_DOWNLOADS, Environment.DIRECTORY_DOCUMENTS, Environment.DIRECTORY_DCIM, Environment.DIRECTORY_PICTURES, Environment.DIRECTORY_MOVIES, Environment.DIRECTORY_MUSIC};
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                new AlertDialog.Builder(getActivity()).setTitle("Escolher pasta").setItems(nomes, (d, i) -> {
-                    JSObject r = new JSObject();
-                    r.put("pasta", Environment.getExternalStoragePublicDirectory(tipos[i]).getAbsolutePath());
-                    call.resolve(r);
-                }).setOnCancelListener(d -> {
-                    JSObject r = new JSObject();
-                    r.put("pasta", JSObject.NULL);
-                    call.resolve(r);
-                }).show();
-            }
-        });
+        try {
+            JSONArray lista = new JSONArray();
+            for (int i = 0; i < nomes.length; i++) lista.put(new JSONObject().put("nome", nomes[i]).put("caminho", Environment.getExternalStoragePublicDirectory(tipos[i]).getAbsolutePath()));
+            JSObject r = new JSObject();
+            r.put("pastas", lista);
+            call.resolve(r);
+        } catch (Exception e) { call.reject("Não consegui listar as pastas."); }
+    }
+
+    // ------------------------------------------------------------ gerenciador principal (a pergunta é desenhada pelo app)
+    private android.content.SharedPreferences preferenciaPrincipal() {
+        return getContext().getSharedPreferences("vindex_principal", android.content.Context.MODE_PRIVATE);
+    }
+
+    @PluginMethod
+    public void principalEstado(final PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("perguntar", !preferenciaPrincipal().getBoolean("perguntou", false));
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void principalResponder(final PluginCall call) {
+        preferenciaPrincipal().edit().putBoolean("perguntou", true).apply();
+        if (Boolean.TRUE.equals(call.getBoolean("usar", false))) {
+            try { getContext().startActivity(new android.content.Intent("android.intent.action.VIEW_DOWNLOADS").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)); }
+            catch (Exception e) { call.reject("Não consegui abrir a escolha do Android."); return; }
+        }
+        call.resolve();
     }
 
     // ------------------------------------------------------------ permissões (tela de boas-vindas do app)

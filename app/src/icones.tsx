@@ -13,7 +13,7 @@ function Svg({ children, tam = 24, style, ...r }: SVGProps<SVGSVGElement> & { ta
 }
 const L = { fill: "none" } as const;
 
-export type NomeIcone = "camera" | "painel" | "otimizar" | "arquivos" | "regras" | "descompactar" | "seguranca" | "cofre" | "conta" | "ajustes" | "menu" | "fechar" | "atualizar" | "rede" | "pasta" | "recentes" | "imagens" | "videos" | "audios" | "documentos" | "planilhas" | "apresentacoes" | "compactados" | "instaladores" | "codigo" | "outros" | "apps" | "desempenho" | "widgets" | "voltar" | "compartilhar" | "salvar" | "imprimir" | "editar" | "mais" | "caneta" | "marcatexto" | "texto" | "assinatura" | "desfazer" | "buscar" | "noite" | "renomear" | "info" | "lixo" | "mais_item" | "pdf_juntar" | "pdf_dividir" | "pdf_extrair" | "pdf_apagar" | "pdf_organizar" | "pdf_girar" | "pdf_cortar" | "pdf_marca" | "pdf_numero" | "pdf_senha" | "pdf_abrir" | "pdf_reparar" | "pdf_comprimir" | "pdf_de_imagem" | "pdf_para_imagem" | "pdf_doc" | "pdf_texto" | "pdf_comparar" | "visto" | "calendario";
+export type NomeIcone = "camera" | "painel" | "otimizar" | "arquivos" | "regras" | "descompactar" | "seguranca" | "cofre" | "conta" | "ajustes" | "menu" | "fechar" | "atualizar" | "rede" | "pasta" | "recentes" | "imagens" | "videos" | "audios" | "documentos" | "planilhas" | "apresentacoes" | "compactados" | "instaladores" | "codigo" | "outros" | "apps" | "desempenho" | "widgets" | "voltar" | "compartilhar" | "salvar" | "imprimir" | "editar" | "mais" | "caneta" | "marcatexto" | "texto" | "assinatura" | "desfazer" | "buscar" | "noite" | "renomear" | "info" | "lixo" | "mais_item" | "pdf_juntar" | "pdf_dividir" | "pdf_extrair" | "pdf_apagar" | "pdf_organizar" | "pdf_girar" | "pdf_cortar" | "pdf_marca" | "pdf_numero" | "pdf_senha" | "pdf_abrir" | "pdf_reparar" | "pdf_comprimir" | "pdf_de_imagem" | "pdf_para_imagem" | "pdf_doc" | "pdf_texto" | "pdf_comparar" | "visto" | "calendario" | "filtros" | "espelhar" | "olho";
 
 const DESENHOS: Record<NomeIcone, ReactElement> = {
   painel: <><rect x="3.5" y="3.5" width="7" height="7" rx="2" /><rect x="13.5" y="3.5" width="7" height="4.5" rx="2" {...L} /><rect x="13.5" y="11" width="7" height="9.5" rx="2" /><rect x="3.5" y="13.5" width="7" height="7" rx="2" {...L} /></>,
@@ -57,6 +57,9 @@ const DESENHOS: Record<NomeIcone, ReactElement> = {
   calendario: <g {...L}><rect x="4" y="5.5" width="16" height="14.5" rx="2.5" /><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" /></g>,
   assinatura: <g {...L}><path d="M3.5 16c1.8-4 3-7 4.4-7 2.2 0 .2 6.5 2.2 6.5 1.6 0 2-3 3.4-3 1.2 0 .6 2.5 1.8 2.5 1 0 1.8-1 3.2-2.6" /><path d="M4 20h16" /></g>,
   desfazer: <g {...L}><path d="M9 6 4.5 10.5 9 15" /><path d="M5 10.5h8.5a5 5 0 0 1 0 10H10" /></g>,
+  filtros: <g {...L}><circle cx="12" cy="8.5" r="5" /><circle cx="8.5" cy="15" r="5" /><circle cx="15.5" cy="15" r="5" /></g>,
+  espelhar: <g {...L}><path d="M12 3.5v17" strokeDasharray="2 2.5" /><path d="M8.5 7 3.5 17h5zM15.5 7l5 10h-5z" /></g>,
+  olho: <g {...L}><path d="M2.8 12S6 5.8 12 5.8 21.2 12 21.2 12 18 18.2 12 18.2 2.8 12 2.8 12z" /><circle cx="12" cy="12" r="2.8" /></g>,
   buscar: <g {...L}><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 5 5" /></g>,
   noite: <g {...L}><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z" /></g>,
   renomear: <g {...L}><path d="M4 6.5h16M4 12h8M4 17.5h8" /><path d="m14.5 18.5 5-5 1.5 1.5-5 5-2 .5z" /></g>,

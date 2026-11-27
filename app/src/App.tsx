@@ -41,6 +41,7 @@ import { Novidades } from "./telas/Novidades";
 import { LogoVivo } from "./logo";
 import { Widgets } from "./telas/Widgets";
 import { PdfTela } from "./telas/Pdf";
+import { PerguntaPrincipal } from "./telas/Principal";
 
 const ABAS: readonly { id: string; rotulo: string; icone: NomeIcone }[] = [
   { id: "painel", rotulo: "Painel", icone: "painel" },
@@ -128,6 +129,8 @@ export function App() {
   const [arrumado, setArrumado] = useState<Movimento[]>([]);
   const [baixarAgora, setBaixarAgora] = useState(0);
   const inicioToque = useRef<number | null>(null);
+  const [perguntarPrincipal, setPerguntarPrincipal] = useState(false);
+  useEffect(() => { void motor.principal?.perguntar().then(setPerguntarPrincipal).catch(() => undefined); }, [motor]);
   const pode = (id: string) => !!permissoes.lista?.find((p) => p.id === id)?.concedida;
   const arquivosLiberados = !motor.recursos.permissoes || pode("arquivos");
   const instalarLiberado = pode("instalar");
@@ -291,6 +294,8 @@ export function App() {
   return (
     <div onTouchStart={aoTocar} onTouchEnd={aoSoltar} className="mx-auto flex min-h-dvh max-w-7xl">
       {novidades.length > 0 && <Novidades itens={novidades} aoFechar={() => setNovidades([])} />}
+      {/* só depois da apresentação, das permissões e das novidades, e sem atrapalhar quem abriu um documento */}
+      {perguntarPrincipal && !novidades.length && !docAberto && <PerguntaPrincipal aoFechar={() => setPerguntarPrincipal(false)} />}
       {docAberto && <Suspense fallback={null}><Leitor doc={docAberto} aoFechar={() => setDocAberto(null)} /></Suspense>}
       {/* barra lateral (computador e telas largas): todas as seções à vista, sem rolar para os lados */}
       <aside className="sticky top-0 hidden h-dvh w-56 flex-none flex-col border-r border-white/10 px-3 pb-3 pt-4 sm:flex">
