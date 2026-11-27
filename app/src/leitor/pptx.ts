@@ -1,26 +1,38 @@
 // PowerPoint (.pptx): mostra o texto de cada slide e deixa corrigir o texto no próprio XML (imagens e layout ficam intactos).
 import JSZip from "jszip";
 import { atributo, desescapar, escapar, textoSeguro } from "./xml.ts";
+import { aplicarNoXml, type Atomo } from "./trocas.ts";
 
 export interface ParagrafoSlide { id: number; texto: string; titulo: boolean; mudou: boolean }
 export interface Slide { numero: number; caminho: string; imagens: number; paragrafos: ParagrafoSlide[]; notas: string }
 
 const RE_A_P = /<a:p>[\s\S]*?<\/a:p>|<a:p\s[^>]*>[\s\S]*?<\/a:p>/g;
 
-function textoA(xml: string): string {
-  let t = "";
-  for (const m of xml.matchAll(/<a:t>([\s\S]*?)<\/a:t>|<a:t\s[^>]*>([\s\S]*?)<\/a:t>|<a:br\s*\/>|<a:br>[\s\S]*?<\/a:br>/g)) {
-    if (m[1] !== undefined || m[2] !== undefined) t += desescapar(m[1] ?? m[2]); else t += "\n";
+function atomosA(xml: string): Atomo[] {
+  const campos = [...xml.matchAll(/<a:fld\b[\s\S]*?<\/a:fld>/g)].map((m) => [m.index, m.index + m[0].length]);
+  const r: Atomo[] = [];
+  for (const m of xml.matchAll(/<a:t(?:\s[^>]*)?(?<!\/)>([\s\S]*?)<\/a:t>|<a:br\s*\/>|<a:br(?:\s[^>]*)?(?<!\/)>[\s\S]*?<\/a:br>/g)) {
+    const ehTexto = m[1] !== undefined;
+    r.push({ ini: m.index, fim: m.index + m[0].length, ehTexto, texto: ehTexto ? desescapar(m[1]) : "\n", campo: campos.some(([a, b]) => m.index > a && m.index < b) });
   }
-  return t;
+  return r;
 }
+function textoA(xml: string): string { return atomosA(xml).map((a) => a.texto).join(""); }
+
+/** Troca só as letras que mudaram: campos automáticos, links e a formatação de cada trecho continuam. */
 function reescreverA(original: string, texto: string): string {
-  const abre = /^<a:p(?:\s[^>]*)?>/.exec(original)![0];
-  const ppr = /<a:pPr\b[\s\S]*?(?:\/>|<\/a:pPr>)/.exec(original)?.[0] ?? "";
-  const rpr = /<a:r>\s*(<a:rPr\b[\s\S]*?(?:\/>|<\/a:rPr>))/.exec(original)?.[1] ?? "";
-  const fim = /<a:endParaRPr\b[\s\S]*?(?:\/>|<\/a:endParaRPr>)/.exec(original)?.[0] ?? "";
-  const partes = textoSeguro(texto).split("\n").map((l) => `<a:r>${rpr}<a:t>${escapar(l)}</a:t></a:r>`);
-  return `${abre}${ppr}${partes.join("<a:br/>")}${fim}</a:p>`;
+  const t = textoSeguro(texto);
+  const rprBase = /<a:rPr\b[^>]*?\/>|<a:rPr\b[\s\S]*?<\/a:rPr>/.exec(original)?.[0] ?? "";
+  // quebra de linha nova no PowerPoint fica ENTRE os trechos: fecha o trecho, quebra e abre outro igual
+  const feito = aplicarNoXml(original, atomosA(original), t, (valor, _original, vaga) => {
+    const dentro = `<a:t>${valor.split("\n").map(escapar).join(`</a:t></a:r><a:br/><a:r>${rprBase}<a:t>`)}</a:t>`;
+    return vaga ? `<a:r>${rprBase}${dentro}</a:r>` : dentro;
+  });
+  if (feito !== null) return feito;
+  if (!t) return original;
+  const runs = t.split("\n").map((l) => `<a:r>${rprBase}<a:t>${escapar(l)}</a:t></a:r>`).join("<a:br/>");
+  const fim = original.search(/<a:endParaRPr\b|<\/a:p>/);
+  return original.slice(0, fim) + runs + original.slice(fim);
 }
 
 export class Pptx {

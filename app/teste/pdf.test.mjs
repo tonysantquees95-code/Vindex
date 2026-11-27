@@ -220,7 +220,7 @@ test("Excel: planilha → xlsx → leitura, e para PDF e Word", async () => {
   const dados = await xlsxDeFolhas([{ nome: "Vendas", linhas: [["Produto", "Valor"], ["Caneta", "1.234,50"], ["007", "x & y"]] }, { nome: "Vendas", linhas: [["a"]] }]);
   const pl = await abrirPlanilha("v.xlsx", dados);
   assert.deepEqual(pl.abas, ["Vendas", "Vendas 2"]);
-  assert.equal(pl.ler(0, 2, 2), "1234.5"); // número de verdade
+  assert.equal(pl.ler(0, 2, 2), "1234,5"); // número de verdade, mostrado com vírgula
   assert.equal(pl.ler(0, 3, 1), "007"); // texto preservado
   assert.equal(pl.ler(0, 3, 2), "x & y");
   const pdfBytes = await pdfDePlanilha(pl);

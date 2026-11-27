@@ -1,6 +1,7 @@
 // Planilhas: Excel (.xlsx) e CSV com a mesma interface. No Excel só as células mexidas mudam; o resto do arquivo fica igual.
 import JSZip from "jszip";
 import { atributo, desescapar, escapar, textoSeguro } from "./xml.ts";
+import { dataDoSerial, deslocarFormula, formatoDeData, formulaEmPortugues, formulaParaArquivo, numeroDigitado, numeroNaTela, serialDaData, type FormatoDeData } from "./formulas.ts";
 
 export interface Planilha {
   readonly abas: string[];
@@ -28,14 +29,17 @@ function partirRef(ref: string): { l: number; c: number } | null {
 const LIMITE_LINHAS = 100000, LIMITE_COLUNAS = 16384;
 
 // ------------------------------------------------------------------ Excel
-interface CelulaX { v: string; f?: string; t: string }
+interface CelulaX { v: string; f?: string; t: string; estilo?: number; /** número do grupo de fórmula compartilhada */ grupo?: string; mestre?: boolean }
 interface AbaX { nome: string; caminho: string; xml: string; celulas: Map<string, CelulaX>; linhas: number; colunas: number; mudou: boolean }
 
 export class Xlsx implements Planilha {
   alterada = false;
   private zip: JSZip;
   private lista: AbaX[];
-  private constructor(zip: JSZip, lista: AbaX[]) { this.zip = zip; this.lista = lista; }
+  /** para cada estilo de célula: se mostra data, hora ou os dois */
+  private datas: (FormatoDeData | null)[];
+  private ano1904: boolean;
+  private constructor(zip: JSZip, lista: AbaX[], datas: (FormatoDeData | null)[], ano1904: boolean) { this.zip = zip; this.lista = lista; this.datas = datas; this.ano1904 = ano1904; }
   get abas(): string[] { return this.lista.map((a) => a.nome); }
 
   static async abrir(dados: Uint8Array): Promise<Xlsx> {
@@ -66,13 +70,25 @@ export class Xlsx implements Planilha {
       lista.push(montarAba(nome, caminho, await arq.async("string"), textos));
     }
     if (!lista.length) throw new Error("A planilha não tem abas para mostrar.");
-    return new Xlsx(zip, lista);
+    const estilos = (await zip.file("xl/styles.xml")?.async("string")) ?? "";
+    return new Xlsx(zip, lista, estilosDeData(estilos), /<workbookPr\b[^>]*\bdate1904="(1|true)"/.test(wbXml));
   }
   tamanho(aba: number) { const a = this.lista[aba]; return { linhas: a?.linhas ?? 0, colunas: a?.colunas ?? 0 }; }
-  ler(aba: number, l: number, c: number): string { return this.lista[aba]?.celulas.get(referencia(l, c))?.v ?? ""; }
+  private tipoDeData(x: CelulaX | undefined): FormatoDeData | null { return x?.estilo === undefined ? null : this.datas[x.estilo] ?? null; }
+  private valorNaTela(x: CelulaX): string {
+    if (x.t !== "n") return x.v;
+    const d = this.tipoDeData(x);
+    return d && x.v !== "" && Number.isFinite(Number(x.v)) ? dataDoSerial(Number(x.v), d, this.ano1904) : numeroNaTela(x.v);
+  }
+  ler(aba: number, l: number, c: number): string {
+    const x = this.lista[aba]?.celulas.get(referencia(l, c));
+    if (!x) return "";
+    // fórmula ainda sem resultado (acabou de ser digitada): mostra a própria fórmula em vez de um vazio
+    return x.v === "" && x.f ? "=" + formulaEmPortugues(x.f) : this.valorNaTela(x);
+  }
   paraEditar(aba: number, l: number, c: number): string {
     const x = this.lista[aba]?.celulas.get(referencia(l, c));
-    return !x ? "" : x.f ? "=" + x.f : x.v;
+    return !x ? "" : x.f ? "=" + formulaEmPortugues(x.f) : this.valorNaTela(x);
   }
   editar(aba: number, l: number, c: number, texto: string): void {
     const a = this.lista[aba];
@@ -80,10 +96,29 @@ export class Xlsx implements Planilha {
     if (l < 1 || c < 1 || l > LIMITE_LINHAS || c > LIMITE_COLUNAS) throw new Error("Célula fora do limite da planilha.");
     const t = textoSeguro(texto);
     const ref = referencia(l, c);
-    if (t === "") { a.celulas.delete(ref); }
-    else if (t.startsWith("=") && t.length > 1) a.celulas.set(ref, { v: "", f: t.slice(1), t: "" });
-    else a.celulas.set(ref, { v: t, t: ehNumero(t) ? "n" : "str" });
-    a.xml = gravarCelula(a.xml, ref, t);
+    const velha = a.celulas.get(ref);
+    // se esta célula é a "mãe" de uma fórmula compartilhada, cada filha ganha a sua própria fórmula antes
+    if (velha?.mestre && velha.grupo !== undefined) {
+      for (const [r, x] of a.celulas) {
+        if (r === ref || x.grupo !== velha.grupo || !x.f) continue;
+        a.xml = trocarFormula(a.xml, r, x.f);
+        x.grupo = undefined;
+      }
+    }
+    const estilo = velha?.estilo;
+    let gravar = t; // o que vai para o XML
+    if (t === "") a.celulas.delete(ref);
+    else if (t.startsWith("=") && t.length > 1) {
+      const f = formulaParaArquivo(t.slice(1));
+      gravar = "=" + f;
+      a.celulas.set(ref, { v: "", f, t: "n", estilo });
+    } else {
+      const data = this.tipoDeData(velha) ? serialDaData(t, this.ano1904) : null;
+      const n = data !== null ? String(data) : numeroDigitado(t);
+      gravar = n ?? t;
+      a.celulas.set(ref, { v: gravar, t: n !== null ? "n" : "str", estilo });
+    }
+    a.xml = gravarCelula(a.xml, ref, gravar, t !== "" && !gravar.startsWith("=") && a.celulas.get(ref)!.t !== "n");
     a.linhas = Math.max(a.linhas, l); a.colunas = Math.max(a.colunas, c);
     a.mudou = true; this.alterada = true;
   }
@@ -97,44 +132,78 @@ export class Xlsx implements Planilha {
       else wb = wb.replace("</workbook>", `<calcPr fullCalcOnLoad="1"/></workbook>`);
       this.zip.file("xl/workbook.xml", wb);
     }
+    // a "lista de cálculo" antiga pode apontar para fórmula que não existe mais (o Excel acusaria arquivo com erro): ele refaz sozinho
+    if (this.alterada && this.zip.file("xl/calcChain.xml")) {
+      this.zip.remove("xl/calcChain.xml");
+      for (const [c, re] of [["xl/_rels/workbook.xml.rels", /<Relationship\b[^>]*calcChain[^>]*\/>/g], ["[Content_Types].xml", /<Override\b[^>]*calcChain[^>]*\/>/g]] as const) {
+        const arq = this.zip.file(c);
+        if (arq) this.zip.file(c, (await arq.async("string")).replace(re, ""));
+      }
+    }
     return this.zip.generateAsync({ type: "uint8array", compression: "DEFLATE", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   }
 }
 
 export function ehNumero(t: string): boolean { return /^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(t.trim()) && Number.isFinite(Number(t)); }
 
+function estilosDeData(estilos: string): (FormatoDeData | null)[] {
+  const proprios = new Map<number, string>();
+  for (const m of estilos.matchAll(/<numFmt\b[^>]*>/g)) proprios.set(Number(atributo(m[0], "numFmtId")), atributo(m[0], "formatCode") ?? "");
+  const lista = /<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/.exec(estilos)?.[1] ?? "";
+  return [...lista.matchAll(/<xf\b[^>]*>/g)].map((m) => { const id = Number(atributo(m[0], "numFmtId") ?? 0); return formatoDeData(id, proprios.get(id)); });
+}
+
 function montarAba(nome: string, caminho: string, xml: string, textos: string[]): AbaX {
   const celulas = new Map<string, CelulaX>();
+  const mestres = new Map<string, { f: string; l: number; c: number }>();
+  const filhas: { ref: string; grupo: string; l: number; c: number }[] = [];
   let linhas = 0, colunas = 0;
   for (const m of xml.matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
     const ref = atributo(m[1], "r"); const p = ref ? partirRef(ref) : null;
     if (!ref || !p) continue;
     const t = atributo(m[1], "t") ?? "n";
+    const s = atributo(m[1], "s");
     const corpo = m[2] ?? "";
-    const f = /<f\b[^>]*>([\s\S]*?)<\/f>/.exec(corpo)?.[1];
+    const tagF = /<f\b[^>]*?(?:\/>|>[\s\S]*?<\/f>)/.exec(corpo)?.[0];
+    const textoF = tagF && !tagF.endsWith("/>") ? desescapar(tagF.replace(/^<f\b[^>]*>|<\/f>$/g, "")) : undefined;
+    const grupo = tagF && /\bt="shared"/.test(tagF) ? atributo(tagF, "si") ?? undefined : undefined;
     const v = /<v>([\s\S]*?)<\/v>/.exec(corpo)?.[1];
     let valor = "";
     if (t === "s") valor = v !== undefined ? textos[Number(v)] ?? "" : "";
     else if (t === "inlineStr") valor = [...corpo.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)].map((x) => desescapar(x[1])).join("");
     else if (t === "b") valor = v === "1" ? "VERDADEIRO" : "FALSO";
     else valor = v !== undefined ? desescapar(v) : "";
-    if (valor === "" && !f) continue;
-    celulas.set(ref, { v: valor, f: f !== undefined ? desescapar(f) : undefined, t });
+    const estilo = s === null ? undefined : Number(s);
+    if (grupo !== undefined && textoF) mestres.set(grupo, { f: textoF, ...p });
+    if (grupo !== undefined && !textoF) filhas.push({ ref, grupo, ...p });
+    // célula vazia só com estilo: guarda o estilo (uma data digitada nela precisa dele)
+    if (valor === "" && !tagF) { if (estilo !== undefined) celulas.set(ref, { v: "", t: "n", estilo }); continue; }
+    celulas.set(ref, { v: valor, f: textoF, t, estilo, grupo, mestre: grupo !== undefined && textoF !== undefined });
     linhas = Math.max(linhas, p.l); colunas = Math.max(colunas, p.c);
+  }
+  for (const x of filhas) {
+    const mae = mestres.get(x.grupo), cel = celulas.get(x.ref);
+    if (mae && cel) cel.f = deslocarFormula(mae.f, x.l - mae.l, x.c - mae.c);
   }
   return { nome, caminho, xml, celulas, linhas, colunas, mudou: false };
 }
 
+const celulaNoXml = (ref: string) => new RegExp(`<c\\b[^>]*?\\br="${ref}"[^>]*?(?:/>|>[\\s\\S]*?</c>)`);
+/** Dá a uma célula a sua própria fórmula, mantendo o último resultado guardado. */
+function trocarFormula(xml: string, ref: string, formula: string): string {
+  return xml.replace(celulaNoXml(ref), (c) => c.replace(/<f\b[^>]*?(?:\/>|>[\s\S]*?<\/f>)/, () => `<f>${escapar(formula)}</f>`));
+}
+
 /** Escreve (ou apaga) uma célula no XML da aba, mantendo o estilo e a ordem de linhas e colunas. */
-export function gravarCelula(xml: string, ref: string, texto: string): string {
+export function gravarCelula(xml: string, ref: string, texto: string, comoTexto = false): string {
   const p = partirRef(ref)!;
   let novoCorpo: (estilo: string) => string;
   if (texto === "") novoCorpo = (s) => (s ? `<c r="${ref}"${s}/>` : "");
-  else if (texto.startsWith("=") && texto.length > 1) novoCorpo = (s) => `<c r="${ref}"${s}><f>${escapar(texto.slice(1))}</f></c>`;
-  else if (ehNumero(texto)) novoCorpo = (s) => `<c r="${ref}"${s}><v>${Number(texto)}</v></c>`;
+  else if (!comoTexto && texto.startsWith("=") && texto.length > 1) novoCorpo = (s) => `<c r="${ref}"${s}><f>${escapar(texto.slice(1))}</f></c>`;
+  else if (!comoTexto && ehNumero(texto)) novoCorpo = (s) => `<c r="${ref}"${s}><v>${Number(texto)}</v></c>`;
   else novoCorpo = (s) => `<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${escapar(texto)}</t></is></c>`;
 
-  const reCel = new RegExp(`<c\\b[^>]*?\\br="${ref}"[^>]*?(?:/>|>[\\s\\S]*?</c>)`);
+  const reCel = celulaNoXml(ref);
   const existente = reCel.exec(xml);
   if (existente) {
     const estilo = /\bs="(\d+)"/.exec(existente[0].slice(0, existente[0].indexOf(">") + 1))?.[1];
@@ -196,8 +265,13 @@ export class Csv implements Planilha {
   private bom: boolean;
   private constructor(grade: string[][], sep: string, bom: boolean) { this.grade = grade; this.sep = sep; this.bom = bom; }
   static abrir(dados: Uint8Array, nome = ""): Csv {
-    const bom = dados.length >= 3 && dados[0] === 0xef && dados[1] === 0xbb && dados[2] === 0xbf;
-    const texto = new TextDecoder("utf-8").decode(bom ? dados.subarray(3) : dados);
+    let bom = dados.length >= 3 && dados[0] === 0xef && dados[1] === 0xbb && dados[2] === 0xbf;
+    let texto: string;
+    try { texto = new TextDecoder("utf-8", { fatal: true }).decode(bom ? dados.subarray(3) : dados); }
+    catch {
+      // arquivo antigo (Windows em português): lê certo e passa a salvar em UTF-8 com a marca que o Excel reconhece
+      texto = new TextDecoder("windows-1252").decode(dados); bom = true;
+    }
     const sep = nome.toLowerCase().endsWith(".tsv") ? "\t" : separadorDe(texto);
     return new Csv(lerCsv(texto, sep), sep, bom);
   }

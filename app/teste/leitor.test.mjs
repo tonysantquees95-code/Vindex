@@ -41,10 +41,11 @@ async function docxDe(corpo = CORPO) {
 test("docx: lê parágrafos, títulos, tabelas e marca o que não dá para editar", async () => {
   const d = await Docx.abrir(await docxDe());
   const p = d.paragrafos;
-  assert.deepEqual(p.map((x) => x.texto), ["T&tulo", "Olá mundo", "", "célula"]);
+  assert.deepEqual(p.map((x) => x.texto), ["T&tulo", "Olá mundo", "", "", "célula"]);
   assert.equal(p[0].titulo, 1); assert.ok(p[0].negrito);
   assert.equal(p[2].editavel, false);
-  assert.equal(p[3].editavel, true);
+  assert.equal(p[3].editavel, true); // a linha vazia agora aparece como parágrafo próprio
+  assert.equal(p[4].editavel, true);
   assert.equal(d.alterado, false);
 });
 test("docx: editar muda só o parágrafo editado e o resto fica igual", async () => {
@@ -56,10 +57,10 @@ test("docx: editar muda só o parágrafo editado e o resto fica igual", async ()
   const xml = await z.file("word/document.xml").async("string");
   assert.ok(xml.includes("<w:drawing>x</w:drawing>"), "imagem preservada");
   assert.ok(xml.includes("<w:pStyle w:val=\"Heading1\"/>"), "estilo do título preservado");
-  assert.ok(xml.includes("Olá, &lt;Brasil&gt; &amp; cia</w:t><w:br/>"), "texto escapado e quebra de linha");
+  assert.ok(xml.includes("&lt;Brasil&gt;") && xml.includes("<w:br/>"), "texto escapado e quebra de linha");
   assert.equal(await z.file("word/media/i.png").async("string"), "PNG");
   const d2 = await Docx.abrir(saida);
-  assert.deepEqual(d2.paragrafos.map((x) => x.texto), ["T&tulo", "Olá, <Brasil> & cia\nlinha 2", "novo", "", "célula"]);
+  assert.deepEqual(d2.paragrafos.map((x) => x.texto), ["T&tulo", "Olá, <Brasil> & cia\nlinha 2", "novo", "", "", "célula"]);
   assert.equal(textoDoParagrafo("<w:p><w:r><w:t>a</w:t><w:tab/><w:t>b</w:t></w:r></w:p>"), "a\tb");
 });
 test("docx: não deixa editar parágrafo com imagem e apaga outro", async () => {
@@ -67,7 +68,7 @@ test("docx: não deixa editar parágrafo com imagem e apaga outro", async () => 
   assert.throws(() => d.editar(d.paragrafos[2].id, "x"));
   d.apagar(d.paragrafos[1].id);
   const d2 = await Docx.abrir(await d.salvar());
-  assert.equal(d2.paragrafos.length, 3);
+  assert.equal(d2.paragrafos.length, 4);
   await assert.rejects(() => Docx.abrir(new Uint8Array([1, 2, 3])));
 });
 
@@ -87,7 +88,7 @@ test("xlsx: lê textos compartilhados, números e fórmulas", async () => {
   assert.equal(x.ler(0, 1, 1), "Produto & cia");
   assert.equal(x.ler(0, 1, 3), "10");
   assert.equal(x.ler(0, 3, 2), "10");
-  assert.equal(x.paraEditar(0, 3, 2), "=SUM(C1:C1)");
+  assert.equal(x.paraEditar(0, 3, 2), "=SOMA(C1:C1)");
   assert.deepEqual(x.tamanho(0), { linhas: 3, colunas: 3 });
 });
 test("xlsx: editar célula existente, nova, em linha nova e fórmula; mantém estilo", async () => {
@@ -106,7 +107,7 @@ test("xlsx: editar célula existente, nova, em linha nova e fórmula; mantém es
   assert.ok(xml.includes("<f>A1&amp;&quot;x&quot;</f>"));
   assert.ok((await z.file("xl/workbook.xml").async("string")).includes('fullCalcOnLoad="1"'));
   const x2 = await Xlsx.abrir(await x.salvar());
-  assert.equal(x2.ler(0, 1, 3), "25.5"); assert.equal(x2.ler(0, 1, 2), "olá <b>"); assert.equal(x2.ler(0, 2, 1), "linha nova");
+  assert.equal(x2.ler(0, 1, 3), "25,5"); assert.equal(x2.ler(0, 1, 2), "olá <b>"); assert.equal(x2.ler(0, 2, 1), "linha nova");
 });
 test("xlsx: apagar célula e folha vazia", async () => {
   const x = await Xlsx.abrir(await xlsxDe());
