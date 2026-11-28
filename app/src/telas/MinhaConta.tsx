@@ -46,6 +46,11 @@ export function MinhaConta({ sessao, aoAtualizar, aoSair }: { sessao: Sessao; ao
 
       {msg && <Aviso tom="ok">{msg}</Aviso>}
       <Botao variante="perigo" onClick={aoSair}>Sair deste aparelho</Botao>
+
+      <Cartao titulo="Apagar minha conta">
+        <p className="text-sm text-suave">Apaga o Vetorial ID e os dados dele em todos os apps da Vetorial Tech. Não tem como desfazer. A confirmação é feita no site, com a sua senha.</p>
+        <div className="mt-3"><Botao onClick={() => void motor.abrirLink(`${SITE_DA_CONTA}#apagar`)}>Abrir a página para apagar</Botao></div>
+      </Cartao>
     </div>
   );
 }

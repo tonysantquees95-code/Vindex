@@ -31,6 +31,7 @@ Uma linha por mudança que valha lembrar (a mais nova em cima). O Painel Dev tam
 
 | Data | O que mudou | Onde |
 | --- | --- | --- |
+| 2026-11-28 | Aba Conta: atalho para apagar a conta no site (publicar o servidor antes) | `app/src/telas/MinhaConta.tsx` |
 | 2026-11-28 | 7 temas prontos em Ajustes › Personalizar (mais o Original, que não muda). O tema troca as variáveis de cor do app; no Android o fundo atrás das barras acompanha, e o widget do Windows também. Cor nova na tela = variável do tema, nunca código fixo | `app/src/ajustes.ts` (`TEMAS`), `index.css`, `VindexPlugin.corDasBarras`, `MainActivity.pintarFundo` |
 | 2026-11-28 | Emojis usados como ícone de tela viraram desenhos no padrão de ícones do app (apresentação, permissões e botões). Regra: ícone novo nunca é emoji; o teclado de emojis do chat continua. | `app/src/icones.tsx` e telas |
 | 2026-11-27 | Etapa 3 do editor de foto: texto, seta, desenho, borrar e tarja (presos ao conteúdo mesmo depois de girar), formato 3:4, encaixar com fundo e tamanho da cópia | `app/src/leitor/marcas.ts`, `edicao.ts`, `edicaoDom.ts`, `EditorDeFoto.tsx`; `teste/marcas.test.mjs` |
