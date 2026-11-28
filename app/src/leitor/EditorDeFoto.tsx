@@ -1,20 +1,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icone, type NomeIcone } from "../icones";
 import { registrarVoltar } from "../voltar";
-import { Dialogo } from "./Dialogo";
+import { Dialogo, Perguntar } from "./Dialogo";
 import { extensaoDe, nomeEditado } from "./formatos";
 import { carregar, comoBlob } from "./imagemDom";
-import { exportar, orientar, reduzir } from "./edicaoDom";
+import { caixaDoTexto, colorirPrevia, encaixar, exportar, mapaDaFoto, marcarPrevia, orientar, paraNoRecorte, reduzir, tela } from "./edicaoDom";
+import { CORES_DE_MARCA, LINHA, MAX_MARCAS, MAX_PONTOS, MAX_TEXTO, marcaNoPonto, moverMarca, pontosDe, trazer, type Marca, type Ponto, type Tracado } from "./marcas";
 import {
   ANGULO_MAX, CORTE_INTEIRO, FILTROS_DE_FOTO, PROPORCOES, aplicar, aplicarCores, confirmar, corteEmPixels, corteNaProporcao,
-  desfazer, edicaoInicial, espelhar, formatoDaCopia, mesmaEdicao, moverCorte, mudaCores, novoHistorico, redimensionarCorte,
-  refazer, virar, type Alca, type Corte, type Edicao
+  FUNDOS, LADO_MIN, TAMANHOS, desfazer, edicaoInicial, espelhar, formatoDaCopia, mesmaEdicao, moverCorte, novoHistorico, quadroDeEncaixe, redimensionarCorte,
+  refazer, tamanhoFinal, virar, type Alca, type Corte, type Edicao
 } from "./edicao";
 
-type Aba = "recortar" | "girar" | "ajustes" | "filtros";
+type Aba = "recortar" | "girar" | "ajustes" | "filtros" | "marcar" | "tamanho";
+type Ferramenta = "mover" | "texto" | "seta" | "traco" | "borrar" | "tarja";
+const FERRAMENTAS_DE_MARCA: { id: Ferramenta; nome: string; icone: NomeIcone; dica: string }[] = [
+  { id: "texto", nome: "Texto", icone: "texto", dica: "Toque na foto onde o texto deve ficar." },
+  { id: "seta", nome: "Seta", icone: "seta", dica: "Arraste do começo até o ponto que a seta indica." },
+  { id: "traco", nome: "Desenhar", icone: "caneta", dica: "Desenhe com o dedo ou o mouse." },
+  { id: "borrar", nome: "Borrar", icone: "borrar", dica: "Arraste sobre a área. Para senha, documento ou número, prefira a Tarja." },
+  { id: "tarja", nome: "Tarja", icone: "tarja", dica: "Arraste sobre o que deve ficar coberto. A tarja esconde por completo." },
+  { id: "mover", nome: "Mover", icone: "mover", dica: "Toque numa marca para escolher e arraste para mudar de lugar." }
+];
+const TRACADOS: { id: Tracado; nome: string }[] = [{ id: "fino", nome: "Fino" }, { id: "medio", nome: "Médio" }, { id: "grosso", nome: "Grosso" }];
 const ABAS: { id: Aba; nome: string; icone: NomeIcone }[] = [
   { id: "recortar", nome: "Recortar", icone: "pdf_cortar" }, { id: "girar", nome: "Girar", icone: "pdf_girar" },
-  { id: "ajustes", nome: "Ajustes", icone: "regras" }, { id: "filtros", nome: "Filtros", icone: "filtros" }
+  { id: "ajustes", nome: "Ajustes", icone: "regras" }, { id: "filtros", nome: "Filtros", icone: "filtros" },
+  { id: "marcar", nome: "Marcar", icone: "editar" }, { id: "tamanho", nome: "Tamanho", icone: "tamanho" }
 ];
 const LADO_PREVIA = 1400;
 const ALCAS: { id: Alca; nome: string; x: 0 | 1; y: 0 | 1 }[] = [
@@ -32,7 +44,7 @@ export interface PropsDoEditor {
   aoFechar: () => void;
 }
 
-/** Editor de foto: recortar, girar, endireitar, ajustes e filtros. Só gera CÓPIA: a foto original nunca é alterada. */
+/** Editor de foto: recortar, formatos, girar, ajustes, filtros, marcas (texto, seta, desenho, borrar, tarja) e tamanho. Só gera CÓPIA: a foto original nunca é alterada. */
 export function EditorDeFoto(p: PropsDoEditor) {
   const inicial = useMemo(() => edicaoInicial(p.giro), [p.giro]);
   const [h, setH] = useState(() => novoHistorico(inicial));
@@ -47,6 +59,14 @@ export function EditorDeFoto(p: PropsDoEditor) {
   const [guardada, setGuardada] = useState<Edicao>(inicial);
   const mudou = !mesmaEdicao(e, guardada);
   const r = PROPORCOES.find((x) => x.nome === prop)!.r;
+  const [ferramenta, setFerramenta] = useState<Ferramenta>("texto");
+  const [cor, setCor] = useState(CORES_DE_MARCA[0]!.cor);
+  const [corDaTarja, setCorDaTarja] = useState("#000000");
+  const [tracado, setTracado] = useState<Tracado>("medio");
+  const [escolhida, setEscolhida] = useState<Marca | null>(null);
+  const [digitando, setDigitando] = useState<{ em: Ponto } | { marca: Marca } | null>(null);
+  const [outroTamanho, setOutroTamanho] = useState(false);
+  const selecionada = aba === "marcar" && escolhida && e.marcas.includes(escolhida) ? escolhida : null;
 
   useEffect(() => {
     let vivo = true;
@@ -59,7 +79,9 @@ export function EditorDeFoto(p: PropsDoEditor) {
   // geometria primeiro (muda pouco); as cores vêm depois, para os controles responderem rápido
   const visto = comparando ? inicial : e;
   const geometria = useMemo(() => (previa ? orientar(previa, visto) : null), [previa, visto.giro, visto.espelho, visto.angulo]); // eslint-disable-line react-hooks/exhaustive-deps
-  const recortando = aba === "recortar" && !comparando;
+  const recortando = aba === "recortar" && !comparando && !e.encaixe;
+  const marcando = aba === "marcar" && !comparando;
+  const encaixe = aba === "marcar" ? null : visto.encaixe;
   const alvo = useRef<HTMLCanvasElement>(null);
   const area = useRef<HTMLDivElement>(null);
   const [tam, setTam] = useState({ w: 0, h: 0 });
@@ -72,22 +94,33 @@ export function EditorDeFoto(p: PropsDoEditor) {
   }, []);
 
   const pedaco = geometria ? corteEmPixels(recortando ? CORTE_INTEIRO : visto.corte, geometria.width, geometria.height) : null;
+  // 1º o recorte já com as cores (muda pouco); 2º as marcas por cima (acompanham o dedo)
+  const colorida = useMemo(() => {
+    if (!geometria || !pedaco) return null;
+    const [c, g] = tela(pedaco.w, pedaco.h);
+    g.drawImage(geometria, pedaco.x, pedaco.y, pedaco.w, pedaco.h, 0, 0, pedaco.w, pedaco.h);
+    colorirPrevia(c, visto);
+    return c;
+  }, [geometria, pedaco?.x, pedaco?.y, pedaco?.w, pedaco?.h, visto.brilho, visto.contraste, visto.saturacao, visto.filtro]); // eslint-disable-line react-hooks/exhaustive-deps
+  const mapa = useMemo(() => (previa ? mapaDaFoto(previa.width, previa.height, visto) : null), [previa, visto.giro, visto.espelho, visto.angulo]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const quadro = requestAnimationFrame(() => {
       const c = alvo.current;
-      if (!c || !geometria || !pedaco) return;
-      c.width = pedaco.w; c.height = pedaco.h;
-      const g = c.getContext("2d", { willReadFrequently: true });
-      if (!g) return;
-      g.drawImage(geometria, pedaco.x, pedaco.y, pedaco.w, pedaco.h, 0, 0, pedaco.w, pedaco.h);
-      if (mudaCores(visto)) { const d = g.getImageData(0, 0, c.width, c.height); aplicarCores(d.data, visto); g.putImageData(d, 0, 0); }
+      if (!c || !colorida || !pedaco || !mapa) return;
+      const [m, gm] = tela(colorida.width, colorida.height);
+      gm.drawImage(colorida, 0, 0);
+      marcarPrevia(m, visto.marcas, paraNoRecorte(mapa.matriz, pedaco.x, pedaco.y), mapa.lado);
+      const pronta = encaixe ? encaixar(m, encaixe.r, encaixe.fundo) : m;
+      c.width = pronta.width; c.height = pronta.height;
+      c.getContext("2d")?.drawImage(pronta, 0, 0);
     });
     return () => cancelAnimationFrame(quadro);
-  }, [geometria, pedaco?.x, pedaco?.y, pedaco?.w, pedaco?.h, visto.brilho, visto.contraste, visto.saturacao, visto.filtro]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [colorida, mapa, visto.marcas, encaixe?.r, encaixe?.fundo, !encaixe]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 18 px de folga em volta para as alças do recorte caberem e serem alcançadas
-  const escala = pedaco ? Math.max(0, Math.min((tam.w - 36) / pedaco.w, (tam.h - 36) / pedaco.h)) : 0;
-  const caixa = pedaco ? { width: pedaco.w * escala, height: pedaco.h * escala } : { width: 0, height: 0 };
+  const visivel = pedaco ? (encaixe ? quadroDeEncaixe(pedaco.w, pedaco.h, encaixe.r) : pedaco) : null;
+  const escala = visivel ? Math.max(0, Math.min((tam.w - 36) / visivel.w, (tam.h - 36) / visivel.h)) : 0;
+  const caixa = visivel ? { width: visivel.w * escala, height: visivel.h * escala } : { width: 0, height: 0 };
 
   const mudar = useCallback((n: Edicao) => { setComparando(false); setH((a) => aplicar(a, n)); }, []);
   // arrastes e controles deslizantes: muda ao vivo e guarda UM passo no fim
@@ -130,8 +163,132 @@ export function EditorDeFoto(p: PropsDoEditor) {
   const escolherProporcao = (nome: string) => {
     setProp(nome);
     const alvoR = PROPORCOES.find((x) => x.nome === nome)!.r;
-    if (alvoR !== null && geometria) mudar({ ...e, corte: corteNaProporcao(geometria.width, geometria.height, alvoR) });
+    if (alvoR === null) return;
+    if (e.encaixe) mudar({ ...e, encaixe: { ...e.encaixe, r: alvoR } });
+    else if (geometria) mudar({ ...e, corte: corteNaProporcao(geometria.width, geometria.height, alvoR) });
   };
+  const modoEncaixar = (sim: boolean) => {
+    if (sim === !!e.encaixe) return;
+    if (sim) {
+      const alvoR = r ?? 4 / 5;
+      if (r === null) setProp("4:5");
+      mudar({ ...e, corte: { ...CORTE_INTEIRO }, encaixe: { r: alvoR, fundo: "borrado" } });
+    } else {
+      const alvoR = e.encaixe!.r;
+      mudar({ ...e, encaixe: null, corte: geometria ? corteNaProporcao(geometria.width, geometria.height, alvoR) : e.corte });
+    }
+  };
+
+  // ---------- marcas ----------
+  const gesto = useRef<{ ponteiro: number; x: number; y: number; inicio: Ponto; marca: Marca | null; nova: boolean; andou: boolean } | null>(null);
+  /** onde o dedo está: na caixa da tela (px), no canvas da prévia (px) e na foto original (fração) */
+  const noToque = (ev: React.PointerEvent) => {
+    const b = caixaRef.current!.getBoundingClientRect();
+    const tx = Math.max(0, Math.min(b.width, ev.clientX - b.left)), ty = Math.max(0, Math.min(b.height, ev.clientY - b.top));
+    const k = pedaco!.w / b.width;
+    const original = (x: number, y: number) => trazer(mapa!.matriz, { x: pedaco!.x + x * k, y: pedaco!.y + y * k });
+    return { tx, ty, k, original, ponto: original(tx, ty) };
+  };
+  const medidor = useRef<CanvasRenderingContext2D | null>(null);
+  const caixaDaMarca = (m: Marca) => {
+    medidor.current ??= tela(1, 1)[1];
+    const para = paraNoRecorte(mapa!.matriz, pedaco!.x, pedaco!.y);
+    if (m.tipo === "texto") return caixaDoTexto(medidor.current, m, para, mapa!.lado);
+    const q = pontosDe(m).map(para), folga = m.tipo === "seta" || m.tipo === "traco" ? (LINHA[m.tam] * mapa!.lado) / 2 : 0;
+    const x = Math.min(...q.map((a) => a.x)) - folga, y = Math.min(...q.map((a) => a.y)) - folga;
+    return { x, y, w: Math.max(...q.map((a) => a.x)) + folga - x, h: Math.max(...q.map((a) => a.y)) + folga - y };
+  };
+  const comMarcas = (marcas: Marca[]) => setH((a) => ({ ...a, atual: { ...a.atual, marcas } }));
+  const comecarMarca = (ev: React.PointerEvent) => {
+    if (!mapa || !pedaco || !ev.isPrimary || gesto.current) return;
+    ev.preventDefault();
+    const t = noToque(ev);
+    const i = ferramenta === "mover" || ferramenta === "texto"
+      ? marcaNoPonto(e.marcas, { x: t.tx * t.k, y: t.ty * t.k }, paraNoRecorte(mapa.matriz, pedaco.x, pedaco.y), 14 * t.k, caixaDaMarca) : -1;
+    const achada = i >= 0 ? e.marcas[i]! : null;
+    if (ferramenta === "texto" && achada?.tipo !== "texto") {
+      if (e.marcas.length >= MAX_MARCAS) setAviso("Já há muitas marcas nesta foto.");
+      else setDigitando({ em: t.ponto });
+      return;
+    }
+    if (ferramenta === "mover" || ferramenta === "texto") {
+      setEscolhida(achada);
+      if (!achada) return;
+    } else if (e.marcas.length >= MAX_MARCAS) { setAviso("Já há muitas marcas nesta foto."); return; }
+    (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+    antes.current = e;
+    gesto.current = { ponteiro: ev.pointerId, x: t.tx, y: t.ty, inicio: t.ponto, marca: achada, nova: ferramenta !== "mover" && ferramenta !== "texto", andou: false };
+    if (ferramenta === "traco") { const m: Marca = { tipo: "traco", pontos: [t.ponto], cor, tam: tracado }; gesto.current.marca = m; comMarcas([...e.marcas, m]); }
+  };
+  const seguirMarca = (ev: React.PointerEvent) => {
+    const a = gesto.current, base = antes.current;
+    if (!a || !base || ev.pointerId !== a.ponteiro) return;
+    const t = noToque(ev);
+    if (!a.andou && Math.hypot(t.tx - a.x, t.ty - a.y) < (ferramenta === "traco" ? 2 : 8)) return;
+    a.andou = true;
+    if (!a.nova) {
+      const m = moverMarca(a.marca!, t.ponto.x - a.inicio.x, t.ponto.y - a.inicio.y);
+      setEscolhida(m); comMarcas(base.marcas.map((x) => (x === a.marca ? m : x)));
+      return;
+    }
+    let m: Marca;
+    if (ferramenta === "seta") m = { tipo: "seta", de: a.inicio, ate: t.ponto, cor, tam: tracado };
+    else if (ferramenta === "traco") {
+      const antiga = a.marca as Marca & { tipo: "traco" };
+      if (antiga.pontos.length >= MAX_PONTOS) return;
+      m = { ...antiga, pontos: [...antiga.pontos, t.ponto] };
+    } else {
+      const tipo = ferramenta === "borrar" ? "borrar" : "tarja";
+      m = { tipo, cor: corDaTarja, cantos: [a.inicio, t.original(t.tx, a.y), t.ponto, t.original(a.x, t.ty)] };
+    }
+    a.marca = m; comMarcas([...base.marcas, m]);
+  };
+  const soltarMarca = (ev: React.PointerEvent) => {
+    const a = gesto.current;
+    if (!a || ev.pointerId !== a.ponteiro) return;
+    gesto.current = null;
+    const base = antes.current;
+    // cancelado pelo sistema, ou um toque sem arrastar (menos o ponto do desenho): nada fica
+    if (base && (ev.type === "pointercancel" || (!a.andou && !(a.nova && ferramenta === "traco")))) {
+      antes.current = null; comMarcas(base.marcas);
+      if (!a.nova) setEscolhida(a.marca);
+      if (!a.nova && ferramenta === "texto" && ev.type !== "pointercancel" && a.marca) setDigitando({ marca: a.marca });
+      return;
+    }
+    fimDoGesto();
+  };
+  const apagarMarca = () => { if (selecionada) { mudar({ ...e, marcas: e.marcas.filter((m) => m !== selecionada) }); setEscolhida(null); } };
+  const trocarMarca = (nova: Marca) => { mudar({ ...e, marcas: e.marcas.map((m) => (m === selecionada ? nova : m)) }); setEscolhida(nova); };
+  const guardarTexto = (bruto: string) => {
+    const texto = bruto.trim().slice(0, MAX_TEXTO), d = digitando;
+    setDigitando(null);
+    if (!d) return;
+    if ("em" in d) {
+      if (!texto) return;
+      const m: Marca = { tipo: "texto", em: d.em, texto, cor, tam: tracado };
+      mudar({ ...e, marcas: [...e.marcas, m] }); setEscolhida(m);
+    } else if (d.marca.tipo === "texto") {
+      const m: Marca = { ...d.marca, texto };
+      mudar({ ...e, marcas: texto ? e.marcas.map((x) => (x === d.marca ? m : x)) : e.marcas.filter((x) => x !== d.marca) });
+      setEscolhida(texto ? m : null);
+    }
+  };
+  const cobrindo = selecionada ? selecionada.tipo === "tarja" || selecionada.tipo === "borrar" : ferramenta === "tarja" || ferramenta === "borrar";
+  const semCor = selecionada ? selecionada.tipo === "borrar" : ferramenta === "borrar";
+  const corAtiva = selecionada ? selecionada.cor : cobrindo ? corDaTarja : cor;
+  const escolherCor = (c: string) => { if (cobrindo) setCorDaTarja(c); else setCor(c); if (selecionada) trocarMarca({ ...selecionada, cor: c }); };
+  const tracadoAtivo = selecionada && "tam" in selecionada ? selecionada.tam : tracado;
+  const escolherTracado = (t: Tracado) => { setTracado(t); if (selecionada && "tam" in selecionada) trocarMarca({ ...selecionada, tam: t }); };
+
+  // ---------- tamanho da cópia ----------
+  const medidas = () => {
+    if (!img) return null;
+    const lados = e.giro % 180 === 0 ? [img.naturalWidth, img.naturalHeight] : [img.naturalHeight, img.naturalWidth];
+    const c = corteEmPixels(e.corte, lados[0]!, lados[1]!);
+    const q = e.encaixe ? quadroDeEncaixe(c.w, c.h, e.encaixe.r) : c;
+    return tamanhoFinal(q.w, q.h, e.ladoMax);
+  };
+  const outroLado = e.ladoMax !== null && !TAMANHOS.some((t) => t.lado === e.ladoMax);
   const girarFoto = (d: 90 | -90) => { setProp("Livre"); mudar(virar(e, d)); };
 
   const tentarSair = useCallback(() => { if (mudou) setSair(true); else p.aoFechar(); }, [mudou, p]);
@@ -139,6 +296,7 @@ export function EditorDeFoto(p: PropsDoEditor) {
   useEffect(() => {
     const tecla = (ev: KeyboardEvent) => {
       const k = ev.key.toLowerCase();
+      if (ev.target instanceof HTMLTextAreaElement || (ev.target instanceof HTMLInputElement && ev.target.type !== "range")) return;
       if ((ev.ctrlKey || ev.metaKey) && k === "z") { ev.preventDefault(); setH(ev.shiftKey ? refazer : desfazer); }
       else if ((ev.ctrlKey || ev.metaKey) && k === "y") { ev.preventDefault(); setH(refazer); }
     };
@@ -202,6 +360,14 @@ export function EditorDeFoto(p: PropsDoEditor) {
           {!img && <p className="p-6 text-center text-sm text-suave">{aviso || "Abrindo a foto…"}</p>}
           <div ref={caixaRef} className="relative" style={{ ...caixa, display: img ? "block" : "none" }}>
             <canvas ref={alvo} className="block size-full" aria-label={comparando ? "Foto original" : "Prévia da foto editada"} role="img" />
+            {marcando && (
+              <div className="absolute inset-0 cursor-crosshair touch-none" data-testid="camada-de-marcas" aria-label="Área para marcar a foto"
+                onPointerDown={comecarMarca} onPointerMove={seguirMarca} onPointerUp={soltarMarca} onPointerCancel={soltarMarca} />
+            )}
+            {marcando && selecionada && pedaco && mapa && (() => {
+              const c = caixaDaMarca(selecionada), k = caixa.width / pedaco.w;
+              return <div data-testid="marca-escolhida" className="pointer-events-none absolute rounded-md border-2 border-dashed border-neon" style={{ left: c.x * k - 5, top: c.y * k - 5, width: c.w * k + 10, height: c.h * k + 10 }} />;
+            })()}
             {recortando && geometria && (
               <div className="pointer-events-none absolute inset-0">
                 <div className="absolute inset-0 overflow-hidden">
@@ -227,12 +393,58 @@ export function EditorDeFoto(p: PropsDoEditor) {
         </div>
 
         <div className="flex shrink-0 flex-col border-t border-borda bg-painel [@media(max-height:520px)_and_(orientation:landscape)]:w-80 [@media(max-height:520px)_and_(orientation:landscape)]:border-l [@media(max-height:520px)_and_(orientation:landscape)]:border-t-0">
-          <div className="rolagem flex min-h-28 flex-col justify-center gap-2 overflow-y-auto px-2 py-2 [@media(max-height:520px)_and_(orientation:landscape)]:min-h-0 [@media(max-height:520px)_and_(orientation:landscape)]:flex-1 [@media(max-height:520px)_and_(orientation:landscape)]:justify-start">
+          <div className="rolagem flex max-h-[42dvh] min-h-28 flex-col gap-2 overflow-y-auto px-2 py-2 [justify-content:safe_center] [@media(max-height:520px)_and_(orientation:landscape)]:max-h-none [@media(max-height:520px)_and_(orientation:landscape)]:min-h-0 [@media(max-height:520px)_and_(orientation:landscape)]:flex-1 [@media(max-height:520px)_and_(orientation:landscape)]:justify-start">
             {aba === "recortar" && (<>
-              <div className="flex flex-wrap justify-center gap-2 py-1" role="group" aria-label="Proporção do recorte">
-                {PROPORCOES.map((x) => chip(x.nome, prop === x.nome, () => escolherProporcao(x.nome)))}
+              <div className="grid shrink-0 grid-cols-2 gap-2" role="group" aria-label="Como usar o formato">
+                <button onClick={() => modoEncaixar(false)} aria-pressed={!e.encaixe} className={opcao(!e.encaixe)}>{!e.encaixe && <Icone nome="visto" tam={16} />}Cortar</button>
+                <button onClick={() => modoEncaixar(true)} aria-pressed={!!e.encaixe} className={opcao(!!e.encaixe)}>{e.encaixe && <Icone nome="visto" tam={16} />}<span>Encaixar<span className="max-[390px]:hidden"> com fundo</span></span></button>
               </div>
-              <button onClick={() => { setProp("Livre"); mudar({ ...e, corte: { ...CORTE_INTEIRO } }); }} className="min-h-11 shrink-0 self-center rounded-xl px-4 text-sm text-suave hover:bg-white/5">Usar a foto inteira</button>
+              <div className="flex flex-wrap justify-center gap-2 py-1" role="group" aria-label="Proporção do recorte">
+                {PROPORCOES.filter((x) => !e.encaixe || x.r !== null).map((x) => chip(x.nome, e.encaixe ? e.encaixe.r === x.r : prop === x.nome, () => escolherProporcao(x.nome)))}
+              </div>
+              <p className="shrink-0 text-center text-xs text-suave">Instagram: 1:1, 4:5 ou 3:4. Status e stories: 9:16.</p>
+              {e.encaixe
+                ? <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="Fundo">
+                    {FUNDOS.map((f) => chip(f.nome, e.encaixe!.fundo === f.id, () => mudar({ ...e, encaixe: { ...e.encaixe!, fundo: f.id } })))}
+                  </div>
+                : <button onClick={() => { setProp("Livre"); mudar({ ...e, corte: { ...CORTE_INTEIRO } }); }} className="min-h-11 shrink-0 self-center rounded-xl px-4 text-sm text-suave hover:bg-white/5">Usar a foto inteira</button>}
+            </>)}
+            {aba === "marcar" && (<>
+              <div className="grid shrink-0 grid-cols-3 gap-2" role="group" aria-label="O que marcar">
+                {FERRAMENTAS_DE_MARCA.map((f) => (
+                  <button key={f.id} onClick={() => { setFerramenta(f.id); setEscolhida(null); }} aria-pressed={ferramenta === f.id} className={`${opcao(ferramenta === f.id)} !px-1`}><Icone nome={f.icone} tam={18} />{f.nome}</button>
+                ))}
+              </div>
+              {!selecionada && <p className="shrink-0 px-1 text-center text-xs text-suave">{FERRAMENTAS_DE_MARCA.find((f) => f.id === ferramenta)!.dica}</p>}
+              {selecionada && (
+                <div className="flex shrink-0 justify-center gap-2">
+                  {selecionada.tipo === "texto" && <button onClick={() => setDigitando({ marca: selecionada })} className={opcao(false)}><Icone nome="editar" tam={18} />Mudar o texto</button>}
+                  <button onClick={apagarMarca} className="flex min-h-11 items-center gap-1.5 rounded-xl border border-erro/40 px-3.5 text-sm text-erro"><Icone nome="lixo" tam={18} />Apagar marca</button>
+                </div>
+              )}
+              {(ferramenta !== "mover" || selecionada) && !semCor && (
+                <div className="flex shrink-0 flex-wrap justify-center gap-1.5" role="group" aria-label="Cor">
+                  {CORES_DE_MARCA.map((c) => (
+                    <button key={c.cor} onClick={() => escolherCor(c.cor)} aria-label={c.nome} aria-pressed={corAtiva === c.cor}
+                      className={`grid size-11 place-items-center rounded-xl border ${corAtiva === c.cor ? "border-neon bg-neon/15" : "border-borda"}`}>
+                      <span className="grid size-6 place-items-center rounded-full border border-white/50" style={{ background: c.cor, color: ["#ffffff", "#ffd60a", "#30d158"].includes(c.cor) ? "#000" : "#fff" }}>{corAtiva === c.cor && <Icone nome="visto" tam={16} />}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!cobrindo && (ferramenta !== "mover" || selecionada) && (
+                <div className="flex shrink-0 flex-wrap justify-center gap-2" role="group" aria-label="Tamanho do traço e da letra">
+                  {TRACADOS.map((t) => chip(t.nome, tracadoAtivo === t.id, () => escolherTracado(t.id)))}
+                </div>
+              )}
+            </>)}
+            {aba === "tamanho" && (<>
+              <div className="grid shrink-0 grid-cols-3 gap-2" role="group" aria-label="Maior lado da cópia">
+                {TAMANHOS.map((t) => chip(t.nome, e.ladoMax === t.lado, () => mudar({ ...e, ladoMax: t.lado })))}
+                <button onClick={() => setOutroTamanho(true)} aria-pressed={outroLado} className={opcao(outroLado)}>{outroLado ? <><Icone nome="visto" tam={16} />{e.ladoMax} px</> : "Outro…"}</button>
+              </div>
+              {medidas() && <p className="shrink-0 text-center text-sm" data-testid="medidas">A cópia sai com <b className="num">{medidas()!.w} × {medidas()!.h}</b> px</p>}
+              <p className="shrink-0 px-1 text-center text-xs text-suave">O número é o maior lado, e a foto nunca é aumentada. Instagram: 1:1 em 1080, 4:5 em 1350, 3:4 em 1440 e 9:16 em 1920.</p>
             </>)}
             {aba === "girar" && (<>
               <div className="flex flex-wrap justify-center gap-2">
@@ -253,16 +465,29 @@ export function EditorDeFoto(p: PropsDoEditor) {
               </div>
             )}
           </div>
-          <nav className="grid shrink-0 grid-cols-4 gap-1.5 border-t border-borda p-1.5" aria-label="Ferramentas do editor">
+          <nav className="grid shrink-0 grid-cols-6 gap-1 border-t border-borda p-1.5" aria-label="Ferramentas do editor">
             {ABAS.map((a) => (
               <button key={a.id} onClick={() => { setComparando(false); setAba(a.id); }} aria-pressed={aba === a.id}
-                className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl border text-[11px] ${aba === a.id ? "border-neon bg-neon/15 font-bold text-neon" : "border-transparent text-suave hover:bg-white/5"}`}>
+                className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border text-[11px] max-[360px]:text-[10px] max-[360px]:tracking-tight ${aba === a.id ? "border-neon bg-neon/15 font-bold text-neon" : "border-transparent text-suave hover:bg-white/5"}`}>
                 <Icone nome={a.icone} tam={20} />{a.nome}
               </button>
             ))}
           </nav>
         </div>
       </div>
+
+      {digitando && (
+        <Perguntar titulo={"em" in digitando ? "Novo texto" : "Mudar o texto"} rotulo="Texto na foto" multilinha confirmar="Pronto"
+          inicial={"marca" in digitando && digitando.marca.tipo === "texto" ? digitando.marca.texto : ""} aoConfirmar={guardarTexto} aoFechar={() => setDigitando(null)} />
+      )}
+      {outroTamanho && (
+        <Perguntar titulo="Outro tamanho" rotulo={`Maior lado, em pixels (de ${LADO_MIN} a 8000)`} inicial={outroLado ? String(e.ladoMax) : ""} confirmar="Usar"
+          aoConfirmar={(v) => {
+            setOutroTamanho(false);
+            const n = Math.round(Number(v));
+            if (Number.isFinite(n) && n >= LADO_MIN && n <= 8000) mudar({ ...e, ladoMax: n }); else if (v.trim()) setAviso(`Use um número de ${LADO_MIN} a 8000.`);
+          }} aoFechar={() => setOutroTamanho(false)} />
+      )}
 
       {sair && (
         <Dialogo titulo="Sair sem salvar?" aoFechar={() => setSair(false)}>

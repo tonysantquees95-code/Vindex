@@ -48,6 +48,7 @@ export const NOVIDADES: Novidade[] = [
   { id: 41, data: "2026-11-27", tipo: "correcao", titulo: "Liberar RAM sem promessa falsa", texto: "No Android 14 ou mais novo o sistema não deixa um app fechar os outros, então o botão não fazia efeito. Nesses aparelhos o Vindex agora avisa isso, e o widget e o painel flutuante passam a abrir o Vindex." },
   { id: 42, data: "2026-11-27", tipo: "novo", titulo: "Verificar tudo", texto: "Na aba Segurança, um botão faz todas as conferências de uma vez e mostra um resultado só, dizendo também o que não deu para conferir. É uma verificação de segurança e não substitui um antivírus." },
   { id: 43, data: "2026-11-27", tipo: "correcao", titulo: "Termos de uso corrigidos", texto: "Os textos falavam em uma varredura com inteligência artificial que o Vindex não faz. Corrigimos a parte de privacidade e do Cofre, e por isso o app pede um novo aceite." },
+  { id: 44, data: "2026-11-27", tipo: "novo", titulo: "Editor de foto: texto, setas, desenho, borrar e tarja", texto: "No editor, a aba Marcar coloca texto, seta e desenho na foto e esconde partes com Borrar ou Tarja (para senha, documento ou número, prefira a Tarja). Em Recortar entrou o formato 3:4 e a opção Encaixar com fundo, que põe a foto inteira no formato do Instagram, do status ou dos stories. Na aba Tamanho você escolhe o tamanho da cópia. A foto original continua sem mudar." },
 ];
 
 export const ROTULO: Record<TipoNovidade, string> = { novo: "Novo", melhoria: "Melhorou", correcao: "Corrigido" };

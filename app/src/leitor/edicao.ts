@@ -2,23 +2,32 @@
 
 /** Recorte em fração (0 a 1) da foto COMO ELA APARECE (já girada e espelhada). */
 export interface Corte { x: number; y: number; w: number; h: number }
+import type { Marca } from "./marcas.ts";
+
+export type Fundo = "preto" | "branco" | "borrado";
+/** Encaixar: a foto fica inteira dentro de um quadro na proporção r (largura/altura), com um fundo nas sobras. */
+export interface Encaixe { r: number; fundo: Fundo }
 export type Filtro = "nenhum" | "vivo" | "quente" | "frio" | "pb" | "sepia";
 export interface Edicao {
   giro: number; espelho: boolean; angulo: number;
   corte: Corte;
   brilho: number; contraste: number; saturacao: number;
   filtro: Filtro;
+  marcas: Marca[];
+  encaixe: Encaixe | null;
+  /** maior lado da cópia, em pixels (null = tamanho original). Nunca aumenta a foto. */
+  ladoMax: number | null;
 }
 
 export const CORTE_INTEIRO: Corte = { x: 0, y: 0, w: 1, h: 1 };
-export const edicaoInicial = (giro = 0): Edicao => ({ giro, espelho: false, angulo: 0, corte: { ...CORTE_INTEIRO }, brilho: 0, contraste: 0, saturacao: 0, filtro: "nenhum" });
+export const edicaoInicial = (giro = 0): Edicao => ({ giro, espelho: false, angulo: 0, corte: { ...CORTE_INTEIRO }, brilho: 0, contraste: 0, saturacao: 0, filtro: "nenhum", marcas: [], encaixe: null, ladoMax: null });
 
 export const FILTROS_DE_FOTO: { id: Filtro; nome: string }[] = [
   { id: "nenhum", nome: "Sem filtro" }, { id: "vivo", nome: "Vivo" }, { id: "quente", nome: "Quente" },
   { id: "frio", nome: "Frio" }, { id: "pb", nome: "P&B" }, { id: "sepia", nome: "Sépia" }
 ];
 export const PROPORCOES: { nome: string; r: number | null }[] = [
-  { nome: "Livre", r: null }, { nome: "1:1", r: 1 }, { nome: "4:5", r: 4 / 5 }, { nome: "9:16", r: 9 / 16 }, { nome: "16:9", r: 16 / 9 }
+  { nome: "Livre", r: null }, { nome: "1:1", r: 1 }, { nome: "4:5", r: 4 / 5 }, { nome: "3:4", r: 3 / 4 }, { nome: "9:16", r: 9 / 16 }, { nome: "16:9", r: 16 / 9 }
 ];
 export const ANGULO_MAX = 15;
 /** Menor recorte permitido (fração do lado). */
@@ -106,6 +115,23 @@ export function aplicarCores(p: Uint8ClampedArray, e: Edicao, inicio = 0, fim = 
     if (sepia) { r += 36; g += 14; b -= 14; }
     p[i] = r + calor; p[i + 1] = g; p[i + 2] = b - calor;
   }
+}
+
+export const TAMANHOS: { nome: string; lado: number | null }[] = [
+  { nome: "Original", lado: null }, { nome: "1920 px", lado: 1920 }, { nome: "1440 px", lado: 1440 }, { nome: "1350 px", lado: 1350 }, { nome: "1080 px", lado: 1080 }, { nome: "720 px", lado: 720 }
+];
+export const LADO_MIN = 64;
+export const FUNDOS: { id: Fundo; nome: string }[] = [{ id: "borrado", nome: "Foto borrada" }, { id: "preto", nome: "Preto" }, { id: "branco", nome: "Branco" }];
+
+/** Menor quadro na proporção r onde a foto w×h cabe inteira, e onde ela fica. */
+export function quadroDeEncaixe(w: number, h: number, r: number) {
+  const W = Math.max(w, Math.round(h * r)), H = Math.max(h, Math.round(w / r));
+  return { w: W, h: H, x: Math.round((W - w) / 2), y: Math.round((H - h) / 2) };
+}
+/** Tamanho final da cópia: respeita o maior lado pedido e o limite do aparelho; nunca aumenta. */
+export function tamanhoFinal(w: number, h: number, ladoMax: number | null) {
+  const k = Math.min(1, ladoMax ? ladoMax / Math.max(w, h) : 1, escalaSegura(w, h));
+  return { w: Math.max(1, Math.round(w * k)), h: Math.max(1, Math.round(h * k)) };
 }
 
 /** Desfazer e refazer. */

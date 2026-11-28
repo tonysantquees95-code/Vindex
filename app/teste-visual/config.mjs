@@ -33,6 +33,20 @@ async function escolher(p, botao, arquivos) {
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 const pronto = (p) => p.getByRole("heading", { name: "Pronto" }).waitFor({ timeout: 20000 });
 const editor = (p) => p.getByRole("region", { name: "Editor de foto" });
+const camada = (p) => editor(p).getByTestId("camada-de-marcas").boundingBox();
+/** Faz uma marca de cada tipo com o ponteiro, como a pessoa faria. */
+async function marcarDeTudo(p) {
+  await aba(p, "Marcar");
+  const usar = (nome) => editor(p).getByRole("button", { name: nome, exact: true }).click();
+  const arrastar = async (x0, y0, x1, y1) => { await p.waitForTimeout(120); const c = await camada(p); await p.mouse.move(c.x + c.width * x0, c.y + c.height * y0); await p.mouse.down(); await p.mouse.move(c.x + c.width * x1, c.y + c.height * y1, { steps: 6 }); await p.mouse.up(); };
+  await usar("Tarja"); await arrastar(0.08, 0.68, 0.55, 0.84);
+  await usar("Borrar"); await arrastar(0.55, 0.12, 0.92, 0.4);
+  await usar("Desenhar"); await arrastar(0.1, 0.45, 0.45, 0.55);
+  await usar("Seta"); await arrastar(0.35, 0.3, 0.7, 0.62);
+  await usar("Texto"); const c = await camada(p); await p.mouse.click(c.x + c.width * 0.3, c.y + c.height * 0.16);
+  await p.getByRole("dialog", { name: "Novo texto" }).getByRole("textbox").fill("Olha aqui");
+  await p.getByRole("button", { name: "Pronto", exact: true }).last().click();
+}
 const aba = (p, nome) => editor(p).getByRole("navigation", { name: "Ferramentas do editor" }).getByRole("button", { name: nome }).click();
 /** Liga os dados de exemplo (como no Android) no modo demonstração. */
 const comoAndroid = async (p) => { await p.evaluate(() => localStorage.setItem("vindex.demo.android", "1")); await p.reload(); await p.waitForTimeout(1200); };
@@ -253,6 +267,11 @@ export default {
     ["leitor-editor-girar", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await aba(p, "Girar"); await editor(p).getByRole("button", { name: "Girar para a direita" }).click(); await editor(p).getByRole("slider", { name: "Endireitar" }).fill("7"); }],
     ["leitor-editor-ajustes", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await aba(p, "Ajustes"); await editor(p).getByRole("slider", { name: "Brilho" }).fill("20"); }],
     ["leitor-editor-filtros", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await aba(p, "Filtros"); await editor(p).getByRole("button", { name: "Sépia" }).click(); }],
+    ["leitor-editor-encaixar", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await editor(p).getByRole("button", { name: /^Encaixar/ }).click(); await editor(p).getByRole("button", { name: "9:16" }).click(); }],
+    ["leitor-editor-marcar", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await marcarDeTudo(p); }],
+    ["leitor-editor-marca-escolhida", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await marcarDeTudo(p); await editor(p).getByRole("button", { name: "Mover", exact: true }).click(); const c = await camada(p); await p.mouse.click(c.x + c.width * 0.3, c.y + c.height * 0.75); await editor(p).getByTestId("marca-escolhida").waitFor(); await editor(p).getByRole("button", { name: "Apagar marca" }).waitFor(); }],
+    ["leitor-editor-texto", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await aba(p, "Marcar"); const c = await camada(p); await p.mouse.click(c.x + c.width / 2, c.y + c.height / 2); await p.getByRole("dialog", { name: "Novo texto" }).waitFor(); }],
+    ["leitor-editor-tamanho", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await aba(p, "Tamanho"); await editor(p).getByRole("button", { name: "720 px" }).click(); await editor(p).getByTestId("medidas").waitFor(); }],
     ["leitor-editor-sair", "normal", async (p, a) => { await abrirDoc(p, a, "foto.jpg", ex.foto()); await leitor(p).getByTestId("quadro-da-imagem").waitFor(); await leitor(p).getByRole("button", { name: "Editar a foto" }).click(); await editor(p).getByTestId("recorte").waitFor(); await editor(p).getByRole("button", { name: "1:1" }).click(); await editor(p).getByRole("button", { name: "Fechar o editor" }).click(); await p.getByRole("dialog", { name: "Sair sem salvar?" }).waitFor(); }],
     ["leitor-imagem-menu", "normal", async (p, a) => { await abrirDoc(p, a, "foto.png", ex.foto()); await leitor(p).getByRole("button", { name: "Mais opções" }).click(); await p.getByRole("menuitem", { name: /Converter em PDF/ }).waitFor(); }],
     ["leitor-texto", "normal", async (p, a) => { await abrirDoc(p, a, "compras.txt", ex.txt()); await leitor(p).getByLabel("Texto do arquivo").waitFor(); }],
