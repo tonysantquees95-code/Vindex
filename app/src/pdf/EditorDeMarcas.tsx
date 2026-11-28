@@ -1,3 +1,4 @@
+import { Icone } from "../icones";
 import { useEffect, useRef, useState } from "react";
 import { dataDeHoje } from "../leitor/formulario.ts";
 import { Botao } from "../ui";
@@ -166,7 +167,7 @@ export function EditorDeMarcas({ dados, senha, campo, valor, aoMudar }: { dados:
             <button key={i} type="button" aria-label={`Tirar ${NOMES[m.t]}`} onClick={(e) => { e.stopPropagation(); salvar(edicao.m.filter((_, k) => k !== i)); }}
               className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-md border border-dashed border-transparent px-1 text-[0.8rem] font-semibold hover:border-red-500 focus-visible:border-red-500"
               style={{ left: `${m.x * 100}%`, top: `${m.y * 100}%`, color: TINTA }}>
-              {m.t === "visto" ? "✓" : m.t === "xis" ? "✕" : m.t === "data" ? dataDeHoje() : m.t === "texto" ? m.texto : edicao.a ? <img src={edicao.a} alt="" className="h-8 max-w-[7rem]" /> : "✍"}
+              {m.t === "visto" ? "✓" : m.t === "xis" ? "✕" : m.t === "data" ? dataDeHoje() : m.t === "texto" ? m.texto : edicao.a ? <img src={edicao.a} alt="" className="h-8 max-w-[7rem]" /> : <Icone nome="assinatura" tam={20} />}
             </button>
           ))}
         </div>

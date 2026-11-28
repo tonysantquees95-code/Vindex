@@ -173,7 +173,7 @@ export function Explorar({ abrirEm = null, aoAbrirDocumento }: { abrirEm?: strin
             const usado = a.total ? Math.round(((a.total - a.livre) / a.total) * 100) : 0;
             return (
               <li key={a.caminho}><button className="w-full rounded-xl border border-borda bg-white/5 p-3 text-left hover:bg-white/10" onClick={() => setVista({ tipo: "pasta", caminho: a.caminho })}>
-                <div className="flex justify-between gap-2 text-sm"><span>💾 {a.rotulo}</span><span className="num text-xs text-suave">{bytes(a.livre)} livres de {bytes(a.total)}</span></div>
+                <div className="flex justify-between gap-2 text-sm"><span className="flex items-center gap-2"><Icone nome="disco" tam={18} />{a.rotulo}</span><span className="num text-xs text-suave">{bytes(a.livre)} livres de {bytes(a.total)}</span></div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-neon" style={{ width: `${usado}%` }} /></div>
               </button></li>
             );
@@ -197,7 +197,7 @@ export function Explorar({ abrirEm = null, aoAbrirDocumento }: { abrirEm?: strin
       <div className="flex items-center gap-2">
         <Botao className="!min-h-10 !px-3" aria-label="Voltar" onClick={subir}>←</Botao>
         <h2 className="min-w-0 flex-1 truncate text-base font-semibold">{titulo}</h2>
-        <Botao className="!min-h-10 !px-3" aria-label="Início" onClick={() => setVista({ tipo: "inicio" })}>🏠</Botao>
+        <Botao className="!min-h-10 !px-3" aria-label="Início" onClick={() => setVista({ tipo: "inicio" })}><Icone nome="inicio" tam={18} /></Botao>
       </div>
       {pastaAtual && (
         <nav aria-label="Caminho" className="flex flex-wrap items-center gap-1 text-xs text-suave">
@@ -265,7 +265,7 @@ export function Explorar({ abrirEm = null, aoAbrirDocumento }: { abrirEm?: strin
               <span className="min-w-0"><span className="block truncate text-sm">{i.nome}</span>
                 <span className="num block text-xs text-suave">{i.pasta ? `${i.itens} ${i.itens === 1 ? "item" : "itens"}` : bytes(i.bytes)}{i.modificado ? ` · ${quando(i.modificado)}` : ""}</span></span>
             </button>
-            <button className="flex-none rounded-lg px-2 py-2 text-xs text-suave hover:text-texto" aria-label={`Renomear ${i.nome}`} onClick={() => setRenomeando({ caminho: i.caminho, nome: i.nome })}>✏️</button>
+            <button className="flex-none rounded-lg px-2 py-2 text-xs text-suave hover:text-texto" aria-label={`Renomear ${i.nome}`} onClick={() => setRenomeando({ caminho: i.caminho, nome: i.nome })}><Icone nome="editar" tam={18} /></button>
           </li>
         ))}
       </ul>

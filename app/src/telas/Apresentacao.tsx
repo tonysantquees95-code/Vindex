@@ -1,3 +1,4 @@
+import { Icone } from "../icones";
 import { useRef, useState } from "react";
 import { aceitarTermos, marcarTourVisto, TERMOS, tourVisto, TOUR } from "../apresentacao";
 import { marcarVisto, ultimoId } from "../novidades";
@@ -34,8 +35,8 @@ export function Tour({ aoTerminar, rotuloFinal = "Continuar", aoFechar }: { aoTe
   return (
     <div className="flex min-h-0 flex-1 flex-col" onTouchStart={(e) => { inicio.current = e.touches[0]!.clientX; }} onTouchEnd={(e) => { if (inicio.current === null) return; const dx = e.changedTouches[0]!.clientX - inicio.current; inicio.current = null; if (Math.abs(dx) > 60) ir(dx < 0 ? 1 : -1); }}>
       <div className="flex items-center justify-between"><LogoVivo tam={32} />{aoFechar ? <button onClick={aoFechar} aria-label="Fechar" className="grid min-h-10 min-w-10 place-items-center text-xl text-suave">✕</button> : <button onClick={aoTerminar} className="min-h-10 px-3 text-sm text-suave underline">Pular</button>}</div>
-      <div className="rolagem flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-y-auto text-center">
-        <div className="grid h-24 w-24 place-items-center rounded-3xl border border-borda bg-painel text-5xl shadow-[0_0_40px_-10px_var(--color-neon)]" aria-hidden>{p.icone}</div>
+      <div className="rolagem flex min-h-0 flex-1 flex-col items-center [justify-content:safe_center] gap-4 overflow-y-auto text-center">
+        <div className="shrink-0 grid h-24 w-24 place-items-center rounded-3xl border border-borda bg-painel text-neon shadow-[0_0_40px_-10px_var(--color-neon)]" aria-hidden><Icone nome={p.icone} tam={48} /></div>
         <h1 className="text-2xl font-extrabold">{p.titulo}</h1>
         <p className="text-suave">{p.texto}</p>
         {p.como && <ul className="w-full space-y-2 rounded-2xl border border-borda bg-painel p-4 text-left text-sm">{p.como.map((c) => <li key={c} className="flex gap-2"><span className="text-neon">›</span><span>{c}</span></li>)}</ul>}
@@ -60,9 +61,9 @@ function Permissoes({ aoVoltar, aoContinuar }: { aoVoltar: () => void; aoContinu
         {android && (lista ? <ListaDePermissoes lista={lista} pedir={(id) => void pedir(id)} /> : <p className="text-sm text-suave">Conferindo…</p>)}
         {!android && (
           <>
-            <div className="rounded-2xl border border-borda bg-painel p-4"><b>📁 Seus arquivos</b><p className="mt-1 text-sm text-suave">No Windows o Vindex lê e organiza as pastas que você usa (Downloads, Documentos…). Ele só move ou apaga o que você confirma ou o que uma regra sua mandar.</p></div>
-            <div className="rounded-2xl border border-borda bg-painel p-4"><b>🛠️ Administrador <span className="ml-1 rounded-full bg-neon/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-neon">opcional</span></b><p className="mt-1 text-sm text-suave">Algumas otimizações de disco (como o TRIM) só funcionam se o Vindex for aberto como administrador. Sem isso o resto funciona normalmente.</p></div>
-            <div className="rounded-2xl border border-borda bg-painel p-4"><b>🌐 Internet</b><p className="mt-1 text-sm text-suave">Para entrar na sua conta, procurar atualizações e guardar o Cofre cifrado na nuvem. Seus arquivos não são enviados.</p></div>
+            <div className="rounded-2xl border border-borda bg-painel p-4"><b><Icone nome="pasta" tam={18} className="mr-2 inline-block align-[-0.2em] text-neon" />Seus arquivos</b><p className="mt-1 text-sm text-suave">No Windows o Vindex lê e organiza as pastas que você usa (Downloads, Documentos…). Ele só move ou apaga o que você confirma ou o que uma regra sua mandar.</p></div>
+            <div className="rounded-2xl border border-borda bg-painel p-4"><b><Icone nome="ajustes" tam={18} className="mr-2 inline-block align-[-0.2em] text-neon" />Administrador <span className="ml-1 rounded-full bg-neon/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-neon">opcional</span></b><p className="mt-1 text-sm text-suave">Algumas otimizações de disco (como o TRIM) só funcionam se o Vindex for aberto como administrador. Sem isso o resto funciona normalmente.</p></div>
+            <div className="rounded-2xl border border-borda bg-painel p-4"><b><Icone nome="rede" tam={18} className="mr-2 inline-block align-[-0.2em] text-neon" />Internet</b><p className="mt-1 text-sm text-suave">Para entrar na sua conta, procurar atualizações e guardar o Cofre cifrado na nuvem. Seus arquivos não são enviados.</p></div>
           </>
         )}
       </div>

@@ -55,7 +55,7 @@ final class Desempenho {
     static String linhaBateria(Context c) {
         double[] b = bateria(c);
         String t = Double.isNaN(b[0]) ? "–" : String.format(Locale.US, "%.0f °C", b[0]);
-        return "Temp. " + t + (b[1] >= 0 ? " · Bateria " + Math.round(b[1]) + "%" + (b[2] > 0 ? " ⚡" : "") : "");
+        return "Temp. " + t + (b[1] >= 0 ? " · Bateria " + Math.round(b[1]) + "%" + (b[2] > 0 ? " (carregando)" : "") : "");
     }
 
     /** Do Android 14 em diante, um app só consegue encerrar os próprios processos: o pedido sobre outros apps não faz nada. */
