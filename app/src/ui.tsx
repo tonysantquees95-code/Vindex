@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { tomDoUso } from "./formato";
 
-const COR = { ok: "#34d399", aviso: "#fbbf24", erro: "#f87171" } as const;
+const COR = { ok: "var(--color-ok)", aviso: "var(--color-aviso)", erro: "var(--color-erro)" } as const;
 
 export function Cartao({ titulo, acao, children, className = "" }: { titulo?: string; acao?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.015] p-4 shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset] backdrop-blur ${className}`}>
+    <section className={`cartao rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.015] p-4 shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset] backdrop-blur ${className}`}>
       {(titulo || acao) && (
         <header className="mb-3 flex items-center justify-between gap-2">
           {titulo && <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-suave">{titulo}</h2>}
@@ -62,11 +62,11 @@ export function Velocimetro({ valor, rotulo, detalhe, unidade = "%", numero, tom
     <div className="flex flex-col items-center" role="img" aria-label={`${rotulo}: ${escrito}${unidade}`}>
       <svg viewBox="0 0 140 120" className="w-full max-w-[170px]">
         <g transform="rotate(150 70 70)" fill="none" strokeLinecap="round" strokeWidth="11">
-          <circle cx="70" cy="70" r={R} stroke="#1c2740" strokeDasharray={`${arco} ${C}`} />
-          <circle cx="70" cy="70" r={R} stroke={cor} strokeDasharray={`${(arco * v) / 100} ${C}`} style={{ filter: `drop-shadow(0 0 6px ${cor})` }} />
+          <circle cx="70" cy="70" r={R} style={{ stroke: "var(--color-borda)" }} strokeDasharray={`${arco} ${C}`} />
+          <circle cx="70" cy="70" r={R} strokeDasharray={`${(arco * v) / 100} ${C}`} style={{ stroke: cor, filter: `drop-shadow(0 0 6px ${cor})` }} />
         </g>
-        <text x="70" y="72" textAnchor="middle" className="num" fill="#e6ecf8" fontSize="26" fontWeight="600">{escrito}<tspan fontSize="12" fill="#8a97b3">{unidade}</tspan></text>
-        <text x="70" y="92" textAnchor="middle" fill="#8a97b3" fontSize="10">{rotulo}</text>
+        <text x="70" y="72" textAnchor="middle" className="num" style={{ fill: "var(--color-texto)" }} fontSize="26" fontWeight="600">{escrito}<tspan fontSize="12" style={{ fill: "var(--color-suave)" }}>{unidade}</tspan></text>
+        <text x="70" y="92" textAnchor="middle" style={{ fill: "var(--color-suave)" }} fontSize="10">{rotulo}</text>
       </svg>
       {detalhe && <div className="num -mt-2 text-center text-xs text-suave">{detalhe}</div>}
     </div>
@@ -81,11 +81,11 @@ export function AnelDeSaude({ valor, rotulo }: { valor: number; rotulo: string }
   return (
     <svg viewBox="0 0 140 140" className="mx-auto block w-44" role="img" aria-label={`${rotulo}: ${Math.round(v)} de 100`}>
       <g transform="rotate(-90 70 70)" fill="none" strokeLinecap="round" strokeWidth="11">
-        <circle cx="70" cy="70" r={R} stroke="#1c2740" />
-        <circle cx="70" cy="70" r={R} stroke={cor} strokeDasharray={`${(C * v) / 100} ${C}`} style={{ filter: `drop-shadow(0 0 6px ${cor})` }} />
+        <circle cx="70" cy="70" r={R} style={{ stroke: "var(--color-borda)" }} />
+        <circle cx="70" cy="70" r={R} strokeDasharray={`${(C * v) / 100} ${C}`} style={{ stroke: cor, filter: `drop-shadow(0 0 6px ${cor})` }} />
       </g>
-      <text x="70" y="80" textAnchor="middle" className="num" fill="#e6ecf8" fontSize="42" fontWeight="600">{Math.round(v)}</text>
-      <text x="70" y="100" textAnchor="middle" fill="#8a97b3" fontSize="10">{rotulo}</text>
+      <text x="70" y="80" textAnchor="middle" className="num" style={{ fill: "var(--color-texto)" }} fontSize="42" fontWeight="600">{Math.round(v)}</text>
+      <text x="70" y="100" textAnchor="middle" style={{ fill: "var(--color-suave)" }} fontSize="10">{rotulo}</text>
     </svg>
   );
 }
@@ -98,7 +98,7 @@ export function Grafico({ series, altura = 90 }: { series: { nome: string; cor: 
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${altura}`} preserveAspectRatio="none" className="h-24 w-full rounded-lg bg-black/20">
-        {[25, 50, 75].map((g) => <line key={g} x1="0" x2={W} y1={altura - (g / max) * altura} y2={altura - (g / max) * altura} stroke="#1c2740" strokeDasharray="3 4" />)}
+        {[25, 50, 75].map((g) => <line key={g} x1="0" x2={W} y1={altura - (g / max) * altura} y2={altura - (g / max) * altura} style={{ stroke: "var(--color-borda)" }} strokeDasharray="3 4" />)}
         {series.map((s) => s.valores.length > 1 && <path key={s.nome} d={caminho(s.valores)} fill="none" stroke={s.cor} strokeWidth="2" vectorEffect="non-scaling-stroke" style={{ filter: `drop-shadow(0 0 4px ${s.cor})` }} />)}
       </svg>
       <div className="mt-1 flex gap-3 text-[11px] text-suave">{series.map((s) => <span key={s.nome} className="flex items-center gap-1"><i className="inline-block size-2 rounded-full" style={{ background: s.cor }} />{s.nome}</span>)}</div>

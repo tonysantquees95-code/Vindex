@@ -259,7 +259,7 @@ export function Explorar({ abrirEm = null, aoAbrirDocumento }: { abrirEm?: strin
       <ul className="divide-y divide-borda overflow-hidden rounded-2xl border border-borda">
         {itens.map((i) => (
           <li key={i.caminho} className="flex items-center gap-2 px-2 py-1.5 hover:bg-white/5">
-            <input type="checkbox" aria-label={`Marcar ${i.nome}`} className="h-5 w-5 flex-none accent-[#2ee6ff]" checked={marcados.has(i.caminho)} onChange={() => alternar(i.caminho)} />
+            <input type="checkbox" aria-label={`Marcar ${i.nome}`} className="h-5 w-5 flex-none accent-neon" checked={marcados.has(i.caminho)} onChange={() => alternar(i.caminho)} />
             <button className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left" onClick={() => abrir(i)}>
               {!i.pasta && ehImagem(i.nome) && motor.documentos ? <Miniatura caminho={i.caminho} nome={i.nome} bytes={i.bytes} lado={44} /> : <span className="text-neon" aria-hidden="true"><Icone nome={i.pasta ? "pasta" : TIPO_ICONE(i.categoria)} tam={22} /></span>}
               <span className="min-w-0"><span className="block truncate text-sm">{i.nome}</span>

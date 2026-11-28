@@ -10,9 +10,10 @@
   --color-ok: #34d399;
   --color-aviso: #fbbf24;
   --color-erro: #f87171;
+  --color-campo: #1b2336;
 }
 html, body, #raiz { min-height: 100dvh; }
-body { margin: 0; background: #000; color: var(--color-texto); font-family: system-ui, "Segoe UI", sans-serif; }
+body { margin: 0; background: var(--color-fundo); color: var(--color-texto); font-family: system-ui, "Segoe UI", sans-serif; }
 .num { font-variant-numeric: tabular-nums; }
 .brilho { box-shadow: 0 0 24px -6px var(--color-neon); }
 button { cursor: pointer; }
@@ -28,5 +29,11 @@ html[data-botoes="contorno"] .btn-primario:hover { background: color-mix(in srgb
 @keyframes vivo { 0%, 100% { transform: scale(0.97); } 50% { transform: scale(1.05); } }
 @keyframes brilho { 0%, 100% { opacity: .55; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.12); } }
 @media (prefers-reduced-motion: reduce) { .logo-vivo, .logo-vivo-brilho { animation: none; } }
+
+/* temas prontos (Ajustes › Personalizar): o visual original não usa nada daqui */
+html[data-tema] :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--color-neon); }
+html[data-tema] .cartao { background: var(--color-painel); border-color: var(--color-borda); }
+html[data-tema] :is(input:not([type="range"], [type="checkbox"], [type="radio"]), select, textarea):not(:focus) { border-color: var(--color-campo); }
+html[data-tema] [role="switch"][aria-checked="true"] > span { background: var(--color-fundo); }
 
 .rolagem { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }

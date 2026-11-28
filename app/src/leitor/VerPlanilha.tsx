@@ -80,7 +80,7 @@ export function VerPlanilha(p: PropsVisualizador & { planilha: Planilha }) {
           onKeyDown={(e) => { if (e.key === "Enter") { confirmar(); (e.target as HTMLInputElement).blur(); } }}
           placeholder={sel ? (p.editando ? "Digite o valor ou =fórmula" : "") : "Toque numa célula"} aria-label="Conteúdo da célula"
           className="min-h-9 min-w-0 flex-1 rounded-lg border border-borda bg-fundo px-2 text-sm text-texto outline-none focus:border-neon disabled:opacity-50" />
-        {p.editando && sel && <button onMouseDown={(e) => e.preventDefault()} onClick={confirmar} className="btn-primario min-h-9 shrink-0 rounded-lg bg-neon px-3 text-sm font-extrabold text-[#04121c]">OK</button>}
+        {p.editando && sel && <button onMouseDown={(e) => e.preventDefault()} onClick={confirmar} className="btn-primario min-h-9 shrink-0 rounded-lg bg-neon px-3 text-sm font-extrabold text-fundo">OK</button>}
       </div>
       {erro && <p role="alert" className="px-3 py-1 text-xs text-erro">{erro}</p>}
       <div ref={rolagem} onScroll={(e) => { setTopo(e.currentTarget.scrollTop); setEsq(e.currentTarget.scrollLeft); }} className="rolagem relative min-h-0 flex-1 overflow-auto" tabIndex={0} aria-label="Grade da planilha">

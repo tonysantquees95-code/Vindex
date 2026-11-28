@@ -15,7 +15,7 @@ export function PerguntaPrincipal({ aoFechar }: { aoFechar: () => void }) {
       {erro && <p role="alert" className="mt-3 text-sm text-erro">{erro}</p>}
       <div className="mt-4 flex gap-2">
         <button onClick={() => (erro ? aoFechar() : responder(false))} className="min-h-11 flex-1 rounded-xl border border-borda text-sm">Agora não</button>
-        <button onClick={() => responder(true)} className="btn-primario min-h-11 flex-1 rounded-xl bg-neon text-sm font-extrabold text-[#04121c]">Sim, usar</button>
+        <button onClick={() => responder(true)} className="btn-primario min-h-11 flex-1 rounded-xl bg-neon text-sm font-extrabold text-fundo">Sim, usar</button>
       </div>
     </Dialogo>
   );

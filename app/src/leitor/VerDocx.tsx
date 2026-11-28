@@ -36,7 +36,7 @@ export function VerDocx(p: PropsVisualizador) {
     setAviso(""); setAberto(id); setRascunho(texto);
   };
   const aplicar = useCallback((fn: () => void) => { try { fn(); p.aoMudar(); redesenhar((n) => n + 1); } catch (e) { setAviso(e instanceof Error ? e.message : "Não deu certo."); } }, [p]);
-  const folha = useMemo(() => `mx-auto w-full max-w-3xl rounded-2xl p-5 sm:p-8 ${p.noite ? "bg-[#0a0d14] text-texto" : "bg-white text-neutral-900"}`, [p.noite]);
+  const folha = useMemo(() => `mx-auto w-full max-w-3xl rounded-2xl p-5 sm:p-8 ${p.noite ? "bg-painel text-texto" : "bg-white text-neutral-900"}`, [p.noite]);
   if (!doc) return <p className="p-6 text-center text-suave">Abrindo…</p>;
   return (
     <div className="rolagem min-h-0 flex-1 overflow-y-auto p-3">
@@ -52,7 +52,7 @@ export function VerDocx(p: PropsVisualizador) {
                 <textarea autoFocus value={rascunho} onChange={(e) => setRascunho(e.target.value)} rows={Math.min(10, Math.max(2, rascunho.split("\n").length + 1))}
                   className={`w-full resize-y rounded-lg border border-borda p-2 text-[15px] outline-none ${p.noite ? "bg-fundo text-texto" : "bg-white text-neutral-900"}`} aria-label="Texto do parágrafo" />
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => { aplicar(() => doc.editar(x.id, rascunho)); setAberto(null); }} className="btn-primario min-h-10 rounded-xl bg-neon px-4 text-sm font-extrabold text-[#04121c]">Pronto</button>
+                  <button onClick={() => { aplicar(() => doc.editar(x.id, rascunho)); setAberto(null); }} className="btn-primario min-h-10 rounded-xl bg-neon px-4 text-sm font-extrabold text-fundo">Pronto</button>
                   <button onClick={() => setAberto(null)} className="min-h-10 rounded-xl border border-borda px-4 text-sm">Cancelar</button>
                   <button onClick={() => { const n = doc.inserirDepois(x.id, ""); aplicar(() => doc.editar(x.id, rascunho)); setAberto(n); setRascunho(""); redesenhar((k) => k + 1); }} className="min-h-10 rounded-xl border border-borda px-3 text-sm">+ Parágrafo abaixo</button>
                   <button onClick={() => { aplicar(() => doc.apagar(x.id)); setAberto(null); }} className="min-h-10 rounded-xl border border-erro/40 px-3 text-sm text-erro" aria-label="Apagar parágrafo"><Icone nome="lixo" tam={18} /></button>

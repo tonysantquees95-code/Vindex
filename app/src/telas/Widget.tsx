@@ -3,11 +3,13 @@ import { useMotor } from "../estado";
 import { bytes, tomDoUso } from "../formato";
 import type { Diagnostico, Video } from "../ponte";
 import { LogoVivo } from "../logo";
+import { temaPronto } from "../ajustes";
+import { useAjustes } from "../usarAjustes";
 
 const CHAVE_VIDRO = "vindex:widget-vidro";
 const CHAVE_SOBREPOR = "vindex:widget-sobrepor";
 const PONTOS = 60;
-const COR = { ok: "#34d399", aviso: "#fbbf24", erro: "#f87171" } as const;
+const COR = { ok: "var(--color-ok)", aviso: "var(--color-aviso)", erro: "var(--color-erro)" } as const;
 
 function vidroSalvo(): number {
   try { const n = Number(localStorage.getItem(CHAVE_VIDRO)); return n >= 10 && n <= 95 ? n : 55; } catch { return 55; }
@@ -37,6 +39,11 @@ function mbps(b: number): string { const m = (b * 8) / 1e6; return m >= 100 ? m.
 /** Janelinha do Windows no estilo do Desempenho do Game Bar: lista de medidas à esquerda; a escolhida aparece grande, com o gráfico de 60 segundos. */
 export function Widget() {
   const motor = useMotor();
+  // com um tema pronto o widget usa as cores dele; no visual original continua o vidro azul de sempre
+  const [ajustes] = useAjustes();
+  const tema = temaPronto(ajustes.tema);
+  const destaque = tema ? "var(--color-neon)" : "#67e8f9";
+  const mistura = (c: string, pct: number) => `color-mix(in srgb, ${c} ${Math.round(pct)}%, transparent)`;
   const [d, setD] = useState<Diagnostico | null>(null);
   const [v, setV] = useState<Video | null>(null);
   const [serie, setSerie] = useState<Serie>(VAZIA);
@@ -139,14 +146,14 @@ export function Widget() {
   }, [d, v, serie.rede]);
 
   const atual = itens.find((i) => i.id === sel) ?? itens[0];
-  const cor = atual.pct != null ? COR[tomDoUso(atual.pct)] : "#67e8f9";
+  const cor = atual.pct != null ? COR[tomDoUso(atual.pct)] : destaque;
   return (
-    <div data-tauri-drag-region className="flex h-dvh select-none flex-col overflow-hidden rounded-2xl border border-white/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18)] backdrop-blur-md" style={{ fontFamily: "Segoe UI, system-ui, sans-serif", background: `linear-gradient(160deg, rgba(30,41,64,${(vidro / 100) * 0.9}), rgba(5,8,16,${vidro / 100}))` }}>
+    <div data-tauri-drag-region className="flex h-dvh select-none flex-col overflow-hidden rounded-2xl border border-white/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18)] backdrop-blur-md" style={{ fontFamily: "Segoe UI, system-ui, sans-serif", background: tema ? `linear-gradient(160deg, ${mistura(tema.painel, vidro * 0.9)}, ${mistura(tema.fundo, vidro)})` : `linear-gradient(160deg, rgba(30,41,64,${(vidro / 100) * 0.9}), rgba(5,8,16,${vidro / 100}))` }}>
       <div data-tauri-drag-region className="flex items-center justify-between px-3 pt-2 pb-1">
         <span data-tauri-drag-region className="pointer-events-none"><LogoVivo tam={22} /></span>
         <div className="flex items-center gap-2">
-          <button aria-pressed={sobrepor} title={sobrepor ? "Sobrepor ligado: fica por cima de todas as janelas" : "Sobrepor desligado: fica só na área de trabalho"} onClick={alternarSobrepor} className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${sobrepor ? "border-cyan-300 bg-cyan-300 text-[#04121c]" : "border-white/30 text-white/70 hover:text-white"}`}>Sobrepor {sobrepor ? "ligado" : "desligado"}</button>
-          <input type="range" min={10} max={95} value={vidro} onChange={(e) => mudarVidro(Number(e.target.value))} title="Fundo de vidro: mais claro ← → mais escuro" aria-label="Escuridão do fundo" className="h-1 w-14 cursor-pointer accent-cyan-300" />
+          <button aria-pressed={sobrepor} title={sobrepor ? "Sobrepor ligado: fica por cima de todas as janelas" : "Sobrepor desligado: fica só na área de trabalho"} onClick={alternarSobrepor} className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${sobrepor ? (tema ? "border-neon bg-neon text-fundo" : "border-cyan-300 bg-cyan-300 text-[#04121c]") : "border-white/30 text-white/70 hover:text-white"}`}>Sobrepor {sobrepor ? "ligado" : "desligado"}</button>
+          <input type="range" min={10} max={95} value={vidro} onChange={(e) => mudarVidro(Number(e.target.value))} title="Fundo de vidro: mais claro ← → mais escuro" aria-label="Escuridão do fundo" className={`h-1 w-14 cursor-pointer ${tema ? "accent-neon" : "accent-cyan-300"}`} />
           <button aria-label="Fechar widget" className="px-1 text-xs text-white/60 hover:text-white" onClick={() => void fechar()}>✕</button>
         </div>
       </div>
@@ -168,7 +175,7 @@ export function Widget() {
         </div>
       </div>
       <div className="px-3 pb-2 pt-1">
-        <button disabled={ocupado} onClick={() => void liberar()} className="w-full rounded-lg bg-cyan-300 py-1.5 text-xs font-extrabold text-[#04121c] disabled:opacity-60">{ocupado ? "Liberando…" : msg || "Liberar RAM"}</button>
+        <button disabled={ocupado} onClick={() => void liberar()} className={`w-full rounded-lg py-1.5 text-xs font-extrabold disabled:opacity-60 ${tema ? "bg-neon text-fundo" : "bg-cyan-300 text-[#04121c]"}`}>{ocupado ? "Liberando…" : msg || "Liberar RAM"}</button>
       </div>
     </div>
   );

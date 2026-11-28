@@ -53,7 +53,7 @@ export function CaixaDeAssinatura({ aoUsar, aoFechar }: { aoUsar: (a: Assinatura
       <div className="mt-3 flex gap-2">
         <button onClick={() => { setTracos([]); setAviso(""); }} className="min-h-11 flex-1 rounded-xl border border-borda text-sm">Limpar</button>
         <button onClick={() => { const n = normalizar(tracos); if (!n) { setAviso("Desenhe a assinatura primeiro."); return; } guardarAssinatura(n); aoUsar(n); }}
-          className="btn-primario min-h-11 flex-1 rounded-xl bg-neon text-sm font-extrabold text-[#04121c]">Usar</button>
+          className="btn-primario min-h-11 flex-1 rounded-xl bg-neon text-sm font-extrabold text-fundo">Usar</button>
       </div>
     </Dialogo>
   );

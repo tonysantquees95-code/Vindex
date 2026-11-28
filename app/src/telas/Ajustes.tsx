@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useMotor } from "../estado";
 import { BUILD, haNovaVersao, procurarVersao, type InfoVersao } from "../atualizacao";
-import { COR_PERSONALIZADA, CORES, ESTILOS, FORMATOS, ICONES, AJUSTES_PADRAO, corDoTema, hexParaHsl, hslParaHex } from "../ajustes";
+import { COR_PERSONALIZADA, CORES, TEMAS, TEMA_ORIGINAL, temaPronto, ESTILOS, FORMATOS, ICONES, AJUSTES_PADRAO, corDoTema, hexParaHsl, hslParaHex } from "../ajustes";
 import { useAjustes } from "../usarAjustes";
 import { SERVIDOR } from "../conta";
 import { Icone, type NomeIcone } from "../icones";
@@ -12,6 +12,9 @@ import { FeedbackDoApp } from "./FeedbackDoApp";
 import { PerguntaPrincipal } from "./Principal";
 import { NOVIDADES, novasDesde } from "../novidades";
 import { ListaDePermissoes, usePermissoes } from "./Permissoes";
+
+/** O visual de sempre do Vindex, mostrado como a primeira opção entre os temas. */
+const ORIGINAL = { id: TEMA_ORIGINAL, nome: "Original", ideia: "O visual de sempre do Vindex", fundo: "#000000", painel: "#0a0d14", destaque: "#22d3ee", secundaria: "#e879f9" };
 
 const Chave = ({ ligado, aoMudar, rotulo, detalhe }: { ligado: boolean; aoMudar: (v: boolean) => void; rotulo: string; detalhe: string }) => (
   <div className="flex items-center gap-3">
@@ -51,25 +54,53 @@ export function AjustesTela({ aoAtualizar, nova }: { aoAtualizar: (v: InfoVersao
           <button key={id} role="tab" aria-selected={parte === id} onClick={() => trocar(id)} className={`min-h-10 rounded-full px-5 text-sm transition ${parte === id ? "bg-neon/15 text-neon" : "border border-borda text-suave"}`}>{r}</button>
         ))}
       </div>
-      {parte === "personalizar" && <Cartao titulo="Personalizar o Vindex" acao={<button type="button" onClick={() => definir({ cor: AJUSTES_PADRAO.cor, corPersonalizada: AJUSTES_PADRAO.corPersonalizada, formato: AJUSTES_PADRAO.formato, estilo: AJUSTES_PADRAO.estilo, icones: AJUSTES_PADRAO.icones })} className="min-h-9 rounded-lg px-2 text-xs text-suave hover:text-texto">Restaurar padrão</button>}>
+      {parte === "personalizar" && <Cartao titulo="Personalizar o Vindex" acao={<button type="button" onClick={() => definir({ tema: TEMA_ORIGINAL, destaqueDoTema: false, cor: AJUSTES_PADRAO.cor, corPersonalizada: AJUSTES_PADRAO.corPersonalizada, formato: AJUSTES_PADRAO.formato, estilo: AJUSTES_PADRAO.estilo, icones: AJUSTES_PADRAO.icones })} className="min-h-9 rounded-lg px-2 text-xs text-suave hover:text-texto">Restaurar padrão</button>}>
         <Previa />
+
+        <Secao titulo="Temas prontos" dica="Trocam o app inteiro: fundo, cartões, textos e cores. Botões e ícones continuam do seu jeito.">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4" role="group" aria-label="Temas prontos">
+            {[ORIGINAL, ...TEMAS].map((t) => {
+              const sel = a.tema === t.id;
+              return (
+                <button key={t.id} type="button" onClick={() => definir({ tema: t.id, destaqueDoTema: t.id !== TEMA_ORIGINAL })} aria-pressed={sel}
+                  className={`flex min-w-0 flex-col gap-2 rounded-xl border-2 p-2.5 text-left transition ${sel ? "border-neon bg-neon/10" : "border-borda hover:bg-white/5"}`}>
+                  <span aria-hidden className="flex h-7 overflow-hidden rounded-lg ring-1 ring-white/20">
+                    <span style={{ flex: 6, background: t.fundo }} /><span style={{ flex: 3, background: t.painel }} /><span style={{ flex: 1.5, background: t.destaque }} /><span style={{ flex: 1.5, background: t.secundaria }} />
+                  </span>
+                  <span className="flex items-center justify-between gap-1">
+                    <span className="min-w-0 text-sm font-semibold text-texto">{t.nome}</span>
+                    <span aria-hidden className={`grid size-5 flex-none place-items-center rounded-full border ${sel ? "border-neon bg-neon text-fundo" : "border-suave/50"}`}>{sel && <Icone nome="visto" tam={13} />}</span>
+                  </span>
+                  <span className="text-[11px] leading-snug text-suave">{t.ideia}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Secao>
 
         <Secao titulo="Cor do app" dica="Muda os destaques, botões e brilhos em tudo.">
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {temaPronto(a.tema) && (
+              <button type="button" onClick={() => definir({ destaqueDoTema: true })} aria-pressed={a.destaqueDoTema}
+                className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border px-1 py-2 text-xs transition ${a.destaqueDoTema ? "border-neon bg-neon/10 text-texto" : "border-borda text-suave hover:bg-white/5"}`}>
+                <span className="size-7 rounded-full ring-2 ring-white/10" style={{ background: `linear-gradient(135deg, ${temaPronto(a.tema)!.destaque}, ${temaPronto(a.tema)!.secundaria})` }} />
+                Do tema
+              </button>
+            )}
             {CORES.map((c) => (
-              <button key={c.id} type="button" onClick={() => definir({ cor: c.id })} aria-pressed={a.cor === c.id}
-                className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border px-1 py-2 text-xs transition ${a.cor === c.id ? "border-neon bg-neon/10 text-texto" : "border-borda text-suave hover:bg-white/5"}`}>
+              <button key={c.id} type="button" onClick={() => definir({ cor: c.id, destaqueDoTema: false })} aria-pressed={!a.destaqueDoTema && a.cor === c.id}
+                className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border px-1 py-2 text-xs transition ${!a.destaqueDoTema && a.cor === c.id ? "border-neon bg-neon/10 text-texto" : "border-borda text-suave hover:bg-white/5"}`}>
                 <span className="size-7 rounded-full ring-2 ring-white/10" style={{ background: `linear-gradient(135deg, ${c.destaque}, ${c.secundaria})` }} />
                 {c.nome}
               </button>
             ))}
-            <button type="button" onClick={() => definir({ cor: COR_PERSONALIZADA })} aria-pressed={a.cor === COR_PERSONALIZADA}
-              className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border px-1 py-2 text-xs transition ${a.cor === COR_PERSONALIZADA ? "border-neon bg-neon/10 text-texto" : "border-borda text-suave hover:bg-white/5"}`}>
+            <button type="button" onClick={() => definir({ cor: COR_PERSONALIZADA, destaqueDoTema: false })} aria-pressed={!a.destaqueDoTema && a.cor === COR_PERSONALIZADA}
+              className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border px-1 py-2 text-xs transition ${!a.destaqueDoTema && a.cor === COR_PERSONALIZADA ? "border-neon bg-neon/10 text-texto" : "border-borda text-suave hover:bg-white/5"}`}>
               <span className="size-7 rounded-full ring-2 ring-white/10" style={{ background: "conic-gradient(#f87171, #fbbf24, #34d399, #22d3ee, #a78bfa, #f472b6, #f87171)" }} />
               Minha cor
             </button>
           </div>
-          {a.cor === COR_PERSONALIZADA && <SeletorDeCor valor={a.corPersonalizada} aoMudar={(v) => definir({ corPersonalizada: v })} />}
+          {!a.destaqueDoTema && a.cor === COR_PERSONALIZADA && <SeletorDeCor valor={a.corPersonalizada} aoMudar={(v) => definir({ corPersonalizada: v })} />}
         </Secao>
 
         <Secao titulo="Botões" dica="Formato e estilo dos botões principais.">

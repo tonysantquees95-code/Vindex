@@ -9,6 +9,23 @@ export const CORES: CorDoTema[] = [
   { id: "azul", nome: "Azul", destaque: "#60a5fa", secundaria: "#34d399" },
 ];
 
+/** Temas prontos: trocam o app inteiro (fundo, painéis, textos e cores). São opção a mais: cor, botões e ícones continuam à escolha. */
+export interface TemaPronto extends CorDoTema { ideia: string; fundo: string; painel: string; borda: string; campo: string; texto: string; suave: string; ok: string; aviso: string; erro: string }
+export const TEMA_ORIGINAL = "original";
+export const TEMAS: TemaPronto[] = [
+  { id: "mergulho", nome: "Mergulho", ideia: "Azul profundo com mandarina", fundo: "#06121a", painel: "#0c1f2c", borda: "#1d3a4d", campo: "#5f8299", texto: "#eaf3f5", suave: "#9db6c3", destaque: "#ff9a52", secundaria: "#4cc4ee", ok: "#4ade9b", aviso: "#fbd24e", erro: "#ff8f8f" },
+  { id: "adega", nome: "Adega", ideia: "Vinho escuro, rosé e rubi", fundo: "#140e10", painel: "#22181b", borda: "#3d2c31", campo: "#8f6f77", texto: "#f7ece8", suave: "#c6aca6", destaque: "#ff6b8e", secundaria: "#e7c9c0", ok: "#52d69a", aviso: "#fbc94a", erro: "#ff9585" },
+  { id: "pomar", nome: "Pomar", ideia: "Ameixa com verde-limão", fundo: "#120b12", painel: "#21141f", borda: "#40283b", campo: "#8e6a87", texto: "#f3ecf2", suave: "#bfa9bb", destaque: "#a3e635", secundaria: "#e59bd3", ok: "#4ade9b", aviso: "#fbc94a", erro: "#ff8f8f" },
+  { id: "meia-noite", nome: "Meia-noite", ideia: "Azul calmo para usar por horas", fundo: "#070b16", painel: "#0f1628", borda: "#222d4a", campo: "#64749f", texto: "#e8edf9", suave: "#9aa7c7", destaque: "#7cb0ff", secundaria: "#b7a2ff", ok: "#43d69a", aviso: "#fbc94a", erro: "#ff8a8a" },
+  { id: "floresta", nome: "Floresta", ideia: "Verdes com areia", fundo: "#07110d", painel: "#0f1d17", borda: "#213a2e", campo: "#5c8271", texto: "#e9f4ee", suave: "#9fbcae", destaque: "#5ee0a0", secundaria: "#e6cf9c", ok: "#8be86a", aviso: "#fbc94a", erro: "#ff9088" },
+  { id: "brasa", nome: "Brasa", ideia: "Grafite quente com âmbar", fundo: "#100d0b", painel: "#1c1714", borda: "#352c26", campo: "#827062", texto: "#f6efe9", suave: "#bcaea3", destaque: "#ffb23e", secundaria: "#ff8a65", ok: "#52d69a", aviso: "#ffe066", erro: "#ff8585" },
+  { id: "grafite", nome: "Grafite", ideia: "Cinza e prata, bem discreto", fundo: "#0d0f13", painel: "#171a21", borda: "#2a2f3a", campo: "#6b7489", texto: "#eef0f5", suave: "#a6adbd", destaque: "#dbe1ee", secundaria: "#a9b6d0", ok: "#4ade9b", aviso: "#fbc94a", erro: "#ff8f8f" },
+];
+export const temaPronto = (id: string): TemaPronto | undefined => TEMAS.find((t) => t.id === id);
+const CORES_DO_TEMA = ["fundo", "painel", "borda", "campo", "texto", "suave", "ok", "aviso", "erro"] as const;
+/** Fundo das barras do Android no visual original (o mesmo de sempre, definido no MainActivity). */
+export const FUNDO_DAS_BARRAS_ORIGINAL = "#070b14";
+
 export interface PacoteDeIcones { id: string; nome: string; traco: number; ponta: "round" | "butt" | "square"; junta: "round" | "miter"; preench: number }
 export const ICONES: PacoteDeIcones[] = [
   { id: "padrao", nome: "Padrão", traco: 1.7, ponta: "round", junta: "round", preench: 0 },
@@ -32,8 +49,8 @@ export const ESTILOS: EstiloDeBotao[] = [
 ];
 
 export const COR_PERSONALIZADA = "personalizada";
-export interface Ajustes { cor: string; corPersonalizada: string; formato: string; estilo: string; icones: string; autoAtualizar: boolean; autoOrganizar: boolean; autoExtrair: boolean }
-export const AJUSTES_PADRAO: Ajustes = { cor: "ciano", corPersonalizada: "#22d3ee", formato: "redondo", estilo: "solido", icones: "padrao", autoAtualizar: true, autoOrganizar: true, autoExtrair: false };
+export interface Ajustes { tema: string; destaqueDoTema: boolean; cor: string; corPersonalizada: string; formato: string; estilo: string; icones: string; autoAtualizar: boolean; autoOrganizar: boolean; autoExtrair: boolean }
+export const AJUSTES_PADRAO: Ajustes = { tema: TEMA_ORIGINAL, destaqueDoTema: false, cor: "ciano", corPersonalizada: "#22d3ee", formato: "redondo", estilo: "solido", icones: "padrao", autoAtualizar: true, autoOrganizar: true, autoExtrair: false };
 
 export const hexValido = (v: unknown): v is string => typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v);
 
@@ -67,6 +84,8 @@ export function corLegivel(hex: string): string {
 }
 
 export function corDoTema(a: Ajustes): { destaque: string; secundaria: string } {
+  const t = a.destaqueDoTema ? temaPronto(a.tema) : undefined;
+  if (t) return { destaque: t.destaque, secundaria: t.secundaria };
   if (a.cor === COR_PERSONALIZADA) { const d = corLegivel(a.corPersonalizada); return { destaque: d, secundaria: parDaCor(d) }; }
   const c = CORES.find((x) => x.id === a.cor) ?? CORES[0]!;
   return { destaque: c.destaque, secundaria: c.secundaria };
@@ -75,7 +94,10 @@ export function corDoTema(a: Ajustes): { destaque: string; secundaria: string } 
 /** Aceita qualquer coisa vinda do disco e devolve ajustes válidos. */
 export function limparAjustes(v: unknown): Ajustes {
   const o = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  const tema = temaPronto(o.tema as string)?.id ?? TEMA_ORIGINAL;
   return {
+    tema,
+    destaqueDoTema: tema !== TEMA_ORIGINAL && o.destaqueDoTema !== false,
     cor: CORES.some((c) => c.id === o.cor) || o.cor === COR_PERSONALIZADA ? (o.cor as string) : AJUSTES_PADRAO.cor,
     corPersonalizada: hexValido(o.corPersonalizada) ? o.corPersonalizada.toLowerCase() : AJUSTES_PADRAO.corPersonalizada,
     formato: FORMATOS.some((f) => f.id === o.formato) ? (o.formato as string) : AJUSTES_PADRAO.formato,
@@ -100,6 +122,13 @@ export function aplicarTema(a: Ajustes, raiz: HTMLElement = document.documentEle
   const cor = corDoTema(a);
   const fm = FORMATOS.find((f) => f.id === a.formato) ?? FORMATOS[0]!;
   const ic = ICONES.find((i) => i.id === a.icones) ?? ICONES[0]!;
+  const t = temaPronto(a.tema);
+  for (const k of CORES_DO_TEMA) {
+    if (t) raiz.style.setProperty(`--color-${k}`, t[k]);
+    else raiz.style.removeProperty(`--color-${k}`);
+  }
+  if (t) raiz.dataset.tema = t.id;
+  else delete raiz.dataset.tema;
   raiz.style.setProperty("--color-neon", cor.destaque);
   raiz.style.setProperty("--color-magenta", cor.secundaria);
   raiz.style.setProperty("--raio-botao", fm.raio);
@@ -110,7 +139,13 @@ export function aplicarTema(a: Ajustes, raiz: HTMLElement = document.documentEle
   raiz.style.setProperty("--icone-preench", String(ic.preench));
 }
 
-export function iniciarTema() { try { aplicarTema(atual); } catch { /* sem DOM */ } }
+export function iniciarTema() {
+  try {
+    aplicarTema(atual);
+    // outra janela do app (o widget do Windows) acompanha a troca de tema na hora
+    window.addEventListener("storage", (e) => { if (e.key !== CHAVE) return; atual = ler(); aplicarTema(atual); ouvintes.forEach((f) => f()); });
+  } catch { /* sem DOM */ }
+}
 
 export function definirAjustes(parcial: Partial<Ajustes>) {
   atual = limparAjustes({ ...atual, ...parcial });

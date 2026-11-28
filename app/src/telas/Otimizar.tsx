@@ -78,7 +78,7 @@ export function Otimizar() {
             <Botao onClick={() => void alternarPainel()}>{painelLigado ? (motor.plataforma === "windows" ? "Fechar widget" : "Desligar painel na tela") : (motor.plataforma === "windows" ? "Mostrar widget na área de trabalho" : "Mostrar painel na tela")}</Botao>
             {motor.plataforma === "android" && <p className="text-xs text-suave">Toque no painel para {semRam ? "abrir o Vindex" : "liberar RAM"}, arraste para mover e segure para fechar. Para o widget da tela inicial: segure um espaço vazio da tela inicial › Widgets › Vindex.</p>}
           </div>
-          {dicaPainel && <p className="mt-2 text-xs text-amber-300">{dicaPainel}</p>}
+          {dicaPainel && <p className="mt-2 text-xs text-aviso">{dicaPainel}</p>}
         </Cartao>
       )}
       <Cartao titulo="O que você quer otimizar?" acao={<Botao className="!min-h-9 !px-3 text-xs" onClick={() => setMarcados(todos ? new Set() : new Set((linhas ?? []).map((l) => l.alvo.id)))}>{todos ? "Desmarcar tudo" : "Marcar tudo"}</Botao>}>

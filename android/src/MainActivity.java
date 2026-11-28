@@ -19,6 +19,14 @@ import com.getcapacitor.BridgeActivity;
 /** Registra o plugin do Vindex e mantém o app ENTRE as barras do Android (status em cima, navegação embaixo). */
 public class MainActivity extends BridgeActivity {
     private static final int FUNDO = Color.parseColor("#070B14");
+    static final String PREFERENCIA_VISUAL = "vindex_visual";
+
+    /** Pinta o que aparece atrás das barras de cima e de baixo (o app fica entre elas). */
+    static void pintarFundo(android.app.Activity tela, int cor) {
+        tela.getWindow().getDecorView().setBackgroundColor(cor);
+        View raiz = tela.findViewById(android.R.id.content);
+        if (raiz != null) raiz.setBackgroundColor(cor);
+    }
     /** Pasta que outro app (o Vortex) pediu para abrir; o plugin entrega uma vez e limpa. */
     static volatile String pastaPedida = null;
 
@@ -61,13 +69,14 @@ public class MainActivity extends BridgeActivity {
         WindowCompat.setDecorFitsSystemWindows(w, false);
         w.setStatusBarColor(Color.TRANSPARENT);
         w.setNavigationBarColor(Color.TRANSPARENT);
-        w.getDecorView().setBackgroundColor(FUNDO);
         WindowInsetsControllerCompat c = WindowCompat.getInsetsController(w, w.getDecorView());
         c.setAppearanceLightStatusBars(false);     // ícones claros sobre o fundo escuro
         c.setAppearanceLightNavigationBars(false);
 
         final View raiz = findViewById(android.R.id.content);
-        raiz.setBackgroundColor(FUNDO);
+        // abre já com o fundo do tema escolhido da última vez (sem tema guardado, o de sempre)
+        String guardada = getSharedPreferences(PREFERENCIA_VISUAL, MODE_PRIVATE).getString("fundo", null);
+        pintarFundo(this, guardada != null && guardada.matches("#[0-9a-fA-F]{6}") ? Color.parseColor(guardada) : FUNDO);
         // Barras de cima e de baixo (e o teclado) viram margem: nada fica escondido atrás delas, em qualquer versão do Android.
         ViewCompat.setOnApplyWindowInsetsListener(raiz, (v, insets) -> {
             Insets barras = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());

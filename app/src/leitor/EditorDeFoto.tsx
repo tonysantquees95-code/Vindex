@@ -351,7 +351,7 @@ export function EditorDeFoto(p: PropsDoEditor) {
         <button onClick={() => setH(refazer)} disabled={!h.futuro.length} aria-label="Refazer" className={botao}><span className="-scale-x-100"><Icone nome="desfazer" tam={21} /></span></button>
         <button onClick={() => setComparando((v) => !v)} aria-pressed={comparando} disabled={mesmaEdicao(e, inicial)} aria-label="Ver original" className={`${botao} ${comparando ? "bg-neon/15 !text-neon" : ""}`}><Icone nome="olho" tam={21} /></button>
         {p.compartilhar && <button onClick={compartilhar} disabled={!img || !!ocupado} aria-label="Compartilhar a foto editada" className={botao}><Icone nome="compartilhar" tam={21} /></button>}
-        <button onClick={() => void salvar()} disabled={!img || !!ocupado} aria-label="Salvar cópia" className="btn-primario ml-1 min-h-11 shrink-0 rounded-xl bg-neon px-3 text-sm font-extrabold text-[#04121c] disabled:opacity-40">Salvar<span className="max-[390px]:hidden"> cópia</span></button>
+        <button onClick={() => void salvar()} disabled={!img || !!ocupado} aria-label="Salvar cópia" className="btn-primario ml-1 min-h-11 shrink-0 rounded-xl bg-neon px-3 text-sm font-extrabold text-fundo disabled:opacity-40">Salvar<span className="max-[390px]:hidden"> cópia</span></button>
       </header>
 
       {/* em tela deitada os controles vão para o lado, para a foto não ficar espremida */}
@@ -493,7 +493,7 @@ export function EditorDeFoto(p: PropsDoEditor) {
         <Dialogo titulo="Sair sem salvar?" aoFechar={() => setSair(false)}>
           <p className="text-sm text-suave">A edição ainda não foi guardada. A foto original continua como estava.</p>
           <div className="mt-4 flex flex-col gap-2">
-            <button onClick={() => { setSair(false); void salvar(p.aoFechar); }} className="btn-primario min-h-11 rounded-xl bg-neon text-sm font-extrabold text-[#04121c]">Salvar cópia e sair</button>
+            <button onClick={() => { setSair(false); void salvar(p.aoFechar); }} className="btn-primario min-h-11 rounded-xl bg-neon text-sm font-extrabold text-fundo">Salvar cópia e sair</button>
             <button onClick={p.aoFechar} className="min-h-11 rounded-xl border border-erro/40 text-sm text-erro">Sair sem salvar</button>
             <button onClick={() => setSair(false)} className="min-h-11 rounded-xl border border-borda text-sm">Continuar editando</button>
           </div>

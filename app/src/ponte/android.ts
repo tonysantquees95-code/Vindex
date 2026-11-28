@@ -27,6 +27,7 @@ interface PluginVindex {
   abrirConfiguracao(o: { id: string }): Promise<void>;
   abrirArquivo(o: { caminho: string }): Promise<void>;
   pastaPedida(): Promise<{ pasta: string | null }>;
+  corDasBarras(o: { cor: string }): Promise<void>;
   instalarAtualizacao(o: { url: string; sha256: string }): Promise<void>;
   baixarAtualizacao(o: { url: string; sha256: string; tamanho: number }): Promise<void>;
   progressoAtualizacao(): Promise<{ estado: "parada" | "baixando" | "pronta" | "erro"; feitos: number; total: number; erro: string }>;
@@ -65,6 +66,7 @@ export function motorAndroid(): Motor {
       const i = await escolherNaLista("Escolher pasta", pastas.map((p) => p.nome));
       return i === null ? null : pastas[i]!.caminho;
     },
+    corDasBarras: (cor) => Vindex.corDasBarras({ cor }),
     principal: {
       perguntar: async () => (await Vindex.principalEstado()).perguntar,
       responder: (usar) => Vindex.principalResponder({ usar })

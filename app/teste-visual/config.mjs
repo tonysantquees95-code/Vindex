@@ -306,6 +306,17 @@ export default {
     ["desempenho-android", "normal", async (p, a) => { await comoAndroid(p); await a.aba(p, "Desempenho"); await p.getByRole("heading", { name: "Seu aparelho" }).waitFor(); await p.getByRole("button", { name: "Testar processador" }).click(); await p.getByText(/um núcleo sozinho/).waitFor(); }],
     ["verificar-tudo", "normal", async (p, a) => { await comoAndroid(p); await a.aba(p, "Segurança"); await p.getByRole("button", { name: "Verificar tudo" }).click(); await p.getByTestId("resultado-geral").getByText("2 pontos para conferir").waitFor(); }],
     ["feedback", "normal", async (p, ajuda) => { await ajuda.aba(p, "Ajustes"); await p.getByRole("button", { name: "Enviar feedback" }).click(); await p.getByText(/^FEEDBACK/).waitFor(); await p.waitForTimeout(300); }],
+    ["temas-escolha", "normal", async (p, a) => {
+      await a.aba(p, "Ajustes"); await p.getByRole("tab", { name: "Personalizar" }).click();
+      const grupo = p.getByRole("group", { name: "Temas prontos" });
+      await grupo.getByRole("button", { name: /^Mergulho/ }).click();
+      await grupo.getByRole("button", { name: /^Mergulho/, pressed: true }).waitFor();
+      const fundo = await p.evaluate(() => getComputedStyle(document.body).backgroundColor);
+      if (fundo !== "rgb(6, 18, 26)") throw new Error(`o tema não mudou o fundo (${fundo})`);
+    }],
+    ...[["mergulho", "Painel"], ["adega", "PDF"], ["pomar", "Otimizar"], ["meia-noite", "Segurança"], ["floresta", "Arquivos"], ["brasa", "Painel"], ["grafite", "Ajustes"]].map(([tema, aba]) => [`tema-${tema}`, "normal", async (p, a) => {
+      await p.evaluate((t) => localStorage.setItem("vindex.ajustes", JSON.stringify({ tema: t })), tema); await p.reload(); await p.waitForTimeout(1200); await a.aba(p, aba);
+    }]),
     ...ABAS.map((a) => [`aba-${a.toLowerCase().normalize("NFD").replace(/[^a-z]/g, "")}`, "normal", async (p, ajuda) => { await ajuda.aba(p, a); }]),
   ],
 };

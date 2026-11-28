@@ -30,7 +30,7 @@ export function Perguntar({ titulo, rotulo, inicial = "", confirmar = "OK", mult
       </label>
       <div className="mt-3 flex gap-2">
         <button onClick={aoFechar} className="min-h-11 flex-1 rounded-xl border border-borda text-sm">Cancelar</button>
-        <button onClick={() => aoConfirmar(v)} className="btn-primario min-h-11 flex-1 rounded-xl bg-neon text-sm font-extrabold text-[#04121c]">{confirmar}</button>
+        <button onClick={() => aoConfirmar(v)} className="btn-primario min-h-11 flex-1 rounded-xl bg-neon text-sm font-extrabold text-fundo">{confirmar}</button>
       </div>
     </Dialogo>
   );

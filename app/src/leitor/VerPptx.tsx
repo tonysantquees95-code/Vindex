@@ -24,7 +24,7 @@ export function VerPptx(p: PropsVisualizador) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   if (!apres) return <p className="p-6 text-center text-suave">Abrindo…</p>;
-  const papel = p.noite ? "bg-[#0a0d14] text-texto" : "bg-white text-neutral-900";
+  const papel = p.noite ? "bg-painel text-texto" : "bg-white text-neutral-900";
   return (
     <div className="rolagem min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
       <p className="mx-auto max-w-2xl text-xs text-suave">{p.editando ? "Toque num texto para corrigir. " : ""}O Vindex mostra o texto de cada slide; o desenho e o layout originais ficam guardados no arquivo e continuam iguais.</p>
@@ -37,7 +37,7 @@ export function VerPptx(p: PropsVisualizador) {
               <textarea autoFocus value={rascunho} onChange={(e) => setRascunho(e.target.value)} rows={Math.min(8, Math.max(2, rascunho.split("\n").length + 1))}
                 className={`w-full resize-y rounded-lg border border-borda p-2 text-base outline-none ${p.noite ? "bg-fundo text-texto" : "bg-white text-neutral-900"}`} aria-label="Texto do slide" />
               <div className="flex gap-2">
-                <button onClick={() => { try { apres.editar(i, x.id, rascunho); p.aoMudar(); } catch { /* o texto fica como estava */ } setEditar(null); redesenhar((n) => n + 1); }} className="btn-primario min-h-10 rounded-xl bg-neon px-4 text-sm font-extrabold text-[#04121c]">Pronto</button>
+                <button onClick={() => { try { apres.editar(i, x.id, rascunho); p.aoMudar(); } catch { /* o texto fica como estava */ } setEditar(null); redesenhar((n) => n + 1); }} className="btn-primario min-h-10 rounded-xl bg-neon px-4 text-sm font-extrabold text-fundo">Pronto</button>
                 <button onClick={() => setEditar(null)} className="min-h-10 rounded-xl border border-borda px-4 text-sm">Cancelar</button>
               </div>
             </div>

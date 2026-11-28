@@ -196,7 +196,7 @@ export default function Leitor({ doc: inicial, aoFechar }: { doc: DocumentoAbert
       {alterado && !erro && (
         <div className="flex shrink-0 items-center gap-2 border-t border-borda bg-painel px-3 py-2">
           <p className="min-w-0 flex-1 text-xs text-suave">Você mexeu no documento. Guarde uma cópia para não perder.</p>
-          <button onClick={salvarCopia} className="btn-primario min-h-10 shrink-0 rounded-xl bg-neon px-4 text-sm font-extrabold text-[#04121c]">Salvar cópia</button>
+          <button onClick={salvarCopia} className="btn-primario min-h-10 shrink-0 rounded-xl bg-neon px-4 text-sm font-extrabold text-fundo">Salvar cópia</button>
         </div>
       )}
       {(aviso || ocupado) && <div role="status" className="pointer-events-none absolute inset-x-3 bottom-20 z-50 mx-auto max-w-md rounded-2xl border border-borda bg-painel px-4 py-3 text-center text-sm shadow-2xl">{ocupado || aviso}</div>}
@@ -225,7 +225,7 @@ export default function Leitor({ doc: inicial, aoFechar }: { doc: DocumentoAbert
         <Dialogo titulo="Sair sem salvar?" aoFechar={() => setJanela(null)}>
           <p className="text-sm text-suave">Você fez alterações que ainda não foram guardadas.</p>
           <div className="mt-4 flex flex-col gap-2">
-            <button onClick={() => { setJanela(null); void com("Salvando…", async () => { const onde = await docs!.salvarCopia(await atuais(), nomeFinal); if (onde) { setAlterado(false); aoFechar(); } }); }} className="btn-primario min-h-11 rounded-xl bg-neon text-sm font-extrabold text-[#04121c]">Salvar uma cópia e sair</button>
+            <button onClick={() => { setJanela(null); void com("Salvando…", async () => { const onde = await docs!.salvarCopia(await atuais(), nomeFinal); if (onde) { setAlterado(false); aoFechar(); } }); }} className="btn-primario min-h-11 rounded-xl bg-neon text-sm font-extrabold text-fundo">Salvar uma cópia e sair</button>
             <button onClick={aoFechar} className="min-h-11 rounded-xl border border-erro/40 text-sm text-erro">Sair sem salvar</button>
             <button onClick={() => setJanela(null)} className="min-h-11 rounded-xl border border-borda text-sm">Continuar editando</button>
           </div>

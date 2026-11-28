@@ -233,7 +233,7 @@ export function Scanner({ saida }: { saida: SaidaPdf }) {
                     <span className="absolute left-1.5 top-1.5 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold">{modo === "cartao" ? (i === 0 ? "Frente" : "Verso") : i + 1}</span>
                     <span className="absolute bottom-1.5 right-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[11px]">Toque para ver</span>
                   </button>
-                  {recortar && !p.cantos && p.achou === false && <p role="status" className="mt-1.5 text-xs text-amber-300">Não achei as bordas do papel. Toque em Cantos e ajuste.</p>}
+                  {recortar && !p.cantos && p.achou === false && <p role="status" className="mt-1.5 text-xs text-aviso">Não achei as bordas do papel. Toque em Cantos e ajuste.</p>}
                   <div className="mt-2 grid grid-cols-3 gap-1.5">
                     <button type="button" aria-label={`Mover a página ${i + 1} para trás`} disabled={i === 0} onClick={() => mover(i, -1)} className="grid min-h-11 place-items-center rounded-xl border border-borda text-lg disabled:opacity-30">‹</button>
                     <button type="button" aria-label={`Mover a página ${i + 1} para frente`} disabled={i === paginas.length - 1} onClick={() => mover(i, 1)} className="grid min-h-11 place-items-center rounded-xl border border-borda text-lg disabled:opacity-30">›</button>

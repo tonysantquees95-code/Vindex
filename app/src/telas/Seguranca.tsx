@@ -210,7 +210,7 @@ export function Seguranca() {
           )}
           <div className="grid grid-cols-2 gap-3">
             {FERRAMENTAS.map((f) => (
-              <button key={f.id} onClick={() => setAberto(f.id)} className="flex flex-col items-start gap-2 rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.015] p-4 text-left transition hover:bg-white/5 active:scale-[0.98]">
+              <button key={f.id} onClick={() => setAberto(f.id)} className="cartao flex flex-col items-start gap-2 rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.015] p-4 text-left transition hover:bg-white/5 active:scale-[0.98]">
                 <span className="grid h-10 w-10 place-items-center rounded-2xl bg-neon/15 text-neon"><Icone nome={f.icone} tam={22} /></span>
                 <span className="text-sm font-semibold">{f.titulo}</span>
                 <span className="text-xs text-suave">{f.texto}</span>

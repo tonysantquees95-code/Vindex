@@ -175,6 +175,8 @@ export interface Motor {
   progressoArquivo?(): Promise<ProgressoArquivo>;
   cancelarArquivo?(): Promise<void>;
   inicioPeloMenu(): Promise<InicioPeloMenu | null>;
+  /** Só no Android: pinta o fundo das barras do sistema com a cor do tema escolhido. */
+  corDasBarras?(fundo: string): Promise<void>;
   /** Só no Android: pergunta se o Vindex deve ser o gerenciador principal de arquivos. */
   principal?: { perguntar(): Promise<boolean>; responder(usar: boolean): Promise<void> };
   /** Leitor e editor de documentos. */

@@ -114,6 +114,20 @@ public class VindexPlugin extends Plugin {
         call.resolve();
     }
 
+    // ------------------------------------------------------------ barras do sistema acompanham o tema do app
+    @PluginMethod
+    public void corDasBarras(final PluginCall call) {
+        final String cor = call.getString("cor", "");
+        if (cor == null || !cor.matches("#[0-9a-fA-F]{6}")) { call.reject("Cor inválida."); return; }
+        getContext().getSharedPreferences(MainActivity.PREFERENCIA_VISUAL, android.content.Context.MODE_PRIVATE).edit().putString("fundo", cor).apply();
+        final android.app.Activity tela = getActivity();
+        if (tela != null) tela.runOnUiThread(new Runnable() {
+            @Override
+            public void run() { MainActivity.pintarFundo(tela, android.graphics.Color.parseColor(cor)); }
+        });
+        call.resolve();
+    }
+
     // ------------------------------------------------------------ permissões (tela de boas-vindas do app)
     @PluginMethod
     public void permissoes(final PluginCall call) {

@@ -8,6 +8,7 @@ import { AtualizacaoAviso } from "./AtualizacaoAviso";
 import { BUILD, haNovaVersao, precisaConferir, procurarVersao, type InfoVersao } from "./atualizacao";
 import { devePassar } from "./autoOrganizar";
 import { useAjustes } from "./usarAjustes";
+import { FUNDO_DAS_BARRAS_ORIGINAL, temaPronto } from "./ajustes";
 import { Icone, type NomeIcone } from "./icones";
 import { AjustesTela } from "./telas/Ajustes";
 import { TelaDePermissoes, usePermissoes } from "./telas/Permissoes";
@@ -60,8 +61,16 @@ const ABAS: readonly { id: string; rotulo: string; icone: NomeIcone }[] = [
 ] as const;
 type IdAba = "painel" | "otimizar" | "desempenho" | "widgets" | "arquivos" | "pdf" | "regras" | "descompactar" | "apps" | "seguranca" | "cofre" | "ajustes" | "conta";
 
+/** No Android, o fundo atrás das barras do sistema acompanha o tema. */
+function useBarrasDoTema() {
+  const motor = useMotor();
+  const [{ tema }] = useAjustes();
+  useEffect(() => { void motor.corDasBarras?.(temaPronto(tema)?.fundo ?? FUNDO_DAS_BARRAS_ORIGINAL).catch(() => { /* app antigo sem o recurso */ }); }, [motor, tema]);
+}
+
 export function App() {
   const motor = useMotor();
+  useBarrasDoTema();
   const demo = motor.plataforma === "demonstracao";
   const aparelho = aparelhoLocal(motor.plataforma);
   const [sessao, setSessao] = useState<Sessao | null>(sessaoGuardada);

@@ -104,7 +104,7 @@ export function VerImagem(p: PropsVisualizador) {
   const aoRolar = (e: React.WheelEvent) => mudarZoom(zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
 
   const bt = "grid size-11 shrink-0 place-items-center rounded-xl text-texto hover:bg-white/10 disabled:opacity-40";
-  const fundo = p.noite ? "#0b0f19" : "#e9edf3";
+  const fundo = p.noite ? "var(--color-painel)" : "#e9edf3";
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div ref={quadro} className="relative min-h-0 flex-1 touch-none select-none overflow-hidden" style={{ background: fundo, cursor: zoom > 1 ? "grab" : "default" }}

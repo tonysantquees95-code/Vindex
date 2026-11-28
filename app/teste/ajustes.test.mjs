@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AJUSTES_PADRAO, CORES, ICONES, corDoTema, corLegivel, hexParaHsl, hslParaHex, limparAjustes, parDaCor } from "../src/ajustes.ts";
+import { AJUSTES_PADRAO, CORES, TEMAS, ICONES, corDoTema, corLegivel, hexParaHsl, hslParaHex, limparAjustes, parDaCor } from "../src/ajustes.ts";
 import { haNovaVersao, precisaConferir, versaoValida } from "../src/atualizacao.ts";
 import { devePassar } from "../src/autoOrganizar.ts";
 
@@ -63,4 +63,28 @@ test("conversão de cores é reversível e o par muda o matiz", () => {
   // cor escura demais é clareada para aparecer no fundo escuro
   assert.ok(hexParaHsl(corLegivel("#101030"))[2] >= 0.5);
   assert.equal(corLegivel("#22d3ee"), "#22d3ee");
+});
+
+test("temas prontos: trocam a paleta sem apagar a cor escolhida", () => {
+  assert.deepEqual(TEMAS.map((t) => t.id), ["mergulho", "adega", "pomar", "meia-noite", "floresta", "brasa", "grafite"]);
+  // quem já usava o app continua no visual original, com a própria cor
+  const antigo = limparAjustes({ cor: "rosa", formato: "pilula" });
+  assert.deepEqual([antigo.tema, antigo.destaqueDoTema, antigo.cor, antigo.formato], ["original", false, "rosa", "pilula"]);
+  const comTema = limparAjustes({ ...antigo, tema: "adega", destaqueDoTema: true });
+  assert.equal(corDoTema(comTema).destaque, "#ff6b8e");
+  assert.deepEqual([comTema.cor, comTema.formato], ["rosa", "pilula"]);
+  // escolher uma cor por cima do tema e voltar ao original
+  assert.equal(corDoTema(limparAjustes({ ...comTema, destaqueDoTema: false })).destaque, "#f472b6");
+  assert.equal(corDoTema(limparAjustes({ ...comTema, tema: "original" })).destaque, "#f472b6");
+  assert.equal(limparAjustes({ tema: "inexistente", destaqueDoTema: true }).destaqueDoTema, false);
+});
+
+test("temas prontos: leitura com contraste suficiente", () => {
+  const luz = (h) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const razao = (a, b) => { const [x, y] = [luz(a), luz(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  for (const t of TEMAS) {
+    for (const k of ["texto", "suave", "destaque", "secundaria", "ok", "aviso", "erro"]) assert.ok(razao(t[k], t.painel) >= 4.5, `${t.nome}: ${k} no painel`);
+    for (const k of ["destaque", "secundaria"]) assert.ok(razao(t.fundo, t[k]) >= 4.5, `${t.nome}: texto do botão sobre ${k}`);
+    assert.ok(razao(t.campo, t.painel) >= 3, `${t.nome}: borda de campo`);
+  }
 });
